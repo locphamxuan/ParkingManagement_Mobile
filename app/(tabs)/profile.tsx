@@ -305,7 +305,7 @@ export default function ProfileScreen() {
                   <View style={styles.qrCodeContainer}>
                     <Image
                       source={{
-                        uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://pbms-parking.com/user/${session.userId}`,
+                        uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=http://192.168.0.103:8081/profile?userId=${session.userId}`,
                       }}
                       style={styles.qrImage}
                       resizeMode="contain"

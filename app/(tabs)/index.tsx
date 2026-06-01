@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
+  Modal,
+  Image,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,8 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { getWallet } from '../../services/wallet';
 import { listReservations } from '../../services/reservations';
+import { listParkingHistory } from '../../services/history';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
-import type { WalletInfo, Reservation } from '../../types';
+import type { WalletInfo, Reservation, ParkingSession } from '../../types';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -61,19 +65,26 @@ export default function HomeScreen() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [activeReservations, setActiveReservations] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
+  const [showQR, setShowQR] = useState(false);
 
   const load = async () => {
     if (!session?.token) return;
     try {
-      const [w, rs] = await Promise.allSettled([
+      const [w, rs, h] = await Promise.allSettled([
         getWallet(session.token),
         listReservations(session.token),
+        listParkingHistory(session.token),
       ]);
       if (w.status === 'fulfilled') setWallet(w.value);
       if (rs.status === 'fulfilled') {
         setActiveReservations(
           rs.value.filter((r: Reservation) => r.status === 'active').length,
         );
+      }
+      if (h.status === 'fulfilled') {
+        const active = h.value.find((s: ParkingSession) => s.status === 'active');
+        setActiveSession(active ?? null);
       }
     } catch {
       // silently fail
@@ -129,6 +140,43 @@ export default function HomeScreen() {
           <Text style={styles.heroSub}>{session?.email}</Text>
         </View>
 
+        {/* Active Parking Session Card */}
+        {activeSession && (
+          <View style={styles.activeSessionCard}>
+            <View style={styles.activeCardHeader}>
+              <View style={styles.activePulseRow}>
+                <View style={styles.pulseDot} />
+                <Text style={styles.activeSessionTitle}>ACTIVE PARKING</Text>
+              </View>
+              <Text style={styles.activeBuildingText}>
+                {activeSession.building?.name ?? 'PBMS Parking'}
+              </Text>
+            </View>
+            <View style={styles.activeDetails}>
+              <View style={styles.detailRow}>
+                <Ionicons name="car-outline" size={16} color={Colors.primary} />
+                <Text style={styles.detailText}>
+                  Vehicle Plate: <Text style={styles.detailBold}>{activeSession.plateNumber}</Text>
+                </Text>
+              </View>
+              {activeSession.slot && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="grid-outline" size={16} color={Colors.blue} />
+                  <Text style={styles.detailText}>
+                    Slot: <Text style={styles.detailBold}>{activeSession.slot.code}</Text>
+                  </Text>
+                </View>
+              )}
+              <View style={styles.detailRow}>
+                <Ionicons name="time-outline" size={16} color={Colors.success} />
+                <Text style={styles.detailText}>
+                  Checked-in at: <Text style={styles.detailBold}>{new Date(activeSession.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Stats row */}
         <View style={styles.statsRow}>
           <StatCard
@@ -147,6 +195,26 @@ export default function HomeScreen() {
             color={Colors.success}
           />
         </View>
+
+        {/* Quick QR Check-in Entry */}
+        {session?.role?.toLowerCase() === 'user' && session?.userId ? (
+          <TouchableOpacity 
+            style={styles.qrShortcutCard} 
+            activeOpacity={0.8}
+            onPress={() => setShowQR(true)}
+          >
+            <View style={styles.qrShortcutLeft}>
+              <View style={styles.qrShortcutIconContainer}>
+                <Ionicons name="qr-code-outline" size={24} color={Colors.primary} />
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text style={styles.qrShortcutTitle}>My QR Check-in</Text>
+                <Text style={styles.qrShortcutSubtitle}>Tap to show check-in code at the gate</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color={Colors.textDim} />
+          </TouchableOpacity>
+        ) : null}
 
         {/* Quick actions */}
         <View style={styles.section}>
@@ -174,6 +242,40 @@ export default function HomeScreen() {
             />
           </View>
         </View>
+
+        {/* QR Code Bottom Sheet Modal */}
+        <Modal
+          visible={showQR}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowQR(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>QR CHECK-IN</Text>
+                <TouchableOpacity onPress={() => setShowQR(false)} style={styles.closeBtn}>
+                  <Ionicons name="close" size={24} color={Colors.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalSubtitle}>
+                Scan this code at the parking gate scanner to check-in or checkout.
+              </Text>
+              <View style={styles.qrContainer}>
+                <Image
+                  source={{
+                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=http://192.168.0.103:8081/profile?userId=${session?.userId}`,
+                  }}
+                  style={styles.qrModalImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.modalInfoTag}>
+                <Text style={styles.modalIdText}>MEMBER ID: {session?.userId}</Text>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Profile incomplete warning */}
         {plateCount === 0 && (
@@ -376,5 +478,163 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     fontWeight: '700',
     marginTop: 4,
+  },
+
+  // Active Parking Session Styles
+  activeSessionCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.3)',
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  activeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingBottom: Spacing.xs,
+  },
+  activePulseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.success,
+  },
+  activeSessionTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.success,
+    letterSpacing: 1.5,
+  },
+  activeBuildingText: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  activeDetails: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  detailText: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+  },
+  detailBold: {
+    fontWeight: '800',
+    color: Colors.text,
+  },
+
+  // QR Shortcut Card
+  qrShortcutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.2)',
+    padding: Spacing.lg,
+  },
+  qrShortcutLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  qrShortcutIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(249,115,22,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrShortcutTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  qrShortcutSubtitle: {
+    fontSize: 10,
+    color: Colors.textMuted,
+  },
+
+  // Modal Overlay and Contents
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2,6,23,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius['2xl'],
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.3)',
+    width: '100%',
+    maxWidth: 340,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '900',
+    color: Colors.primary,
+    letterSpacing: 1.5,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  modalSubtitle: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: Spacing.xs,
+  },
+  qrContainer: {
+    backgroundColor: '#ffffff',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrModalImage: {
+    width: 180,
+    height: 180,
+  },
+  modalInfoTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(249,115,22,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.2)',
+  },
+  modalIdText: {
+    fontSize: FontSize.xs,
+    color: Colors.primary,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 1,
   },
 });
