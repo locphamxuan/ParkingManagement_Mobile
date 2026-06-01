@@ -8,6 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
@@ -207,89 +208,115 @@ export default function ProfileScreen() {
 
           {/* ── Tab: Info ─────────────────────────────────────────────────── */}
           {tab === 'info' && (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Personal Info</Text>
-                {!isEditingInfo && (
-                  <TouchableOpacity
-                    style={styles.editBtn}
-                    onPress={() => {
-                      setFullName(session?.displayName ?? '');
-                      setPhone(session?.phone ?? '');
-                      setInfoError(null);
-                      setIsEditingInfo(true);
-                    }}
-                  >
-                    <Text style={styles.editBtnText}>Edit</Text>
-                  </TouchableOpacity>
+            <>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>Personal Info</Text>
+                  {!isEditingInfo && (
+                    <TouchableOpacity
+                      style={styles.editBtn}
+                      onPress={() => {
+                        setFullName(session?.displayName ?? '');
+                        setPhone(session?.phone ?? '');
+                        setInfoError(null);
+                        setIsEditingInfo(true);
+                      }}
+                    >
+                      <Text style={styles.editBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {infoSuccess ? (
+                  <View style={styles.successBox}>
+                    <Text style={styles.successText}>{ infoSuccess}</Text>
+                  </View>
+                ) : null}
+
+                {isEditingInfo ? (
+                  <View style={styles.formFields}>
+                    <Input
+                      label="Full Name"
+                      value={fullName}
+                      onChangeText={setFullName}
+                      autoCapitalize="words"
+                      error={infoError && infoError.includes('name') ? infoError : undefined}
+                    />
+                    <Input
+                      label="Phone"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      hint="Format: 0901234567"
+                    />
+                    <Input
+                      label="Email"
+                      value={session?.email ?? ''}
+                      onChangeText={() => {}}
+                      editable={false}
+                      hint="Email cannot be changed"
+                    />
+                    {infoError ? (
+                      <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>{ infoError}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.btnRow}>
+                      <Button
+                        label="Save"
+                        onPress={handleSaveInfo}
+                        loading={savingInfo}
+                        size="md"
+                      />
+                      <Button
+                        label="Cancel"
+                        onPress={() => setIsEditingInfo(false)}
+                        variant="secondary"
+                        size="md"
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.infoList}>
+                    {[
+                      { label: 'Full Name', value: session?.displayName },
+                      { label: 'Email', value: session?.email },
+                      { label: 'Phone', value: session?.phone || '— Not set —' },
+                      { label: 'Role', value: (session?.role ?? 'user').toUpperCase() },
+                    ].map((item) => (
+                      <View key={item.label} style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>{item.label}</Text>
+                        <Text style={styles.infoValue}>{item.value}</Text>
+                      </View>
+                    ))}
+                  </View>
                 )}
               </View>
 
-              {infoSuccess ? (
-                <View style={styles.successBox}>
-                  <Text style={styles.successText}>{ infoSuccess}</Text>
-                </View>
-              ) : null}
-
-              {isEditingInfo ? (
-                <View style={styles.formFields}>
-                  <Input
-                    label="Full Name"
-                    value={fullName}
-                    onChangeText={setFullName}
-                    autoCapitalize="words"
-                    error={infoError && infoError.includes('name') ? infoError : undefined}
-                  />
-                  <Input
-                    label="Phone"
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                    hint="Format: 0901234567"
-                  />
-                  <Input
-                    label="Email"
-                    value={session?.email ?? ''}
-                    onChangeText={() => {}}
-                    editable={false}
-                    hint="Email cannot be changed"
-                  />
-                  {infoError ? (
-                    <View style={styles.errorBox}>
-                      <Text style={styles.errorText}>{ infoError}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.btnRow}>
-                    <Button
-                      label="Save"
-                      onPress={handleSaveInfo}
-                      loading={savingInfo}
-                      size="md"
-                    />
-                    <Button
-                      label="Cancel"
-                      onPress={() => setIsEditingInfo(false)}
-                      variant="secondary"
-                      size="md"
+              {/* QR Code Check-in Card */}
+              {session?.role?.toLowerCase() === 'user' && session?.userId ? (
+                <View style={styles.qrCard}>
+                  <View style={styles.qrCardHeader}>
+                    <Text style={styles.qrCardTitle}>My QR Check-in</Text>
+                    <Text style={styles.qrCardSubtitle}>
+                      Scan at the gate card-reader to associate your parking session and pay with wallet.
+                    </Text>
+                  </View>
+                  <View style={styles.qrCodeContainer}>
+                    <Image
+                      source={{
+                        uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${session.userId}`,
+                      }}
+                      style={styles.qrImage}
+                      resizeMode="contain"
                     />
                   </View>
+                  <View style={styles.qrInfoTag}>
+                    <Text style={styles.qrIdText}>MEMBER ID: {session.userId}</Text>
+                  </View>
                 </View>
-              ) : (
-                <View style={styles.infoList}>
-                  {[
-                    { label: 'Full Name', value: session?.displayName },
-                    { label: 'Email', value: session?.email },
-                    { label: 'Phone', value: session?.phone || '— Not set —' },
-                    { label: 'Role', value: (session?.role ?? 'user').toUpperCase() },
-                  ].map((item) => (
-                    <View key={item.label} style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>{item.label}</Text>
-                      <Text style={styles.infoValue}>{item.value}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
+              ) : null}
+            </>
           )}
 
           {/* ── Tab: Plates ───────────────────────────────────────────────── */}
@@ -673,4 +700,66 @@ const styles = StyleSheet.create({
   typeBtnText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
   typeBtnTextActive: { color: Colors.blue },
   typeBtnTextPurple: { color: Colors.purple },
+
+  // QR Code Section Styles
+  qrCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.2)',
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    alignItems: 'center',
+  },
+  qrCardHeader: {
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: Spacing.xs,
+  },
+  qrCardTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '900',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  qrCardSubtitle: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: Spacing.sm,
+  },
+  qrCodeContainer: {
+    backgroundColor: '#ffffff',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  qrImage: {
+    width: 180,
+    height: 180,
+  },
+  qrInfoTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(249,115,22,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.2)',
+    marginTop: Spacing.xs,
+  },
+  qrIdText: {
+    fontSize: FontSize.xs,
+    color: Colors.primary,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 1,
+  },
 });
