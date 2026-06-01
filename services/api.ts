@@ -1,7 +1,30 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-export const API_BASE = 'http://localhost:5000/api';
+import Constants from 'expo-constants';
+
+const getApiBase = () => {
+  if (Platform.OS === 'web') {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${hostname}:5000/api`;
+  }
+
+  // Fallback defaults for Native (Android emulator uses 10.0.2.2, iOS emulator uses localhost/127.0.0.1)
+  let host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+
+  // If running in development with Expo Go, get the actual machine IP dynamically from hostUri
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const parts = hostUri.split(':');
+    if (parts[0]) {
+      host = parts[0];
+    }
+  }
+
+  return `http://${host}:5000/api`;
+};
+
+export const API_BASE = getApiBase();
 
 const TOKEN_KEY = 'pbms_token';
 
