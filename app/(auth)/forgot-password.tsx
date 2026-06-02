@@ -10,38 +10,38 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuthStore } from "../../store/authStore";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { Colors, FontSize, Radius, Spacing } from "../../constants/theme";
+import { forgotPassword } from "../../services/auth";
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { login } = useAuthStore();
-
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleSubmit = async () => {
     setError(null);
+    setSuccess(null);
+
     if (!email.trim()) {
       setError("Email is required.");
-      return;
-    }
-    if (!password.trim()) {
-      setError("Password is required.");
       return;
     }
 
     try {
       setLoading(true);
-      await login(email.trim().toLowerCase(), password);
-      // router navigates via AuthGate
+      await forgotPassword(email.trim().toLowerCase());
+      setSuccess(
+        "If this email exists, a reset link has been sent. Please check your inbox and spam folder.",
+      );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Login failed. Please try again.",
+        err instanceof Error
+          ? err.message
+          : "Failed to send reset link. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -59,22 +59,25 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Glow decoration */}
-          <View style={[styles.glow, { pointerEvents: "none" }]} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
+            <Text style={styles.backText}>← Back</Text>
+          </TouchableOpacity>
 
-          {/* Brand */}
           <View style={styles.brand}>
             <View style={styles.logoBox}>
               <Text style={styles.logoEmoji}>P</Text>
             </View>
             <Text style={styles.brandLabel}>PBMS</Text>
-            <Text style={styles.tagline}>Parking Management System</Text>
           </View>
 
-          {/* Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Welcome back</Text>
-            <Text style={styles.cardSub}>Sign in to your account</Text>
+            <Text style={styles.cardTitle}>Forgot password</Text>
+            <Text style={styles.cardSub}>
+              Enter your email to receive a reset link
+            </Text>
 
             <View style={styles.fields}>
               <Input
@@ -84,51 +87,33 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-              />
-              <Input
-                label="Password"
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
+                error={error ?? undefined}
+                hint="We'll send a token-based reset link to this email address."
               />
             </View>
 
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/forgot-password")}
-              style={styles.forgotLink}
-            >
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+            {success ? (
+              <View style={styles.successBox}>
+                <Text style={styles.successText}>{success}</Text>
               </View>
             ) : null}
 
             <Button
-              label="Sign In"
-              onPress={handleLogin}
+              label="Send reset link"
+              onPress={handleSubmit}
               loading={loading}
               fullWidth
               size="lg"
               style={styles.submitBtn}
             />
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
             <TouchableOpacity
-              onPress={() => router.push("/(auth)/register")}
+              onPress={() => router.push("/(auth)/login")}
               style={styles.link}
             >
               <Text style={styles.linkText}>
-                Don't have an account?{" "}
-                <Text style={styles.linkHighlight}>Create one</Text>
+                Remembered your password?{" "}
+                <Text style={styles.linkHighlight}>Sign in</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -143,42 +128,32 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing["3xl"],
-    gap: Spacing["2xl"],
+    paddingVertical: Spacing["2xl"],
+    gap: Spacing.xl,
   },
-  glow: {
-    position: "absolute",
-    top: -120,
-    left: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: "rgba(249,115,22,0.06)",
+  backBtn: { alignSelf: "flex-start" },
+  backText: {
+    color: Colors.primary,
+    fontSize: FontSize.sm,
+    fontWeight: "700",
   },
   brand: { alignItems: "center", gap: Spacing.sm },
   logoBox: {
-    width: 72,
-    height: 72,
-    borderRadius: Radius.xl,
+    width: 60,
+    height: 60,
+    borderRadius: Radius.lg,
     backgroundColor: "rgba(249,115,22,0.15)",
     borderWidth: 1,
     borderColor: "rgba(249,115,22,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
-  logoEmoji: { fontSize: 36 },
+  logoEmoji: { fontSize: 30 },
   brandLabel: {
-    fontSize: FontSize["2xl"],
+    fontSize: FontSize.xl,
     fontWeight: "900",
     color: Colors.text,
     letterSpacing: 4,
-  },
-  tagline: {
-    fontSize: FontSize.xs,
-    color: Colors.textDim,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 2,
   },
   card: {
     backgroundColor: Colors.card,
@@ -199,32 +174,19 @@ const styles = StyleSheet.create({
     marginTop: -Spacing.sm,
   },
   fields: { gap: Spacing.md },
-  forgotLink: { alignSelf: "flex-end", marginTop: -Spacing.xs },
-  forgotText: {
-    color: Colors.primary,
-    fontSize: FontSize.xs,
-    fontWeight: "700",
-  },
-  errorBox: {
-    backgroundColor: Colors.errorBg,
+  successBox: {
+    backgroundColor: Colors.successBg,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.errorBorder,
+    borderColor: Colors.successBorder,
     padding: Spacing.md,
   },
-  errorText: {
-    color: Colors.error,
+  successText: {
+    color: Colors.success,
     fontSize: FontSize.sm,
     fontWeight: "600",
   },
   submitBtn: { marginTop: Spacing.xs },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.textDim, fontSize: FontSize.xs },
   link: { alignItems: "center" },
   linkText: { color: Colors.textMuted, fontSize: FontSize.sm },
   linkHighlight: { color: Colors.primary, fontWeight: "700" },
