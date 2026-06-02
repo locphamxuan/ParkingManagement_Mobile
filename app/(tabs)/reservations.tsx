@@ -138,6 +138,36 @@ function groupSlotsIntoGrid(slots: SlotItem[]): GroupedRow[] {
   }
 }
 
+function splitSlotsSymmetrically(allSlots: SlotItem[]) {
+  const top: SlotItem[] = [];
+  const bottom: SlotItem[] = [];
+
+  const sorted = [...allSlots].sort((a, b) => {
+    // Sort naturally: T1, T2, T3...
+    const numA = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
+    const numB = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
+    return numA - numB;
+  });
+
+  sorted.forEach((slot) => {
+    const codeUpper = slot.code.toUpperCase();
+    if (codeUpper === 'T1' || codeUpper.includes('_') || codeUpper.includes('-')) {
+      top.push(slot); // T1 and slots with sub-keys like T2_1 go to top row
+    } else if (codeUpper === 'T2') {
+      bottom.push(slot); // T2 goes to bottom row
+    } else {
+      const num = parseInt(slot.code.replace(/\D/g, ''), 10) || 0;
+      if (num % 2 === 0) {
+        top.push(slot); // Even goes to top row (T4, T6, T8...)
+      } else {
+        bottom.push(slot); // Odd goes to bottom row (T3, T5, T7...)
+      }
+    }
+  });
+
+  return { topRowSlots: top, bottomRowSlots: bottom };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FilterStatus = 'booked' | 'cancelled';
@@ -1069,6 +1099,22 @@ export default function ReservationsScreen() {
                               </View>
                             </View>
 
+                            {/* Legend row */}
+                            <View style={styles.legendRow2D}>
+                              <View style={styles.legendItem2D}>
+                                <View style={[styles.legendDot2D, { borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} />
+                                <Text style={styles.legendText2D}>Trống</Text>
+                              </View>
+                              <View style={styles.legendItem2D}>
+                                <View style={[styles.legendDot2D, { borderColor: '#475569', backgroundColor: 'rgba(71, 85, 105, 0.1)' }]} />
+                                <Text style={styles.legendText2D}>Đã giữ</Text>
+                              </View>
+                              <View style={styles.legendItem2D}>
+                                <View style={[styles.legendDot2D, { borderColor: 'rgba(255,255,255,0.25)', borderStyle: 'dashed', backgroundColor: 'transparent' }]} />
+                                <Text style={styles.legendText2D}>Không khả dụng</Text>
+                              </View>
+                            </View>
+
                             {/* Map Content */}
                             <View style={styles.mapModalContent}>
                               {fetchingSlots ? (
@@ -1091,150 +1137,238 @@ export default function ReservationsScreen() {
                                 }
                                 const fontSize3D = slotWidth < 60 ? 9 : 11;
 
-                                if (viewMode === '2D') {
-                                  return (
-                                    <ScrollView contentContainerStyle={styles.scroll2DContainer}>
-                                      <View style={[styles.slotGrid, { gap: gapVal }]}>
-                                        {slots.map((slot) => {
-                                          const isAvailable = slot.status === 'available';
-                                          const isSelected = displaySlotCode === slot.code || (wizard.slotId === slot._id && !displaySlotCode);
-                                          return (
-                                            <TouchableOpacity
-                                              key={slot._id}
-                                              style={[
-                                                styles.slotCell,
-                                                { width: slotWidth, height: slotHeight },
-                                                isSelected && styles.slotCellSelected,
-                                                !isAvailable && styles.slotCellDisabled,
-                                              ]}
-                                              onPress={() => {
-                                                if (isAvailable) {
-                                                  setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                  setDisplaySlotCode(slot.code);
-                                                }
-                                              }}
-                                              disabled={!isAvailable}
-                                              activeOpacity={isAvailable ? 0.7 : 1}
-                                            >
-                                              <Text style={[
-                                                styles.slotCode,
-                                                isSelected && styles.slotCodeSelected,
-                                                !isAvailable && styles.slotCodeDisabled,
-                                              ]}>
-                                                {slot.code}
-                                              </Text>
-                                              {!isAvailable && (
-                                                <Text style={styles.slotTakenLabel}>Taken</Text>
-                                              )}
-                                            </TouchableOpacity>
-                                          );
-                                        })}
-                                      </View>
-                                    </ScrollView>
-                                  );
-                                } else {
-                                  return (
-                                    <ScrollView 
-                                      horizontal 
-                                      showsHorizontalScrollIndicator={false} 
-                                      contentContainerStyle={styles.scroll3DHorizontal}
-                                    >
-                                      <ScrollView 
-                                        showsVerticalScrollIndicator={false}
-                                        contentContainerStyle={styles.scroll3DVertical}
-                                      >
-                                        <View style={styles.basement3DContainer}>
-                                          <View style={[
-                                            styles.isometricCanvas,
-                                            {
-                                              transform: [
-                                                { perspective: 900 },
-                                                { rotateX: '52deg' },
-                                                { rotateZ: '-35deg' },
-                                                { scale: 0.58 }
-                                              ]
-                                            }
-                                          ]}>
-                                            {/* Cột bê tông hầm xe */}
-                                            <View style={[styles.basementColumn, { top: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
-                                            <View style={[styles.basementColumn, { bottom: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
+                                const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically(slots);
+                                 const getSlotSymbol = (sItem: SlotItem) => {
+                                   if (sItem.vehicleType?.name) {
+                                     const cat = guessVehicleCategory(sItem.vehicleType.name);
+                                     if (cat === 'motorcycle') return '🏍️';
+                                     return '🚗';
+                                   }
+                                   const selectedVt = vehicleTypes.find(vt => vt._id === wizard.vehicleTypeId);
+                                   if (selectedVt) {
+                                     const cat = guessVehicleCategory(selectedVt.name);
+                                     if (cat === 'motorcycle') return '🏍️';
+                                   }
+                                   return '🚗';
+                                 };
 
-                                            {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
-                                            <View style={styles.basementLanesRow}>
-                                              
-                                              {/* DÃY BÊN TRÁI (Left Parking Lane - Số lẻ) */}
-                                              <View style={styles.parkingLane3D}>
-                                                {slots.filter((_, idx) => idx % 2 === 0).map((slot) => {
-                                                  const isAvailable = slot.status === 'available';
-                                                  const isSelected = wizard.slotId === slot._id;
-                                                  
-                                                  return (
-                                                    <TouchableOpacity
-                                                      key={slot._id}
-                                                      style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                                      onPress={() => {
-                                                        if (isAvailable) {
-                                                          setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                          setDisplaySlotCode(slot.code);
-                                                        }
-                                                      }}
-                                                      disabled={!isAvailable}
-                                                      activeOpacity={0.8}
-                                                    >
-                                                      <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
-                                                        <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                                        {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>🚗</Text>}
-                                                      </View>
-                                                      <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
-                                                      <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
-                                                    </TouchableOpacity>
-                                                  );
-                                                })}
-                                              </View>
+                                 if (viewMode === '2D') {
+                                   return (
+                                     <ScrollView 
+                                       horizontal 
+                                       showsHorizontalScrollIndicator={false} 
+                                       contentContainerStyle={styles.scroll2DHorizontal}
+                                     >
+                                       <ScrollView 
+                                         showsVerticalScrollIndicator={false}
+                                         contentContainerStyle={styles.scroll2DVertical}
+                                       >
+                                         <View style={styles.basement2DContainer}>
+                                           {/* DÃY T (TOP ROW) */}
+                                           <View style={styles.rowHeaderRow2D}>
+                                             <Text style={styles.rowHeader2D}>DÃY T (TOP ROW)</Text>
+                                           </View>
+                                           <View style={styles.parkingLane2D}>
+                                             {topRowSlots.map((slot) => {
+                                               const isAvailable = slot.status === 'available';
+                                               const isSelected = wizard.slotId === slot._id;
+                                               return (
+                                                 <TouchableOpacity
+                                                   key={slot._id}
+                                                   style={[
+                                                     styles.slotCell2D,
+                                                     { width: slotWidth + 12, height: slotHeight + 12 },
+                                                     isSelected && styles.slotCell2DSelected,
+                                                     !isAvailable && styles.slotCell2DDisabled,
+                                                   ]}
+                                                   onPress={() => {
+                                                     if (isAvailable) {
+                                                       setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                       setDisplaySlotCode(slot.code);
+                                                     }
+                                                   }}
+                                                   disabled={!isAvailable}
+                                                   activeOpacity={0.8}
+                                                 >
+                                                   {isAvailable ? (
+                                                     <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                                       {slot.code}
+                                                     </Text>
+                                                   ) : (
+                                                     <View style={styles.slotOccupiedContainer2D}>
+                                                       <Text style={styles.slotCode2DDisabledTop}>
+                                                          {slot.code}
+                                                       </Text>
+                                                       <Text style={styles.slotVehicleEmoji2D}>
+                                                         {getSlotSymbol(slot)}
+                                                       </Text>
+                                                     </View>
+                                                   )}
+                                                 </TouchableOpacity>
+                                               );
+                                             })}
+                                           </View>
 
-                                              {/* ĐƯỜNG XE CHẠY Ở GIỮA (Driveway Space) */}
-                                              <View style={styles.drivewayLine3D}>
-                                                <View style={styles.dashedDivider} />
-                                              </View>
+                                           {/* LÀN ĐƯỜNG XE CHẠY Ở GIỮA */}
+                                           <View style={styles.drivewayLine2D}>
+                                             <Text style={styles.drivewayArrow2D}>◀── LỐI VÀO (IN)</Text>
+                                             <View style={styles.dashedDivider2D} />
+                                             <Text style={styles.drivewayText2D}>ĐƯỜNG DI CHUYỂN</Text>
+                                             <View style={styles.dashedDivider2D} />
+                                             <Text style={styles.drivewayArrow2D}>LỐI RA (OUT) ──▶</Text>
+                                           </View>
 
-                                              {/* DÃY BÊN PHẢI (Right Parking Lane - Số chẵn) */}
-                                              <View style={styles.parkingLane3D}>
-                                                {slots.filter((_, idx) => idx % 2 === 1).map((slot) => {
-                                                  const isAvailable = slot.status === 'available';
-                                                  const isSelected = wizard.slotId === slot._id;
-                                                  
-                                                  return (
-                                                    <TouchableOpacity
-                                                      key={slot._id}
-                                                      style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                                      onPress={() => {
-                                                        if (isAvailable) {
-                                                          setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                          setDisplaySlotCode(slot.code);
-                                                        }
-                                                      }}
-                                                      disabled={!isAvailable}
-                                                      activeOpacity={0.8}
-                                                    >
-                                                      <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
-                                                        <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                                        {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>🚗</Text>}
-                                                      </View>
-                                                      <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
-                                                      <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
-                                                    </TouchableOpacity>
-                                                  );
-                                                })}
-                                              </View>
+                                           {/* DÃY T (BOTTOM ROW) */}
+                                           <View style={styles.rowHeaderRow2D}>
+                                             <Text style={styles.rowHeader2D}>DÃY T (BOTTOM ROW)</Text>
+                                           </View>
+                                           <View style={styles.parkingLane2D}>
+                                             {bottomRowSlots.map((slot) => {
+                                               const isAvailable = slot.status === 'available';
+                                               const isSelected = wizard.slotId === slot._id;
+                                               return (
+                                                 <TouchableOpacity
+                                                   key={slot._id}
+                                                   style={[
+                                                     styles.slotCell2D,
+                                                     { width: slotWidth + 12, height: slotHeight + 12 },
+                                                     isSelected && styles.slotCell2DSelected,
+                                                     !isAvailable && styles.slotCell2DDisabled,
+                                                   ]}
+                                                   onPress={() => {
+                                                     if (isAvailable) {
+                                                       setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                       setDisplaySlotCode(slot.code);
+                                                     }
+                                                   }}
+                                                   disabled={!isAvailable}
+                                                   activeOpacity={0.8}
+                                                 >
+                                                   {isAvailable ? (
+                                                     <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                                       {slot.code}
+                                                     </Text>
+                                                   ) : (
+                                                     <View style={styles.slotOccupiedContainer2D}>
+                                                       <Text style={styles.slotCode2DDisabledTop}>
+                                                         {slot.code}
+                                                       </Text>
+                                                       <Text style={styles.slotVehicleEmoji2D}>
+                                                         {getSlotSymbol(slot)}
+                                                       </Text>
+                                                     </View>
+                                                   )}
+                                                 </TouchableOpacity>
+                                               );
+                                             })}
+                                           </View>
+                                         </View>
+                                       </ScrollView>
+                                     </ScrollView>
+                                   );
+                                 } else {
+                                   return (
+                                     <ScrollView 
+                                       horizontal 
+                                       showsHorizontalScrollIndicator={false} 
+                                       contentContainerStyle={styles.scroll3DHorizontal}
+                                     >
+                                       <ScrollView 
+                                         showsVerticalScrollIndicator={false}
+                                         contentContainerStyle={styles.scroll3DVertical}
+                                       >
+                                         <View style={styles.basement3DContainer}>
+                                           <View style={[
+                                             styles.isometricCanvas,
+                                             {
+                                               transform: [
+                                                 { perspective: 900 },
+                                                 { rotateX: '52deg' },
+                                                 { rotateZ: '-35deg' },
+                                                 { scale: 0.58 }
+                                               ]
+                                             }
+                                           ]}>
+                                             {/* Cột bê tông hầm xe */}
+                                             <View style={[styles.basementColumn, { top: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
+                                             <View style={[styles.basementColumn, { bottom: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
 
-                                            </View>
-                                          </View>
-                                        </View>
+                                             {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
+                                             <View style={styles.basementLanesRow}>
+                                               
+                                               {/* DÃY BÊN TRÁI (Left Parking Lane - Top Row) */}
+                                               <View style={styles.parkingLane3D}>
+                                                 {topRowSlots.map((slot) => {
+                                                   const isAvailable = slot.status === 'available';
+                                                   const isSelected = wizard.slotId === slot._id;
+                                                   
+                                                   return (
+                                                     <TouchableOpacity
+                                                       key={slot._id}
+                                                       style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
+                                                       onPress={() => {
+                                                         if (isAvailable) {
+                                                           setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                           setDisplaySlotCode(slot.code);
+                                                         }
+                                                       }}
+                                                       disabled={!isAvailable}
+                                                       activeOpacity={0.8}
+                                                     >
+                                                       <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
+                                                         <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
+                                                         {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
+                                                       </View>
+                                                       <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
+                                                       <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
+                                                     </TouchableOpacity>
+                                                   );
+                                                 })}
+                                               </View>
+
+                                               {/* ĐƯỜNG XE CHẠY Ở GIỮA (Driveway Space) */}
+                                               <View style={styles.drivewayLine3D}>
+                                                 <View style={styles.dashedDivider} />
+                                               </View>
+
+                                               {/* DÃY BÊN PHẢI (Right Parking Lane - Bottom Row) */}
+                                               <View style={styles.parkingLane3D}>
+                                                 {bottomRowSlots.map((slot) => {
+                                                   const isAvailable = slot.status === 'available';
+                                                   const isSelected = wizard.slotId === slot._id;
+                                                   
+                                                   return (
+                                                     <TouchableOpacity
+                                                       key={slot._id}
+                                                       style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
+                                                       onPress={() => {
+                                                         if (isAvailable) {
+                                                           setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                           setDisplaySlotCode(slot.code);
+                                                         }
+                                                       }}
+                                                       disabled={!isAvailable}
+                                                       activeOpacity={0.8}
+                                                     >
+                                                       <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
+                                                         <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
+                                                         {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
+                                                       </View>
+                                                       <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
+                                                       <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
+                                                     </TouchableOpacity>
+                                                   );
+                                                 })}
+                                               </View>
+
+                                             </View>
+                                           </View>
+                                         </View>
+                                        </ScrollView>
                                       </ScrollView>
-                                    </ScrollView>
-                                  );
-                                }
-                              })()}
+                                    );
+                                  }
+                                })()}
                             </View>
 
                             {/* Footer Actions */}
@@ -2061,8 +2195,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   faceTopDisabled3D: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: 'rgba(71, 85, 105, 0.1)', // Slate sẫm mờ
+    borderColor: '#475569',
     shadowOpacity: 0,
   },
   faceLeft3D: {
@@ -2079,7 +2213,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(249, 115, 22, 0.7)',
   },
   faceLeftDisabled3D: {
-    backgroundColor: 'rgba(239, 68, 68, 0.3)',
+    backgroundColor: 'rgba(71, 85, 105, 0.3)',
   },
   faceRight3D: {
     position: 'absolute',
@@ -2095,7 +2229,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(249, 115, 22, 0.5)',
   },
   faceRightDisabled3D: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(71, 85, 105, 0.2)',
   },
   codeText3D: {
     fontSize: 10,
@@ -2239,5 +2373,149 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     marginLeft: 7,
     marginVertical: 2,
+  },
+
+  // Premium 2D Layout Styles
+  scroll2DHorizontal: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll2DVertical: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  basement2DContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  rowHeaderRow2D: {
+    width: '100%',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+    paddingLeft: 4,
+  },
+  rowHeader2D: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.textDim,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  parkingLane2D: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  slotCell2D: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.5)', // border-emerald-500/50
+    backgroundColor: 'rgba(16, 185, 129, 0.1)', // bg-emerald-500/10
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  slotCell2DSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  slotCell2DDisabled: {
+    borderColor: '#475569', // Slate sẫm mờ border
+    backgroundColor: 'rgba(71, 85, 105, 0.1)', // Slate sẫm mờ bg
+    shadowOpacity: 0,
+  },
+  slotCode2D: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#10b981',
+    fontFamily: 'monospace',
+  },
+  slotCode2DSelected: {
+    color: Colors.primary,
+  },
+  slotCode2DDisabledTop: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: Colors.textDim,
+    fontFamily: 'monospace',
+    position: 'absolute',
+    top: 4,
+  },
+  slotVehicleEmoji2D: {
+    fontSize: 14,
+    marginTop: 10,
+  },
+  slotOccupiedContainer2D: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  drivewayLine2D: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginVertical: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 8,
+  },
+  drivewayArrow2D: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: Colors.primary,
+    fontFamily: 'monospace',
+    letterSpacing: 0.8,
+  },
+  drivewayText2D: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: Colors.textMuted,
+    letterSpacing: 1.5,
+  },
+  dashedDivider2D: {
+    width: 1,
+    height: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  // Legend Styles
+  legendRow2D: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    paddingVertical: 12,
+    backgroundColor: Colors.cardAlt,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  legendItem2D: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot2D: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+  },
+  legendText2D: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textMuted,
   },
 });
