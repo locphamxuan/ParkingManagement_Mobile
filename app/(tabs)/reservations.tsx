@@ -1296,9 +1296,9 @@ export default function ReservationsScreen() {
                                              {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
                                              <View style={styles.basementLanesRow}>
                                                
-                                               {/* DÃY BÊN TRÁI (Left Parking Lane - Top Row) */}
+                                               {/* DÃY BÊN TRÁI (Left Parking Lane - Bottom Row) */}
                                                <View style={styles.parkingLane3D}>
-                                                 {topRowSlots.map((slot) => {
+                                                 {bottomRowSlots.map((slot) => {
                                                    const isAvailable = slot.status === 'available';
                                                    const isSelected = wizard.slotId === slot._id;
                                                    
@@ -1331,9 +1331,9 @@ export default function ReservationsScreen() {
                                                  <View style={styles.dashedDivider} />
                                                </View>
 
-                                               {/* DÃY BÊN PHẢI (Right Parking Lane - Bottom Row) */}
+                                               {/* DÃY BÊN PHẢI (Right Parking Lane - Top Row) */}
                                                <View style={styles.parkingLane3D}>
-                                                 {bottomRowSlots.map((slot) => {
+                                                 {topRowSlots.map((slot) => {
                                                    const isAvailable = slot.status === 'available';
                                                    const isSelected = wizard.slotId === slot._id;
                                                    
