@@ -14,10 +14,21 @@ function AuthGate() {
     if (isLoading) return;
 
     const inAuth = segments[0] === '(auth)';
+
+    // No session → redirect away from protected route groups
     if (!session && !inAuth) {
       router.replace('/(auth)/login');
-    } else if (session && inAuth) {
-      router.replace('/(tabs)');
+      return;
+    }
+
+    // Has valid session but currently in login/register → route to correct landing
+    if (session && inAuth) {
+      const role = session.role;
+      if (role === 'manager' || role === 'admin') {
+        router.replace('/(tabs)/manager');
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   }, [session, isLoading, segments]);
 

@@ -46,3 +46,5 @@ yarn-error.*
 .vscode/
 .idea/
 *.log
+# Temporary API Documentation
+api-manager-docs.md
