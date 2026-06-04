@@ -79,7 +79,7 @@ export default function HomeScreen() {
       if (w.status === 'fulfilled') setWallet(w.value);
       if (rs.status === 'fulfilled') {
         setActiveReservations(
-          rs.value.filter((r: Reservation) => r.status === 'active').length,
+          rs.value.filter((r: Reservation) => r.status === 'confirmed').length,
         );
       }
       if (h.status === 'fulfilled') {
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Colors.card,
-    borderRadius: Radius['2xl'],
+    borderRadius: Radius['xl'],
     borderWidth: 1,
     borderColor: 'rgba(249,115,22,0.3)',
     width: '100%',
