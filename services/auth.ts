@@ -72,3 +72,17 @@ export async function getMe(token: string): Promise<ApiUser> {
   if (!user) throw new Error('Unable to load user info');
   return user;
 }
+
+export async function forgotPassword(email: string): Promise<void> {
+  await apiRequest('/users/auth/forgot-password', {
+    method: 'POST',
+    body: { email, clientType: 'mobile' },
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await apiRequest('/users/auth/reset-password', {
+    method: 'POST',
+    body: { token, newPassword },
+  });
+}

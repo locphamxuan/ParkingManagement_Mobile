@@ -5,10 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
@@ -57,6 +58,7 @@ export default function ProfileScreen() {
   const [plateError, setPlateError] = useState<string | null>(null);
   const [plateSuccess, setPlateSuccess] = useState<string | null>(null);
   const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
+  const [plateToRemove, setPlateToRemove] = useState<LicensePlate | null>(null);
 
   const plates = session?.licensePlates ?? [];
 
@@ -127,30 +129,37 @@ export default function ProfileScreen() {
     }
   };
 
+  const executeRemovePlate = async (plate: LicensePlate) => {
+    if (!plate._id) return;
+    setPlateError(null);
+    setPlateSuccess(null);
+    try {
+      setLoadingPlate(plate._id);
+      const updated = await removePlate(token, plate._id);
+      updateLocal({ licensePlates: updated });
+      setPlateSuccess(`Removed "${plate.plateNumber}" successfully!`);
+      setTimeout(() => setPlateSuccess(null), 2500);
+    } catch (err) {
+      setPlateError(err instanceof Error ? err.message : 'Failed to remove plate');
+    } finally {
+      setLoadingPlate(null);
+    }
+  };
+
   const handleRemovePlate = (plate: LicensePlate) => {
     if (!plate._id) return;
-    Alert.alert(
-      'Remove Plate',
-      `Remove license plate "${plate.plateNumber}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoadingPlate(plate._id!);
-              const updated = await removePlate(token, plate._id!);
-              updateLocal({ licensePlates: updated });
-            } catch (err) {
-              setPlateError(err instanceof Error ? err.message : 'Failed to remove plate');
-            } finally {
-              setLoadingPlate(null);
-            }
-          },
-        },
-      ],
-    );
+    setPlateToRemove(plate);
+  };
+
+  const closeRemoveModal = () => {
+    if (plateToRemove && loadingPlate === plateToRemove._id) return;
+    setPlateToRemove(null);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!plateToRemove) return;
+    await executeRemovePlate(plateToRemove);
+    setPlateToRemove(null);
   };
 
   const handleSetDefault = async (plate: LicensePlate) => {
@@ -343,51 +352,66 @@ export default function ProfileScreen() {
               </View>
 
               {/* Plate list */}
-              <View style={styles.plateList}>
-                {plates.length === 0 ? (
-                  <Text style={styles.emptyText}>No license plates linked yet.</Text>
-                ) : (
-                  plates.map((plate) => (
-                    <View key={plate.plateNumber} style={[
-                      styles.plateItem,
-                      plate.isDefault && styles.plateItemDefault,
-                    ]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[
-                          styles.plateNumber,
-                          plate.isDefault && { color: Colors.amber },
-                        ]}>
-                          {plate.plateNumber}
-                        </Text>
-                        <Text style={styles.plateType}>
-                          {plate.vehicleType === 'car' ? 'Car' : 'Motorcycle'}
-                          {plate.isDefault ? ' · Default' : ''}
-                        </Text>
-                      </View>
-                      <View style={styles.plateBtns}>
-                        {!plate.isDefault && plate._id && (
-                          <TouchableOpacity
-                            style={styles.plateAction}
-                            onPress={() => handleSetDefault(plate)}
-                            disabled={loadingPlate === plate._id}
-                          >
-                            <Text style={styles.plateActionText}>★ Set default</Text>
-                          </TouchableOpacity>
-                        )}
-                        {plate._id && (
-                          <TouchableOpacity
-                            style={[styles.plateAction, styles.plateActionDelete]}
-                            onPress={() => handleRemovePlate(plate)}
-                            disabled={loadingPlate === plate._id}
-                          >
-                            <Text style={styles.plateActionDeleteText}>✕</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  ))
-                )}
-              </View>
+<View style={styles.plateList}>
+  {plates.length === 0 ? (
+    <Text style={styles.emptyText}>
+      No license plates linked yet.
+    </Text>
+  ) : (
+    plates.map((plate) => (
+        <View
+          key={plate.plateNumber}
+          style={[
+            styles.plateItem,
+            plate.isDefault && styles.plateItemDefault,
+          ]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                styles.plateNumber,
+                plate.isDefault && { color: Colors.amber },
+              ]}
+            >
+              {plate.plateNumber}
+            </Text>
+
+            <Text style={styles.plateType}>
+              {plate.vehicleType === 'car'
+                ? 'Car'
+                : 'Motorcycle'}
+              {plate.isDefault ? ' · Default' : ''}
+            </Text>
+          </View>
+
+          <View style={styles.plateBtns}>
+            {!plate.isDefault && plate._id && (
+              <TouchableOpacity
+                style={styles.plateAction}
+                onPress={() => handleSetDefault(plate)}
+                disabled={loadingPlate === plate._id}
+              >
+                <Text style={styles.plateActionText}>
+                  ★ Set default
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {plate._id && (
+              <TouchableOpacity
+                style={[styles.plateAction, styles.plateActionDelete]}
+                onPress={() => handleRemovePlate(plate)}
+                disabled={loadingPlate === plate._id}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.plateActionDeleteText}>Remove</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      ))
+  )}
+</View>
 
               {/* Add plate form */}
               {plates.length < MAX_PLATES && (
@@ -500,6 +524,42 @@ export default function ProfileScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={plateToRemove !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeRemoveModal}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={closeRemoveModal}>
+          <View style={styles.confirmDialog}>
+            <Text style={styles.confirmTitle}>Remove Plate</Text>
+            <Text style={styles.confirmMessage}>
+              {plateToRemove
+                ? `Remove license plate "${plateToRemove.plateNumber}"?`
+                : ''}
+            </Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                style={[styles.confirmBtn, styles.confirmBtnCancel]}
+                onPress={closeRemoveModal}
+                disabled={Boolean(plateToRemove?._id && loadingPlate === plateToRemove._id)}
+              >
+                <Text style={styles.confirmBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, styles.confirmBtnConfirm]}
+                onPress={() => { void handleConfirmRemove(); }}
+                disabled={Boolean(plateToRemove?._id && loadingPlate === plateToRemove._id)}
+              >
+                <Text style={styles.confirmBtnConfirmText}>
+                  {plateToRemove?._id && loadingPlate === plateToRemove._id ? 'Removing…' : 'Confirm'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -666,6 +726,68 @@ const styles = StyleSheet.create({
     borderColor: Colors.errorBorder,
   },
   plateActionDeleteText: { fontSize: 10, color: Colors.error, fontWeight: '800' },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  confirmDialog: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+  },
+  confirmTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '900',
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  confirmMessage: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmBtnCancel: {
+    backgroundColor: Colors.cardAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  confirmBtnCancelText: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.textMuted,
+  },
+  confirmBtnConfirm: {
+    backgroundColor: Colors.errorBg,
+    borderWidth: 1,
+    borderColor: Colors.errorBorder,
+  },
+  confirmBtnConfirmText: {
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+    color: Colors.error,
+  },
 
   addPlateForm: {
     gap: Spacing.md,
