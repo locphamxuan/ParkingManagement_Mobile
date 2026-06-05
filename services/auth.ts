@@ -12,6 +12,7 @@ interface ApiUser {
     plateNumber?: string;
     vehicleType?: string;
     isDefault?: boolean;
+    qrCode?: string;
   }>;
 }
 
@@ -22,6 +23,7 @@ function mapUser(user: ApiUser, token: string): AuthSession {
       plateNumber: p.plateNumber ?? '',
       vehicleType: (p.vehicleType === 'motorcycle' ? 'motorcycle' : 'car') as 'car' | 'motorcycle',
       isDefault: p.isDefault ?? false,
+      qrCode: p.qrCode,
     }))
     .filter((p) => Boolean(p.plateNumber));
 

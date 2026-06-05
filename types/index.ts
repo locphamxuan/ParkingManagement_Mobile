@@ -4,6 +4,7 @@ export interface LicensePlate {
   plateNumber: string;
   vehicleType: 'car' | 'motorcycle';
   isDefault?: boolean;
+  qrCode?: string;
 }
 
 export interface AuthSession {
@@ -55,8 +56,10 @@ export interface Reservation {
   plateNumber: string;
   startTime: string;
   endTime?: string;
-  /** Deposit charged to the user's wallet when booking. */
+  /** 15% deposit charged to the user's wallet when booking. */
   fee?: number;
+  /** Total estimated fee for the full reservation duration (100%). */
+  estimatedFee?: number;
   /** Entry gate(s) the user should use, resolved from the slot's floor. */
   gates?: ReservationGate[];
   status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'expired';

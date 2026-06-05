@@ -59,6 +59,7 @@ export default function ProfileScreen() {
   const [plateSuccess, setPlateSuccess] = useState<string | null>(null);
   const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
   const [plateToRemove, setPlateToRemove] = useState<LicensePlate | null>(null);
+  const [plateQrToShow, setPlateQrToShow] = useState<LicensePlate | null>(null);
 
   const plates = session?.licensePlates ?? [];
 
@@ -385,6 +386,16 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.plateBtns}>
+            {plate.qrCode && (
+              <TouchableOpacity
+                style={styles.plateAction}
+                onPress={() => setPlateQrToShow(plate)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.plateActionText}>⊞ QR</Text>
+              </TouchableOpacity>
+            )}
+
             {!plate.isDefault && plate._id && (
               <TouchableOpacity
                 style={styles.plateAction}
@@ -557,6 +568,40 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Per-plate QR code modal — staff scans this to identify the vehicle */}
+      <Modal
+        visible={plateQrToShow !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPlateQrToShow(null)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setPlateQrToShow(null)}>
+          <View style={styles.qrDialog}>
+            <Text style={styles.confirmTitle}>Plate QR Code</Text>
+            <Text style={styles.qrPlateText}>{plateQrToShow?.plateNumber}</Text>
+            {plateQrToShow?.qrCode ? (
+              <View style={styles.plateQrImageWrap}>
+                <Image
+                  source={{
+                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(plateQrToShow.qrCode)}`,
+                  }}
+                  style={styles.plateQrImage}
+                />
+              </View>
+            ) : null}
+            <Text style={styles.qrHintText}>
+              Show this code to staff at the gate to identify your vehicle.
+            </Text>
+            <TouchableOpacity
+              style={[styles.confirmBtn, styles.confirmBtnCancel, { alignSelf: 'stretch' }]}
+              onPress={() => setPlateQrToShow(null)}
+            >
+              <Text style={styles.confirmBtnCancelText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
@@ -743,6 +788,34 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.xl,
     gap: Spacing.md,
+  },
+  qrDialog: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    alignItems: 'center',
+  },
+  qrPlateText: {
+    fontSize: FontSize.lg,
+    fontWeight: '900',
+    color: Colors.primary,
+    fontFamily: 'monospace',
+  },
+  plateQrImageWrap: {
+    backgroundColor: '#ffffff',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+  },
+  plateQrImage: { width: 240, height: 240 },
+  qrHintText: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
   confirmTitle: {
     fontSize: FontSize.md,

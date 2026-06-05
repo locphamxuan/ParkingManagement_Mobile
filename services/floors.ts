@@ -4,24 +4,15 @@ interface ApiRes<T> {
   data?: T;
 }
 
-export interface FloorGate {
-  _id: string;
-  code: string;
-  name: string;
-  direction: 'in' | 'out' | 'both';
-}
-
 export interface FloorWithAvailability {
   _id: string;
   code: string;
   name: string;
-  levelNumber: number;
   allowedVehicleTypes: { _id: string; name: string; code: string }[];
   availableSlots: number;
   occupiedSlots: number;
   reservedSlots: number;
   totalSlots: number;
-  gates: FloorGate[];
 }
 
 export interface SlotItem {
@@ -41,8 +32,7 @@ export async function getBuildingFloors(
     `/users/buildings/${buildingId}/floors${query}`,
     { token },
   );
-  const list = res?.data?.floors ?? res?.data?.items ?? [];
-  return list.map((f) => ({ ...f, gates: f.gates ?? [] }));
+  return res?.data?.floors ?? res?.data?.items ?? [];
 }
 
 export async function getFloorSlots(
