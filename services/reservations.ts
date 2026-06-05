@@ -38,10 +38,9 @@ export async function listReservations(token: string): Promise<Reservation[]> {
 
 export interface CreateReservationResult {
   reservation: Reservation;
-  paymentRequired?: boolean;
+  depositAmount?: number;
+  estimatedFee?: number;
   fee?: number;
-  checkoutUrl?: string;
-  orderCode?: number;
 }
 
 export async function createReservation(
@@ -51,7 +50,7 @@ export async function createReservation(
     vehicleTypeId: string;
     plateNumber: string;
     startTime: string;
-    endTime?: string;
+    endTime: string;
     slotId?: string;
   },
 ): Promise<CreateReservationResult> {
@@ -89,4 +88,31 @@ export async function getReservation(token: string, id: string): Promise<Reserva
   );
   if (!res?.data?.reservation) throw new Error('Not found');
   return res.data.reservation;
+}
+
+export interface FeeEstimate {
+  estimatedFee: number;
+  depositAmount: number;
+  remainingFee: number;
+  hourlyRate: number;
+  hours: number;
+  regularHours?: number;
+  peakHours?: number;
+  peakRate?: number | null;
+}
+
+export async function estimateFee(
+  token: string,
+  buildingId: string,
+  vehicleTypeId: string,
+  startTime: string,
+  endTime: string,
+): Promise<FeeEstimate> {
+  const params = new URLSearchParams({ buildingId, vehicleTypeId, startTime, endTime });
+  const res = await apiRequest<ApiRes<FeeEstimate>>(
+    `/users/reservations/estimate?${params}`,
+    { token },
+  );
+  if (!res?.data) throw new Error('Failed to get fee estimate');
+  return res.data;
 }

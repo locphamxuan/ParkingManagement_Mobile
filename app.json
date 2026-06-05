@@ -29,8 +29,11 @@
       "expo-font",
       [
         "expo-status-bar",
-        { "style": "light" }
-      ]
+        {
+          "style": "light"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   View,
   Text,
@@ -21,15 +22,17 @@ import {
   listReservations,
   createReservation,
   cancelReservation,
+  estimateFee,
   listBuildings,
   getBuildingVehicleTypes,
+  type FeeEstimate,
 } from '../../services/reservations';
 import type { BuildingOption, VehicleTypeOption } from '../../services/reservations';
 import {
   getBuildingFloors,
   getFloorSlots,
 } from '../../services/floors';
-import type { FloorWithAvailability, SlotItem, FloorGate } from '../../services/floors';
+import type { FloorWithAvailability, SlotItem } from '../../services/floors';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -72,11 +75,6 @@ function guessVehicleCategory(name: string): 'car' | 'motorcycle' | null {
   if (lower.includes('motor') || lower.includes('moto') || lower.includes('xe máy') || lower.includes('xe may') || lower.includes('bike')) return 'motorcycle';
   if (lower.includes('car') || lower.includes('ô tô') || lower.includes('o to') || lower.includes('auto') || lower.includes('truck') || lower.includes('van') || lower.includes('suv')) return 'car';
   return null;
-}
-
-// A floor is bookable only if it has at least one entry gate (in/both) assigned.
-function floorHasEntryGate(floor: { gates?: FloorGate[] } | undefined | null): boolean {
-  return (floor?.gates ?? []).some((g) => g.direction === 'in' || g.direction === 'both');
 }
 
 interface GroupedRow {
@@ -193,65 +191,29 @@ const EMPTY_WIZARD: WizardState = {
   endTime: '',
 };
 
-// ─── Premium Time Picker Global Helpers ────────────────────────────────────────
-
-function getDayName(d: Date): string {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return days[d.getDay()];
+// Format Date → wizard string "YYYY-MM-DD HH:MM"
+function toWizardStr(date: Date): string {
+  const d = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const t = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${d} ${t}`;
 }
 
-function getMonthName(d: Date): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return months[d.getMonth()];
+// Format for HTML input[type="datetime-local"] value: "YYYY-MM-DDTHH:MM"
+function toDateTimeLocal(date: Date): string {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const mi = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${mo}-${d}T${h}:${mi}`;
 }
 
-function generateTimeSlots(selectedDate: Date): string[] {
-  const slotsList = [];
-  const now = new Date();
-  
-  // Clear time parts for accurate date comparison
-  const compareDate = new Date(selectedDate);
-  compareDate.setHours(0, 0, 0, 0);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-
-  if (compareDate < today) {
-    return []; // No slots for past dates
-  }
-
-  const isToday = compareDate.getTime() === today.getTime();
-  const currentHour = now.getHours();
-  const currentMin = now.getMinutes();
-
-  for (let h = 0; h < 24; h++) {
-    for (const m of [0, 30]) {
-      if (isToday) {
-        if (h < currentHour || (h === currentHour && m <= currentMin)) {
-          continue;
-        }
-      }
-      const hStr = h.toString().padStart(2, '0');
-      const mStr = m.toString().padStart(2, '0');
-      slotsList.push(`${hStr}:${mStr}`);
-    }
-  }
-  return slotsList;
-}
-
-function generateNext7Days(): Date[] {
-  const list = [];
-  const now = new Date();
-  
-  // Check if today has any valid time slots left
-  const todaySlots = generateTimeSlots(now);
-  const startOffset = todaySlots.length === 0 ? 1 : 0;
-  
-  for (let i = startOffset; i < startOffset + 7; i++) {
-    const d = new Date();
-    d.setDate(now.getDate() + i);
-    list.push(d);
-  }
-  return list;
+// Human-readable display for a Date
+function fmtPickerDate(date: Date): string {
+  return date.toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -274,86 +236,86 @@ export default function ReservationsScreen() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [displaySlotCode, setDisplaySlotCode] = useState<string>('');
 
-  // Premium Time Picker state
-  const [selDate, setSelDate] = useState<Date>(() => {
-    const now = new Date();
-    const todaySlots = generateTimeSlots(now);
-    if (todaySlots.length === 0) {
-      const tomorrow = new Date();
-      tomorrow.setDate(now.getDate() + 1);
-      return tomorrow;
-    }
-    return now;
+  // Native date-time pickers
+  const [startDateTime, setStartDateTime] = useState<Date>(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
   });
-  const [selTime, setSelTime] = useState<string>(() => {
-    const now = new Date();
-    const todaySlots = generateTimeSlots(now);
-    if (todaySlots.length === 0) {
-      const tomorrow = new Date();
-      tomorrow.setDate(now.getDate() + 1);
-      const tomorrowSlots = generateTimeSlots(tomorrow);
-      return tomorrowSlots.length > 0 ? tomorrowSlots[0] : '08:00';
-    }
-    return todaySlots.length > 0 ? todaySlots[0] : '08:00';
+  const [endDateTime, setEndDateTime] = useState<Date>(() => {
+    const d = new Date(); d.setHours(1, 0, 0, 0); return d;
   });
-  const [selDuration, setSelDuration] = useState<number | 'flexible'>(2);
 
-  const updateWizardTimes = (date: Date, time: string, duration: number | 'flexible') => {
-    if (!time) return;
-    const [hours, mins] = time.split(':').map(Number);
-    const start = new Date(date);
-    start.setHours(hours, mins, 0, 0);
+  // pickerState: which picker is open + Android 2-step mode (date → time)
+  const [pickerState, setPickerState] = useState<{
+    target: 'start' | 'end';
+    mode: 'date' | 'time';
+    tempDate: Date;
+  } | null>(null);
 
-    const dStr = start.getFullYear() + '-' + 
-      String(start.getMonth() + 1).padStart(2, '0') + '-' + 
-      String(start.getDate()).padStart(2, '0');
-    const tStr = String(start.getHours()).padStart(2, '0') + ':' + 
-      String(start.getMinutes()).padStart(2, '0');
-    
-    let endTimeStr = '';
-    if (duration !== 'flexible') {
-      const end = new Date(start);
-      end.setHours(end.getHours() + duration);
-      const endDStr = end.getFullYear() + '-' + 
-        String(end.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(end.getDate()).padStart(2, '0');
-      const endTStr = String(end.getHours()).padStart(2, '0') + ':' + 
-        String(end.getMinutes()).padStart(2, '0');
-      endTimeStr = `${endDStr} ${endTStr}`;
-    }
-
-    setWizard((prev) => ({
-      ...prev,
-      startTime: `${dStr} ${tStr}`,
-      endTime: endTimeStr,
-    }));
+  const openPicker = (target: 'start' | 'end') => {
+    setPickerState({
+      target,
+      mode: 'date',
+      tempDate: target === 'start' ? startDateTime : endDateTime,
+    });
   };
 
-  const handleDateChange = (date: Date) => {
-    setSelDate(date);
-    const times = generateTimeSlots(date);
-    let newTime = selTime;
-    if (times.length > 0) {
-      if (!times.includes(selTime)) {
-        newTime = times[0];
-        setSelTime(times[0]);
+  const applyDateTime = (target: 'start' | 'end', date: Date) => {
+    if (target === 'start') {
+      setStartDateTime(date);
+      setWizard((prev) => ({ ...prev, startTime: toWizardStr(date) }));
+    } else {
+      setEndDateTime(date);
+      setWizard((prev) => ({ ...prev, endTime: toWizardStr(date) }));
+    }
+  };
+
+  const onPickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (!pickerState) return;
+
+    if (Platform.OS === 'android') {
+      if (event.type === 'dismissed') { setPickerState(null); return; }
+      if (!selected) { setPickerState(null); return; }
+
+      if (pickerState.mode === 'date') {
+        // Step 1 done — merge selected date into tempDate, then show time picker
+        const merged = new Date(pickerState.tempDate);
+        merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+        setPickerState({ ...pickerState, mode: 'time', tempDate: merged });
+      } else {
+        // Step 2 done — merge selected time into tempDate, apply
+        const merged = new Date(pickerState.tempDate);
+        merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+        applyDateTime(pickerState.target, merged);
+        setPickerState(null);
       }
     } else {
-      newTime = '00:00';
-      setSelTime('00:00');
+      // iOS: update in real-time while spinner spins
+      if (selected) setPickerState({ ...pickerState, tempDate: selected });
     }
-    updateWizardTimes(date, newTime, selDuration);
   };
 
-  const handleTimeChange = (time: string) => {
-    setSelTime(time);
-    updateWizardTimes(selDate, time, selDuration);
+  const confirmIOSPicker = () => {
+    if (!pickerState) return;
+    applyDateTime(pickerState.target, pickerState.tempDate);
+    setPickerState(null);
   };
 
-  const handleDurationChange = (dur: number | 'flexible') => {
-    setSelDuration(dur);
-    updateWizardTimes(selDate, selTime, dur);
-  };
+  // Fetch real fee estimate from server whenever step 3 times or vehicle type change.
+  useEffect(() => {
+    if (step !== 3 || !wizard.buildingId || !wizard.vehicleTypeId || !wizard.startTime || !wizard.endTime) {
+      setFeeEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    setFetchingFee(true);
+    const startISO = new Date(wizard.startTime.trim()).toISOString();
+    const endISO = new Date(wizard.endTime.trim()).toISOString();
+    estimateFee(token, wizard.buildingId, wizard.vehicleTypeId, startISO, endISO)
+      .then((data) => { if (!cancelled) setFeeEstimate(data); })
+      .catch(() => { if (!cancelled) setFeeEstimate(null); })
+      .finally(() => { if (!cancelled) setFetchingFee(false); });
+    return () => { cancelled = true; };
+  }, [step, wizard.buildingId, wizard.vehicleTypeId, wizard.startTime, wizard.endTime, token]);
 
   // Step 1 — buildings + vehicle types
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
@@ -368,9 +330,11 @@ export default function ReservationsScreen() {
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [fetchingSlots, setFetchingSlots] = useState(false);
 
-  // Step 3 — submit
+  // Step 3 — submit + fee estimate
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [feeEstimate, setFeeEstimate] = useState<FeeEstimate | null>(null);
+  const [fetchingFee, setFetchingFee] = useState(false);
 
   // Cancel state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -401,11 +365,12 @@ export default function ReservationsScreen() {
   const doCancel = async (r: Reservation) => {
     setCancellingId(r._id);
     try {
-      const { refund } = await cancelReservation(token, r._id);
+      await cancelReservation(token, r._id);
       await load();
-      if (refund > 0) {
-        Alert.alert('Reservation Cancelled', `${fmtVND(refund)} (85%) was refunded to your wallet.`);
-      }
+      Alert.alert(
+        'Reservation Cancelled',
+        'Your reservation has been cancelled. The deposit is non-refundable and has been forfeited as a cancellation fee.',
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not cancel reservation';
       Alert.alert('Error', msg);
@@ -415,16 +380,21 @@ export default function ReservationsScreen() {
   };
 
   const handleCancel = (r: Reservation) => {
-    const msg = `Cancel reservation for plate "${r.plateNumber}"?`;
+    const depositText = r.fee ? ` Deposit of ${fmtVND(r.fee)} will NOT be refunded.` : '';
+    const msg = `Cancel reservation for plate "${r.plateNumber}"?\n\nWarning: The deposit is non-refundable.${depositText}`;
     if (Platform.OS === 'web') {
       // biome-ignore lint/suspicious/noExplicitAny: web-only globalThis
       if ((globalThis as any).confirm?.(msg)) doCancel(r);
       return;
     }
-    Alert.alert('Cancel Reservation', msg, [
-      { text: 'Keep', style: 'cancel' },
-      { text: 'Cancel Reservation', style: 'destructive', onPress: () => doCancel(r) },
-    ]);
+    Alert.alert(
+      'Cancel Reservation',
+      msg,
+      [
+        { text: 'Keep Reservation', style: 'cancel' },
+        { text: 'Cancel & Forfeit Deposit', style: 'destructive', onPress: () => doCancel(r) },
+      ],
+    );
   };
 
   // ── Wizard helpers ─────────────────────────────────────────────────────────
@@ -548,61 +518,22 @@ export default function ReservationsScreen() {
       Alert.alert('Missing Info', 'Please select a floor.');
       return;
     }
-    const floor = floors.find((f) => f._id === wizard.floorId);
-    if (floor && !floorHasEntryGate(floor)) {
-      Alert.alert('No Gate Available', 'This floor currently has no gate. Please choose another floor.');
-      return;
-    }
     if (!wizard.slotId) {
       Alert.alert('Missing Info', 'Please select a parking slot.');
       return;
     }
     setCreateError(null);
 
-    // Initialize premium date/time picker
-    const now = new Date();
-    // Default selected date is today
-    let initialDate = now;
-    let timeSlotsList = generateTimeSlots(initialDate);
-    
-    // If no time slots left for today, default to tomorrow
-    if (timeSlotsList.length === 0) {
-      const tomorrow = new Date();
-      tomorrow.setDate(now.getDate() + 1);
-      initialDate = tomorrow;
-      timeSlotsList = generateTimeSlots(initialDate);
-    }
-    
-    // Set initial time to first available time slot, or default 08:00
-    const initialTime = timeSlotsList.length > 0 ? timeSlotsList[0] : '08:00';
-    const initialDuration = 2; // Default 2 hours
+    const today = new Date();
+    const start = new Date(today); start.setHours(0, 0, 0, 0);
+    const end = new Date(today); end.setHours(1, 0, 0, 0);
 
-    setSelDate(initialDate);
-    setSelTime(initialTime);
-    setSelDuration(initialDuration);
-
-    const [hours, mins] = initialTime.split(':').map(Number);
-    const start = new Date(initialDate);
-    start.setHours(hours, mins, 0, 0);
-
-    const dStr = start.getFullYear() + '-' + 
-      String(start.getMonth() + 1).padStart(2, '0') + '-' + 
-      String(start.getDate()).padStart(2, '0');
-    const tStr = String(start.getHours()).padStart(2, '0') + ':' + 
-      String(start.getMinutes()).padStart(2, '0');
-    
-    const end = new Date(start);
-    end.setHours(end.getHours() + initialDuration);
-    const endDStr = end.getFullYear() + '-' + 
-      String(end.getMonth() + 1).padStart(2, '0') + '-' + 
-      String(end.getDate()).padStart(2, '0');
-    const endTStr = String(end.getHours()).padStart(2, '0') + ':' + 
-      String(end.getMinutes()).padStart(2, '0');
-
+    setStartDateTime(start);
+    setEndDateTime(end);
     setWizard((prev) => ({
       ...prev,
-      startTime: `${dStr} ${tStr}`,
-      endTime: `${endDStr} ${endTStr}`,
+      startTime: toWizardStr(start),
+      endTime: toWizardStr(end),
     }));
 
     setStep(3);
@@ -612,24 +543,25 @@ export default function ReservationsScreen() {
   const handleCreate = async () => {
     setCreateError(null);
     if (!wizard.startTime.trim()) {
-      setCreateError('Please enter a start time.');
+      setCreateError('Please select a start time.');
+      return;
+    }
+    if (!wizard.endTime.trim()) {
+      setCreateError('Please select a checkout time.');
       return;
     }
     let startIso: string;
+    let endIso: string;
     try {
       startIso = new Date(wizard.startTime.trim()).toISOString();
+      endIso = new Date(wizard.endTime.trim()).toISOString();
     } catch {
-      setCreateError('Invalid start time. Use format YYYY-MM-DD HH:MM');
+      setCreateError('Invalid time format. Please re-select dates.');
       return;
     }
-    let endIso: string | undefined;
-    if (wizard.endTime.trim()) {
-      try {
-        endIso = new Date(wizard.endTime.trim()).toISOString();
-      } catch {
-        setCreateError('Invalid end time. Use format YYYY-MM-DD HH:MM');
-        return;
-      }
+    if (new Date(endIso) <= new Date(startIso)) {
+      setCreateError('Checkout time must be after check-in time.');
+      return;
     }
     try {
       setCreating(true);
@@ -643,10 +575,10 @@ export default function ReservationsScreen() {
       });
       closeWizard();
       load();
-      const feeTxt = result.fee
-        ? ` ${fmtVND(result.fee)} was paid from your wallet.`
+      const depositTxt = result.depositAmount
+        ? `\nDeposit paid: ${fmtVND(result.depositAmount)} (15%)\nRemaining at checkout: ${fmtVND((result.estimatedFee ?? 0) - (result.depositAmount ?? 0))}`
         : '';
-      Alert.alert('Reservation Confirmed', `Your slot is booked.${feeTxt}`);
+      Alert.alert('Reservation Confirmed', `Your slot is booked.${depositTxt}`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
     } finally {
@@ -667,20 +599,25 @@ export default function ReservationsScreen() {
   const vtCategory = selectedVt ? guessVehicleCategory(selectedVt.name) : null;
   const eligiblePlates = vtCategory ? plates.filter((p) => p.vehicleType === vtCategory) : plates;
 
-  const estimatedFee = (() => {
-    if (!wizard.startTime.trim() || !wizard.endTime.trim()) return null;
-    try {
-      const start = new Date(wizard.startTime.trim());
-      const end = new Date(wizard.endTime.trim());
-      const totalMs = end.getTime() - start.getTime();
-      if (totalMs <= 0) return null;
-      const hours = Math.floor(totalMs / 3600000);
-      const mins = Math.round((totalMs % 3600000) / 60000);
-      const duration = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins}m`;
-      return `${duration} · Fee calculated by hourly rate at checkout`;
-    } catch {
-      return null;
-    }
+  // Fee display built from server estimate
+  const estimatedFeeInfo = (() => {
+    const totalMs = endDateTime.getTime() - startDateTime.getTime();
+    if (totalMs <= 0) return null;
+    const hours2 = Math.floor(totalMs / 3600000);
+    const mins = Math.round((totalMs % 3600000) / 60000);
+    const duration = hours2 > 0 ? `${hours2}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins}m`;
+    if (fetchingFee) return { duration, depositText: 'Calculating...', remainingText: '' };
+    if (!feeEstimate) return { duration, depositText: '—', remainingText: '' };
+    // When the stay spans peak hours, show the regular + peak split; else a flat rate.
+    const rate = (feeEstimate.peakHours && feeEstimate.peakHours > 0)
+      ? `${feeEstimate.regularHours}h × ${fmtVND(feeEstimate.hourlyRate)} + ${feeEstimate.peakHours}h × ${fmtVND(feeEstimate.peakRate ?? 0)} (peak)`
+      : `${fmtVND(feeEstimate.hourlyRate)}/hr`;
+    return {
+      duration,
+      depositText: `Deposit now (15%): ${fmtVND(feeEstimate.depositAmount)}`,
+      remainingText: `Remaining at checkout: ${fmtVND(feeEstimate.remainingFee)}`,
+      rate,
+    };
   })();
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -764,28 +701,16 @@ export default function ReservationsScreen() {
                 )}
               </View>
 
-              {((r.gates && r.gates.length > 0) || r.fee) && (
+              {r.fee ? (
                 <View style={styles.metaBox}>
-                  {r.gates && r.gates.length > 0 && (
-                    <View style={styles.metaItem}>
-                      <Ionicons name="enter-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.metaText}>
-                        Entry gate:{' '}
-                        <Text style={styles.metaStrong}>{r.gates.map((g) => g.code).join(', ')}</Text>
-                        {r.gates[0].name ? ` · ${r.gates[0].name}` : ''}
-                      </Text>
-                    </View>
-                  )}
-                  {r.fee ? (
-                    <View style={styles.metaItem}>
-                      <Ionicons name="wallet-outline" size={14} color={Colors.textMuted} />
-                      <Text style={styles.metaText}>
-                        Paid: <Text style={styles.metaStrong}>{fmtVND(r.fee)}</Text>
-                      </Text>
-                    </View>
-                  ) : null}
+                  <View style={styles.metaItem}>
+                    <Ionicons name="wallet-outline" size={14} color={Colors.textMuted} />
+                    <Text style={styles.metaText}>
+                      Deposit paid: <Text style={styles.metaStrong}>{fmtVND(r.fee)}</Text>
+                    </Text>
+                  </View>
                 </View>
-              )}
+              ) : null}
 
               {(r.status === 'pending' || r.status === 'confirmed') && (
                 <Button
@@ -975,18 +900,11 @@ export default function ReservationsScreen() {
                         >
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.floorName, wizard.floorId === floor._id && { color: Colors.primary }]}>
-                              {floor.name || floor.code} {floor.levelNumber ? `(L${floor.levelNumber})` : ''}
+                              {floor.code}
                             </Text>
                             <Text style={styles.floorSub}>
                               {floor.availableSlots}/{floor.totalSlots} slots available
                             </Text>
-                            {floorHasEntryGate(floor) ? (
-                              <Text style={styles.floorGateHint}>
-                                Gate{floor.gates.length > 1 ? 's' : ''}: {floor.gates.map((g) => g.code).join(', ')}
-                              </Text>
-                            ) : (
-                              <Text style={styles.floorNoGateHint}>No gate available yet</Text>
-                            )}
                           </View>
                           <View style={[
                             styles.availBadge,
@@ -1004,37 +922,7 @@ export default function ReservationsScreen() {
                     )}
                   </View>
 
-                  {/* Gate info panel for selected floor */}
-                  {wizard.floorId && selectedFloor && floorHasEntryGate(selectedFloor) && (
-                    <View style={styles.gateInfoBox}>
-                      <Ionicons name="git-branch-outline" size={14} color={Colors.primary} style={{ marginTop: 1 }} />
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={styles.gateInfoTitle}>Gate Information</Text>
-                        {selectedFloor.gates.map((g: FloorGate) => (
-                          <Text key={g._id} style={styles.gateInfoRow}>
-                            <Text style={{ fontWeight: '800', fontFamily: 'monospace' }}>{g.code}</Text>
-                            {g.name ? ` — ${g.name}` : ''}
-                            {' · '}
-                            <Text style={{ color: Colors.textDim }}>
-                              {g.direction === 'in' ? 'Entry' : g.direction === 'out' ? 'Exit' : 'Entry & Exit'}
-                            </Text>
-                          </Text>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Floor has no entry gate → block booking with a clear message */}
-                  {wizard.floorId && selectedFloor && !floorHasEntryGate(selectedFloor) && (
-                    <View style={styles.errorBox}>
-                      <Ionicons name="alert-circle" size={16} color={Colors.error} style={{ marginRight: 6 }} />
-                      <Text style={styles.errorText}>
-                        This floor currently has no gate. Please choose another floor.
-                      </Text>
-                    </View>
-                  )}
-
-                  {wizard.floorId && selectedFloor && floorHasEntryGate(selectedFloor) ? (
+                  {wizard.floorId && selectedFloor ? (
                     <View style={{ gap: Spacing.md }}>
                       <Text style={styles.fieldLabel}>Select Parking Slot</Text>
                       
@@ -1432,138 +1320,143 @@ export default function ReservationsScreen() {
                       <Text style={styles.summaryKey}>Slot: </Text>
                       {displaySlotCode || slots.find((s) => s._id === wizard.slotId)?.code || wizard.slotId}
                     </Text>
-                    {selectedFloor?.gates && selectedFloor.gates.length > 0 && (
-                      <Text style={styles.summaryRow}>
-                        <Text style={styles.summaryKey}>Gate: </Text>
-                        {selectedFloor.gates.map((g: FloorGate) => `${g.code}${g.name ? ` (${g.name})` : ''}`).join(' / ')}
-                      </Text>
-                    )}
                   </View>
 
-                  {/* Date Selector */}
-                  <View style={{ gap: Spacing.xs }}>
-                    <Text style={styles.fieldLabel}>📅 Select Date</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
-                      {generateNext7Days().map((d, i) => {
-                        const isSelected = selDate.toDateString() === d.toDateString();
-                        const dayName = getDayName(d);
-                        const dayNum = String(d.getDate()).padStart(2, '0');
-                        const monName = getMonthName(d);
-                        return (
-                          <TouchableOpacity
-                            key={i}
-                            style={[styles.dateCard, isSelected && styles.dateCardActive]}
-                            onPress={() => handleDateChange(d)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.dateDayText, isSelected && styles.dateTextActive]}>{dayName}</Text>
-                            <Text style={[styles.dateNumberText, isSelected && styles.dateTextActive]}>{dayNum}</Text>
-                            <Text style={[styles.dateMonthText, isSelected && styles.dateMonthTextActive]}>{monName}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
+                  {Platform.OS === 'web' ? (
+                    /* ── Web fallback: native HTML datetime-local inputs ── */
+                    <>
+                      <View style={styles.dtButton}>
+                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(22,163,74,0.12)' }]}>
+                          <Ionicons name="enter-outline" size={18} color="#16a34a" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dtLabel}>CHECK-IN</Text>
+                          {/* @ts-ignore – HTML input, valid on web */}
+                          <input
+                            type="datetime-local"
+                            value={toDateTimeLocal(startDateTime)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const d = new Date(e.target.value);
+                              if (!isNaN(d.getTime())) applyDateTime('start', d);
+                            }}
+                            style={{
+                              background: 'transparent', border: 'none', outline: 'none',
+                              color: Colors.text, fontSize: 14, fontWeight: '700',
+                              fontFamily: 'inherit', cursor: 'pointer', width: '100%',
+                              colorScheme: 'dark',
+                            } as React.CSSProperties}
+                          />
+                        </View>
+                      </View>
 
-                  {/* Start Time Selector */}
-                  <View style={{ gap: Spacing.xs }}>
-                    <Text style={styles.fieldLabel}>⏰ Select Start Time</Text>
-                    {generateTimeSlots(selDate).length === 0 ? (
-                      <Text style={styles.hintText}>No times available for today. Please select a later date.</Text>
-                    ) : (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
-                        {generateTimeSlots(selDate).map((time) => {
-                          const isSelected = selTime === time;
-                          return (
-                            <TouchableOpacity
-                              key={time}
-                              style={[styles.timeChip, isSelected && styles.timeChipActive]}
-                              onPress={() => handleTimeChange(time)}
-                              activeOpacity={0.8}
-                            >
-                              <Text style={[styles.timeChipText, isSelected && styles.timeChipTextActive]}>
-                                {time}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    )}
-                  </View>
+                      <View style={styles.dtButton}>
+                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                          <Ionicons name="exit-outline" size={18} color={Colors.error} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dtLabel}>CHECK-OUT</Text>
+                          {/* @ts-ignore – HTML input, valid on web */}
+                          <input
+                            type="datetime-local"
+                            value={toDateTimeLocal(endDateTime)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const d = new Date(e.target.value);
+                              if (!isNaN(d.getTime())) applyDateTime('end', d);
+                            }}
+                            style={{
+                              background: 'transparent', border: 'none', outline: 'none',
+                              color: Colors.text, fontSize: 14, fontWeight: '700',
+                              fontFamily: 'inherit', cursor: 'pointer', width: '100%',
+                              colorScheme: 'dark',
+                            } as React.CSSProperties}
+                          />
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    /* ── Native: touchable buttons + DateTimePicker ── */
+                    <>
+                      <TouchableOpacity style={styles.dtButton} onPress={() => openPicker('start')} activeOpacity={0.75}>
+                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(22,163,74,0.12)' }]}>
+                          <Ionicons name="enter-outline" size={18} color="#16a34a" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dtLabel}>CHECK-IN</Text>
+                          <Text style={styles.dtValue}>{fmtPickerDate(startDateTime)}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={Colors.textDim} />
+                      </TouchableOpacity>
 
-                  {/* Duration Selector */}
-                  <View style={{ gap: Spacing.xs }}>
-                    <Text style={styles.fieldLabel}>⏳ Select Duration</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollPadding}>
-                      {([
-                        { value: 1, label: '1 hour' },
-                        { value: 2, label: '2 hours' },
-                        { value: 3, label: '3 hours' },
-                        { value: 4, label: '4 hours' },
-                        { value: 6, label: '6 hours' },
-                        { value: 8, label: '8 hours' },
-                        { value: 12, label: '12 hours' },
-                        { value: 24, label: '24 hours' },
-                        { value: 'flexible', label: 'Flexible (Pay at Checkout)' },
-                      ] as { value: number | 'flexible'; label: string }[]).map((dur) => {
-                        const isSelected = selDuration === dur.value;
-                        return (
-                          <TouchableOpacity
-                            key={dur.value}
-                            style={[styles.durationChip, isSelected && styles.durationChipActive]}
-                            onPress={() => handleDurationChange(dur.value)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.durationChipText, isSelected && styles.durationChipTextActive]}>
-                              {dur.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
+                      <TouchableOpacity style={styles.dtButton} onPress={() => openPicker('end')} activeOpacity={0.75}>
+                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                          <Ionicons name="exit-outline" size={18} color={Colors.error} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dtLabel}>CHECK-OUT</Text>
+                          <Text style={styles.dtValue}>{fmtPickerDate(endDateTime)}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={Colors.textDim} />
+                      </TouchableOpacity>
 
-                  <View style={styles.timelineSummaryCard}>
-                    <View style={styles.timelinePoint}>
-                      <Ionicons name="enter-outline" size={16} color="#16a34a" />
-                      <View style={{ marginLeft: 8 }}>
-                        <Text style={styles.timelineLabel}>Check-in Start Time</Text>
-                        <Text style={styles.timelineValueText}>
-                          {selDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' })} at {selTime}
+                      {/* Android: inline dialog (2 bước: date → time) */}
+                      {pickerState && Platform.OS === 'android' && (
+                        <DateTimePicker
+                          value={pickerState.tempDate}
+                          mode={pickerState.mode}
+                          display="default"
+                          onChange={onPickerChange}
+                        />
+                      )}
+
+                      {/* iOS: bottom sheet modal với spinner */}
+                      {pickerState && Platform.OS === 'ios' && (
+                        <Modal transparent animationType="slide">
+                          <View style={styles.pickerOverlay}>
+                            <View style={styles.pickerSheet}>
+                              <View style={styles.pickerHeader}>
+                                <TouchableOpacity onPress={() => setPickerState(null)}>
+                                  <Text style={{ color: Colors.error, fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+                                </TouchableOpacity>
+                                <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 14 }}>
+                                  {pickerState.target === 'start' ? 'Check-in Time' : 'Check-out Time'}
+                                </Text>
+                                <TouchableOpacity onPress={confirmIOSPicker}>
+                                  <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 14 }}>Done</Text>
+                                </TouchableOpacity>
+                              </View>
+                              <DateTimePicker
+                                value={pickerState.tempDate}
+                                mode="datetime"
+                                display="spinner"
+                                onChange={onPickerChange}
+                                style={{ height: 180 }}
+                              />
+                            </View>
+                          </View>
+                        </Modal>
+                      )}
+                    </>
+                  )}
+
+                  {estimatedFeeInfo ? (
+                    <View style={[styles.feeHintBox, { flexDirection: 'column', gap: 4 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
+                        <Text style={[styles.feeHintText, { fontWeight: '700' }]}>
+                          Duration: {estimatedFeeInfo.duration}
+                          {'rate' in estimatedFeeInfo ? ` · ${estimatedFeeInfo.rate}` : ''}
                         </Text>
                       </View>
-                    </View>
-                    
-                    <View style={styles.timelineConnector} />
-                    
-                    <View style={styles.timelinePoint}>
-                      <Ionicons name="exit-outline" size={16} color={selDuration === 'flexible' ? Colors.primary : Colors.error} />
-                      <View style={{ marginLeft: 8 }}>
-                        <Text style={styles.timelineLabel}>Check-out Deadline</Text>
-                         {selDuration === 'flexible' ? (
-                           <Text style={[styles.timelineValueText, { color: Colors.primary, fontWeight: '800' }]}>
-                             Flexible — Fee calculated at checkout
-                           </Text>
-                         ) : (
-                           <Text style={styles.timelineValueText}>
-                             {(() => {
-                               const [hours, mins] = selTime.split(':').map(Number);
-                               const start = new Date(selDate);
-                               start.setHours(hours, mins, 0, 0);
-                               const end = new Date(start);
-                               end.setHours(end.getHours() + (selDuration as number));
-                               return end.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' }) + ' at ' + String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0');
-                             })()}
-                           </Text>
-                         )}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 20 }}>
+                        <Ionicons name="wallet-outline" size={12} color="#f59e0b" />
+                        <Text style={[styles.feeHintText, { color: '#f59e0b' }]}>{estimatedFeeInfo.depositText}</Text>
                       </View>
-                    </View>
-                  </View>
-
-                  {estimatedFee ? (
-                    <View style={styles.feeHintBox}>
-                      <Ionicons name="cash-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.feeHintText}>{estimatedFee}</Text>
+                      {estimatedFeeInfo.remainingText ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 20 }}>
+                          <Ionicons name="checkmark-circle-outline" size={12} color="#10b981" />
+                          <Text style={[styles.feeHintText, { color: '#10b981' }]}>{estimatedFeeInfo.remainingText}</Text>
+                        </View>
+                      ) : null}
                     </View>
                   ) : null}
 
@@ -1815,8 +1708,6 @@ const styles = StyleSheet.create({
   },
   floorName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
   floorSub: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2 },
-  floorGateHint: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 2, fontWeight: '600' },
-  floorNoGateHint: { fontSize: FontSize.xs, color: Colors.error, marginTop: 2, fontWeight: '600' },
   availBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
   availBadgeOpen: { backgroundColor: 'rgba(22,163,74,0.12)' },
   availBadgeFull: { backgroundColor: 'rgba(239,68,68,0.12)' },
@@ -1867,17 +1758,6 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   feeHintText: { fontSize: FontSize.xs, color: Colors.primary, flex: 1 },
-  gateInfoBox: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: 'rgba(249,115,22,0.06)',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.2)',
-    padding: Spacing.md,
-  },
-  gateInfoTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
-  gateInfoRow: { fontSize: FontSize.sm, color: Colors.text },
   modalBtns: { flexDirection: 'row', gap: Spacing.sm },
 
   // ─── 3D Isometric Map Styles ───────────────────────────────────────────────
@@ -2261,118 +2141,59 @@ const styles = StyleSheet.create({
   horizontalScrollPadding: {
     paddingRight: 20,
   },
-  dateCard: {
-    backgroundColor: Colors.cardAlt,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 10,
+  // DateTimePicker button
+  dtButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    width: 75,
-  },
-  dateCardActive: {
-    borderColor: 'rgba(249,115,22,0.6)',
-    backgroundColor: 'rgba(249,115,22,0.1)',
-  },
-  dateDayText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-  },
-  dateNumberText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Colors.text,
-    marginVertical: 2,
-  },
-  dateMonthText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textMuted,
-  },
-  dateTextActive: {
-    color: Colors.primary,
-  },
-  dateMonthTextActive: {
-    color: 'rgba(249,115,22,0.85)',
-  },
-  timeChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.cardAlt,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  timeChipActive: {
-    backgroundColor: 'rgba(249,115,22,0.15)',
-    borderColor: Colors.primary,
-  },
-  timeChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    fontFamily: 'monospace',
-  },
-  timeChipTextActive: {
-    color: Colors.primary,
-  },
-  durationChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.cardAlt,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  durationChipActive: {
-    backgroundColor: 'rgba(249,115,22,0.15)',
-    borderColor: Colors.primary,
-  },
-  durationChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textMuted,
-  },
-  durationChipTextActive: {
-    color: Colors.primary,
-  },
-  timelineSummaryCard: {
+    gap: 12,
     backgroundColor: Colors.cardAlt,
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.lg,
-    marginVertical: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  timelinePoint: {
-    flexDirection: 'row',
+  dtIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  timelineLabel: {
-    fontSize: 10,
-    fontWeight: '800',
+  dtLabel: {
+    fontSize: 9,
+    fontWeight: '900',
     color: Colors.textDim,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    marginBottom: 3,
   },
-  timelineValueText: {
+  dtValue: {
     fontSize: FontSize.sm,
     fontWeight: '700',
     color: Colors.text,
-    marginTop: 2,
   },
-  timelineConnector: {
-    width: 2,
-    height: 16,
-    backgroundColor: Colors.border,
-    marginLeft: 7,
-    marginVertical: 2,
+  // iOS picker modal
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  pickerSheet: {
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+    overflow: 'hidden',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
 
   // Premium 2D Layout Styles

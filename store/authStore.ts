@@ -58,6 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             plateNumber: p.plateNumber ?? '',
             vehicleType: (p.vehicleType === 'motorcycle' ? 'motorcycle' : 'car') as 'car' | 'motorcycle',
             isDefault: p.isDefault ?? false,
+            qrCode: p.qrCode,
           }))
           .filter((p: LicensePlate) => Boolean(p.plateNumber)),
       };
