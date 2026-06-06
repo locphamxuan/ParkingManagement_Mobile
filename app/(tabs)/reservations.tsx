@@ -261,12 +261,6 @@ function InlineDateTimePicker({ value, onChange, label, accentColor = Colors.pri
   for (let i = 0; i < firstDay; i++) calCells.push(null);
   for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
 
-  // Pad to multiple of 7 to ensure rows always contain 7 cells
-  const totalCellsNeeded = Math.ceil(calCells.length / 7) * 7;
-  while (calCells.length < totalCellsNeeded) {
-    calCells.push(null);
-  }
-
   const isSelectedDay = (d: number | null) =>
     d !== null && d === selDay && viewYear === value.getFullYear() && viewMonth === value.getMonth();
   const isToday = (d: number | null) => {
@@ -326,34 +320,32 @@ function InlineDateTimePicker({ value, onChange, label, accentColor = Colors.pri
           <View style={dtStyles.calGrid}>
             {Array.from({ length: Math.ceil(calCells.length / 7) }, (_, rowIdx) => (
               <View key={rowIdx} style={dtStyles.calRow}>
-                {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
-                  if (day === null) {
-                    return <View key={colIdx} style={dtStyles.dayCell} />;
-                  }
-                  return (
-                    <TouchableOpacity
-                      key={colIdx}
-                      style={[
-                        dtStyles.dayCell,
-                        isSelectedDay(day) && { backgroundColor: accentColor, borderRadius: 100 },
-                        isToday(day) && !isSelectedDay(day) && dtStyles.todayCell,
-                      ]}
-                      onPress={() => {
+                {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => (
+                  <TouchableOpacity
+                    key={colIdx}
+                    style={[
+                      dtStyles.dayCell,
+                      isSelectedDay(day) && { backgroundColor: accentColor, borderRadius: 100 },
+                      isToday(day) && !isSelectedDay(day) && dtStyles.todayCell,
+                    ]}
+                    onPress={() => {
+                      if (day) {
                         setSelDay(day);
                         commit(viewYear, viewMonth, day, selHour, selMinute);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        dtStyles.dayCellText,
-                        isSelectedDay(day) && { color: '#fff', fontWeight: '800' },
-                        isToday(day) && !isSelectedDay(day) && { color: accentColor, fontWeight: '800' },
-                      ]}>
-                        {day}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                      }
+                    }}
+                    disabled={!day}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      dtStyles.dayCellText,
+                      isSelectedDay(day) && { color: '#fff', fontWeight: '800' },
+                      isToday(day) && !isSelectedDay(day) && { color: accentColor, fontWeight: '800' },
+                    ]}>
+                      {day ?? ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             ))}
           </View>
@@ -539,7 +531,11 @@ export default function ReservationsScreen() {
   const [filter, setFilter] = useState<FilterStatus>('booked');
 
   // Date range state
-  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [fromDate, setFromDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d;
+  });
   const [toDate, setToDate] = useState<Date | null>(null);
 
 
@@ -863,13 +859,12 @@ export default function ReservationsScreen() {
   );
 
   const finalFiltered = (() => {
+    const end = toDate ?? new Date();
+    const startOfDay = new Date(fromDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(end);
+    endOfDay.setHours(23, 59, 59, 999);
     return filtered.filter((r) => {
-      if (!fromDate) return true;
-      const end = toDate ?? new Date();
-      const startOfDay = new Date(fromDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(end);
-      endOfDay.setHours(23, 59, 59, 999);
       const d = new Date(r.startTime);
       return d >= startOfDay && d <= endOfDay;
     });
@@ -1045,7 +1040,7 @@ export default function ReservationsScreen() {
             <Text style={styles.modalTitle}>
               {step === 1 ? 'Step 1 — Building & Vehicle'
                 : step === 2 ? 'Step 2 — Floor & Slot'
-                  : 'Step 3 — Time & Confirmm'}
+                  : 'Step 3 — Time & Confirm'}
             </Text>
 
             {/* ── STEP 1 ────────────────────────────────────────────────────── */}
