@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   RefreshControl,
   TouchableOpacity,
   Modal,
@@ -198,23 +198,323 @@ function toWizardStr(date: Date): string {
   return `${d} ${t}`;
 }
 
-// Format for HTML input[type="datetime-local"] value: "YYYY-MM-DDTHH:MM"
-function toDateTimeLocal(date: Date): string {
-  const y = date.getFullYear();
-  const mo = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const h = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  return `${y}-${mo}-${d}T${h}:${mi}`;
+
+// ─── Custom Inline DateTime Picker ────────────────────────────────────────────
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAYS_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
 }
 
-// Human-readable display for a Date
-function fmtPickerDate(date: Date): string {
-  return date.toLocaleString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
-  });
+interface InlineDateTimePickerProps {
+  value: Date;
+  onChange: (date: Date) => void;
+  label: string;
+  accentColor?: string;
 }
+
+function InlineDateTimePicker({ value, onChange, label, accentColor = Colors.primary }: InlineDateTimePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(value.getFullYear());
+  const [viewMonth, setViewMonth] = useState(value.getMonth());
+  const [selDay, setSelDay] = useState(value.getDate());
+  const [selHour, setSelHour] = useState(value.getHours());
+  const [selMinute, setSelMinute] = useState(value.getMinutes());
+
+  // Sync internal state when value prop changes externally
+  React.useEffect(() => {
+    setViewYear(value.getFullYear());
+    setViewMonth(value.getMonth());
+    setSelDay(value.getDate());
+    setSelHour(value.getHours());
+    setSelMinute(value.getMinutes());
+  }, [value]);
+
+  const commit = (y: number, mo: number, d: number, h: number, mi: number) => {
+    const maxDay = getDaysInMonth(y, mo);
+    const safeDay = Math.min(d, maxDay);
+    onChange(new Date(y, mo, safeDay, h, mi, 0, 0));
+  };
+
+  const prevMonth = () => {
+    const nm = viewMonth === 0 ? 11 : viewMonth - 1;
+    const ny = viewMonth === 0 ? viewYear - 1 : viewYear;
+    setViewMonth(nm); setViewYear(ny);
+  };
+  const nextMonth = () => {
+    const nm = viewMonth === 11 ? 0 : viewMonth + 1;
+    const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
+    setViewMonth(nm); setViewYear(ny);
+  };
+
+  const daysInMonth = getDaysInMonth(viewYear, viewMonth);
+  const firstDay = getFirstDayOfMonth(viewYear, viewMonth);
+  // Build calendar grid (nulls = empty cells before first day)
+  const calCells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) calCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+
+  const isSelectedDay = (d: number | null) =>
+    d !== null && d === selDay && viewYear === value.getFullYear() && viewMonth === value.getMonth();
+  const isToday = (d: number | null) => {
+    if (d === null) return false;
+    const now = new Date();
+    return d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
+  };
+
+  const displayStr = value.toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
+
+  return (
+    <View>
+      {/* Trigger button */}
+      <TouchableOpacity
+        style={[dtStyles.trigger, open && { borderColor: accentColor }]}
+        onPress={() => setOpen((v) => !v)}
+        activeOpacity={0.8}
+      >
+        <View style={[dtStyles.iconCircle, { backgroundColor: `${accentColor}18` }]}>
+          <Ionicons name={label === 'CHECK-IN' ? 'enter-outline' : 'exit-outline'} size={18} color={accentColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={dtStyles.triggerLabel}>{label}</Text>
+          <Text style={dtStyles.triggerValue}>{displayStr}</Text>
+        </View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textDim} />
+      </TouchableOpacity>
+
+      {/* Inline expanded picker */}
+      {open && (
+        <View style={dtStyles.pickerPanel}>
+          {/* ── Month nav ── */}
+          <View style={dtStyles.monthNav}>
+            <TouchableOpacity onPress={prevMonth} style={dtStyles.navBtn}>
+              <Ionicons name="chevron-back" size={18} color={Colors.text} />
+            </TouchableOpacity>
+            <Text style={dtStyles.monthLabel}>{MONTHS[viewMonth]} {viewYear}</Text>
+            <TouchableOpacity onPress={nextMonth} style={dtStyles.navBtn}>
+              <Ionicons name="chevron-forward" size={18} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Day-of-week headers ── */}
+          <View style={dtStyles.dayHeaderRow}>
+            {DAYS_SHORT.map((d) => (
+              <Text key={d} style={dtStyles.dayHeader}>{d}</Text>
+            ))}
+          </View>
+
+          {/* ── Calendar grid — render theo từng hàng 7 ô cố định ── */}
+          <View style={dtStyles.calGrid}>
+            {Array.from({ length: Math.ceil(calCells.length / 7) }, (_, rowIdx) => (
+              <View key={rowIdx} style={dtStyles.calRow}>
+                {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => (
+                  <TouchableOpacity
+                    key={colIdx}
+                    style={[
+                      dtStyles.dayCell,
+                      isSelectedDay(day) && { backgroundColor: accentColor, borderRadius: 100 },
+                      isToday(day) && !isSelectedDay(day) && dtStyles.todayCell,
+                    ]}
+                    onPress={() => {
+                      if (day) {
+                        setSelDay(day);
+                        commit(viewYear, viewMonth, day, selHour, selMinute);
+                      }
+                    }}
+                    disabled={!day}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      dtStyles.dayCellText,
+                      isSelectedDay(day) && { color: '#fff', fontWeight: '800' },
+                      isToday(day) && !isSelectedDay(day) && { color: accentColor, fontWeight: '800' },
+                    ]}>
+                      {day ?? ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </View>
+
+          {/* ── Divider ── */}
+          <View style={dtStyles.divider} />
+
+          {/* ── Time pickers ── */}
+          <View style={dtStyles.timeRow}>
+            <Text style={dtStyles.timeRowLabel}>Time</Text>
+            <View style={dtStyles.timePickersRow}>
+              {/* Hour scroll */}
+              <View style={dtStyles.scrollColumn}>
+                <Text style={dtStyles.scrollColLabel}>HH</Text>
+                <ScrollView style={dtStyles.scrollBox} showsVerticalScrollIndicator={false}>
+                  {hours.map((h) => (
+                    <TouchableOpacity
+                      key={h}
+                      style={[dtStyles.scrollItem, selHour === h && { backgroundColor: `${accentColor}25`, borderRadius: 8 }]}
+                      onPress={() => { setSelHour(h); commit(viewYear, viewMonth, selDay, h, selMinute); }}
+                    >
+                      <Text style={[dtStyles.scrollItemText, selHour === h && { color: accentColor, fontWeight: '800' }]}>
+                        {String(h).padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <Text style={dtStyles.timeSep}>:</Text>
+
+              {/* Minute scroll */}
+              <View style={dtStyles.scrollColumn}>
+                <Text style={dtStyles.scrollColLabel}>MM</Text>
+                <ScrollView style={dtStyles.scrollBox} showsVerticalScrollIndicator={false}>
+                  {minutes.map((m) => (
+                    <TouchableOpacity
+                      key={m}
+                      style={[dtStyles.scrollItem, selMinute === m && { backgroundColor: `${accentColor}25`, borderRadius: 8 }]}
+                      onPress={() => { setSelMinute(m); commit(viewYear, viewMonth, selDay, selHour, m); }}
+                    >
+                      <Text style={[dtStyles.scrollItemText, selMinute === m && { color: accentColor, fontWeight: '800' }]}>
+                        {String(m).padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Done button ── */}
+          <TouchableOpacity
+            style={[dtStyles.doneBtn, { backgroundColor: accentColor }]}
+            onPress={() => setOpen(false)}
+          >
+            <Text style={dtStyles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const dtStyles = StyleSheet.create({
+  trigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.cardAlt,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  iconCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  triggerLabel: {
+    fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim,
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3,
+  },
+  triggerValue: {
+    fontSize: FontSize.sm, fontWeight: '700', color: Colors.text,
+  },
+  pickerPanel: {
+    backgroundColor: Colors.cardAlt,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginTop: 4,
+    gap: 8,
+  },
+  monthNav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 4, paddingBottom: 4,
+  },
+  navBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  monthLabel: {
+    fontSize: FontSize.base, fontWeight: '800', color: Colors.text,
+  },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    paddingBottom: 4,
+  },
+  dayHeader: {
+    flex: 1, textAlign: 'center',
+    fontSize: 10, fontWeight: '800', color: Colors.textDim,
+    textTransform: 'uppercase',
+  },
+  calGrid: {
+    gap: 2,
+  },
+  calRow: {
+    flexDirection: 'row',
+  },
+  dayCell: {
+    flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  dayCellText: {
+    fontSize: FontSize.sm, color: Colors.text,
+  },
+  todayCell: {
+    borderRadius: 100, borderWidth: 1.5, borderColor: Colors.primary,
+  },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  timeRow: { gap: 6 },
+  timeRowLabel: {
+    fontSize: 10, fontWeight: '800', color: Colors.textDim,
+    textTransform: 'uppercase', letterSpacing: 1,
+  },
+  timePickersRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+  },
+  scrollColumn: { flex: 1, alignItems: 'center', gap: 4 },
+  scrollColLabel: {
+    fontSize: 9, fontWeight: '900', color: Colors.textDim, letterSpacing: 1,
+  },
+  scrollBox: {
+    height: 120,
+    width: '100%',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  scrollItem: {
+    paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+  },
+  scrollItemText: {
+    fontSize: FontSize.sm, color: Colors.textMuted, fontFamily: 'monospace',
+  },
+  timeSep: {
+    fontSize: 20, fontWeight: '900', color: Colors.textDim,
+    marginTop: 28,
+  },
+  doneBtn: {
+    borderRadius: Radius.lg, paddingVertical: 10,
+    alignItems: 'center', justifyContent: 'center', marginTop: 4,
+  },
+  doneBtnText: {
+    fontSize: FontSize.sm, fontWeight: '800', color: '#fff',
+  },
+});
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -244,20 +544,6 @@ export default function ReservationsScreen() {
     const d = new Date(); d.setHours(1, 0, 0, 0); return d;
   });
 
-  // pickerState: which picker is open + Android 2-step mode (date → time)
-  const [pickerState, setPickerState] = useState<{
-    target: 'start' | 'end';
-    mode: 'date' | 'time';
-    tempDate: Date;
-  } | null>(null);
-
-  const openPicker = (target: 'start' | 'end') => {
-    setPickerState({
-      target,
-      mode: 'date',
-      tempDate: target === 'start' ? startDateTime : endDateTime,
-    });
-  };
 
   const applyDateTime = (target: 'start' | 'end', date: Date) => {
     if (target === 'start') {
@@ -267,37 +553,6 @@ export default function ReservationsScreen() {
       setEndDateTime(date);
       setWizard((prev) => ({ ...prev, endTime: toWizardStr(date) }));
     }
-  };
-
-  const onPickerChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (!pickerState) return;
-
-    if (Platform.OS === 'android') {
-      if (event.type === 'dismissed') { setPickerState(null); return; }
-      if (!selected) { setPickerState(null); return; }
-
-      if (pickerState.mode === 'date') {
-        // Step 1 done — merge selected date into tempDate, then show time picker
-        const merged = new Date(pickerState.tempDate);
-        merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-        setPickerState({ ...pickerState, mode: 'time', tempDate: merged });
-      } else {
-        // Step 2 done — merge selected time into tempDate, apply
-        const merged = new Date(pickerState.tempDate);
-        merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
-        applyDateTime(pickerState.target, merged);
-        setPickerState(null);
-      }
-    } else {
-      // iOS: update in real-time while spinner spins
-      if (selected) setPickerState({ ...pickerState, tempDate: selected });
-    }
-  };
-
-  const confirmIOSPicker = () => {
-    if (!pickerState) return;
-    applyDateTime(pickerState.target, pickerState.tempDate);
-    setPickerState(null);
   };
 
   // Fetch real fee estimate from server whenever step 3 times or vehicle type change.
@@ -675,11 +930,10 @@ export default function ReservationsScreen() {
                   {r.slot && (
                     <Text style={styles.slotTxt}>
                       Slot {r.slot.code}
-                      {r.slot.floor !== undefined ? ` · Floor ${
-                        typeof r.slot.floor === 'object'
-                          ? (r.slot.floor.name || r.slot.floor.code || '')
-                          : r.slot.floor
-                      }` : ''}
+                      {r.slot.floor !== undefined ? ` · Floor ${typeof r.slot.floor === 'object'
+                        ? (r.slot.floor.name || r.slot.floor.code || '')
+                        : r.slot.floor
+                        }` : ''}
                     </Text>
                   )}
                 </View>
@@ -751,7 +1005,7 @@ export default function ReservationsScreen() {
             <Text style={styles.modalTitle}>
               {step === 1 ? 'Step 1 — Building & Vehicle'
                 : step === 2 ? 'Step 2 — Floor & Slot'
-                : 'Step 3 — Time & Confirm'}
+                  : 'Step 3 — Time & Confirmm'}
             </Text>
 
             {/* ── STEP 1 ────────────────────────────────────────────────────── */}
@@ -925,7 +1179,7 @@ export default function ReservationsScreen() {
                   {wizard.floorId && selectedFloor ? (
                     <View style={{ gap: Spacing.md }}>
                       <Text style={styles.fieldLabel}>Select Parking Slot</Text>
-                      
+
                       {wizard.slotId ? (
                         <View style={styles.selectedSlotConfirmBox}>
                           <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
@@ -1026,237 +1280,237 @@ export default function ReservationsScreen() {
                                 const fontSize3D = slotWidth < 60 ? 9 : 11;
 
                                 const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically(slots);
-                                 const getSlotSymbol = (sItem: SlotItem) => {
-                                   if (sItem.vehicleType?.name) {
-                                     const cat = guessVehicleCategory(sItem.vehicleType.name);
-                                     if (cat === 'motorcycle') return '🏍️';
-                                     return '🚗';
-                                   }
-                                   const selectedVt = vehicleTypes.find(vt => vt._id === wizard.vehicleTypeId);
-                                   if (selectedVt) {
-                                     const cat = guessVehicleCategory(selectedVt.name);
-                                     if (cat === 'motorcycle') return '🏍️';
-                                   }
-                                   return '🚗';
-                                 };
-
-                                 if (viewMode === '2D') {
-                                   return (
-                                     <ScrollView 
-                                       horizontal 
-                                       showsHorizontalScrollIndicator={false} 
-                                       contentContainerStyle={styles.scroll2DHorizontal}
-                                     >
-                                       <ScrollView 
-                                         showsVerticalScrollIndicator={false}
-                                         contentContainerStyle={styles.scroll2DVertical}
-                                       >
-                                         <View style={styles.basement2DContainer}>
-                                           {/* DÃY T (TOP ROW) */}
-                                           <View style={styles.rowHeaderRow2D}>
-                                             <Text style={styles.rowHeader2D}>DÃY T (TOP ROW)</Text>
-                                           </View>
-                                           <View style={styles.parkingLane2D}>
-                                             {topRowSlots.map((slot) => {
-                                               const isAvailable = slot.status === 'available';
-                                               const isSelected = wizard.slotId === slot._id;
-                                               return (
-                                                 <TouchableOpacity
-                                                   key={slot._id}
-                                                   style={[
-                                                     styles.slotCell2D,
-                                                     { width: slotWidth + 12, height: slotHeight + 12 },
-                                                     isSelected && styles.slotCell2DSelected,
-                                                     !isAvailable && styles.slotCell2DDisabled,
-                                                   ]}
-                                                   onPress={() => {
-                                                     if (isAvailable) {
-                                                       setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                       setDisplaySlotCode(slot.code);
-                                                     }
-                                                   }}
-                                                   disabled={!isAvailable}
-                                                   activeOpacity={0.8}
-                                                 >
-                                                   {isAvailable ? (
-                                                     <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
-                                                       {slot.code}
-                                                     </Text>
-                                                   ) : (
-                                                     <View style={styles.slotOccupiedContainer2D}>
-                                                       <Text style={styles.slotCode2DDisabledTop}>
-                                                          {slot.code}
-                                                       </Text>
-                                                       <Text style={styles.slotVehicleEmoji2D}>
-                                                         {getSlotSymbol(slot)}
-                                                       </Text>
-                                                     </View>
-                                                   )}
-                                                 </TouchableOpacity>
-                                               );
-                                             })}
-                                           </View>
-
-                                           {/* LÀN ĐƯỜNG XE CHẠY Ở GIỮA */}
-                                           <View style={styles.drivewayLine2D}>
-                                             <Text style={styles.drivewayArrow2D}>◀── LỐI VÀO (IN)</Text>
-                                             <View style={styles.dashedDivider2D} />
-                                             <Text style={styles.drivewayText2D}>ĐƯỜNG DI CHUYỂN</Text>
-                                             <View style={styles.dashedDivider2D} />
-                                             <Text style={styles.drivewayArrow2D}>LỐI RA (OUT) ──▶</Text>
-                                           </View>
-
-                                           {/* DÃY T (BOTTOM ROW) */}
-                                           <View style={styles.rowHeaderRow2D}>
-                                             <Text style={styles.rowHeader2D}>DÃY T (BOTTOM ROW)</Text>
-                                           </View>
-                                           <View style={styles.parkingLane2D}>
-                                             {bottomRowSlots.map((slot) => {
-                                               const isAvailable = slot.status === 'available';
-                                               const isSelected = wizard.slotId === slot._id;
-                                               return (
-                                                 <TouchableOpacity
-                                                   key={slot._id}
-                                                   style={[
-                                                     styles.slotCell2D,
-                                                     { width: slotWidth + 12, height: slotHeight + 12 },
-                                                     isSelected && styles.slotCell2DSelected,
-                                                     !isAvailable && styles.slotCell2DDisabled,
-                                                   ]}
-                                                   onPress={() => {
-                                                     if (isAvailable) {
-                                                       setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                       setDisplaySlotCode(slot.code);
-                                                     }
-                                                   }}
-                                                   disabled={!isAvailable}
-                                                   activeOpacity={0.8}
-                                                 >
-                                                   {isAvailable ? (
-                                                     <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
-                                                       {slot.code}
-                                                     </Text>
-                                                   ) : (
-                                                     <View style={styles.slotOccupiedContainer2D}>
-                                                       <Text style={styles.slotCode2DDisabledTop}>
-                                                         {slot.code}
-                                                       </Text>
-                                                       <Text style={styles.slotVehicleEmoji2D}>
-                                                         {getSlotSymbol(slot)}
-                                                       </Text>
-                                                     </View>
-                                                   )}
-                                                 </TouchableOpacity>
-                                               );
-                                             })}
-                                           </View>
-                                         </View>
-                                       </ScrollView>
-                                     </ScrollView>
-                                   );
-                                 } else {
-                                   return (
-                                     <ScrollView 
-                                       horizontal 
-                                       showsHorizontalScrollIndicator={false} 
-                                       contentContainerStyle={styles.scroll3DHorizontal}
-                                     >
-                                       <ScrollView 
-                                         showsVerticalScrollIndicator={false}
-                                         contentContainerStyle={styles.scroll3DVertical}
-                                       >
-                                         <View style={styles.basement3DContainer}>
-                                           <View style={[
-                                             styles.isometricCanvas,
-                                             {
-                                               transform: [
-                                                 { perspective: 900 },
-                                                 { rotateX: '52deg' },
-                                                 { rotateZ: '-35deg' },
-                                                 { scale: 0.58 }
-                                               ]
-                                             }
-                                           ]}>
-                                             {/* Cột bê tông hầm xe */}
-                                             <View style={[styles.basementColumn, { top: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
-                                             <View style={[styles.basementColumn, { bottom: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
-
-                                             {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
-                                             <View style={styles.basementLanesRow}>
-                                               
-                                               {/* DÃY BÊN TRÁI (Left Parking Lane - Bottom Row) */}
-                                               <View style={styles.parkingLane3D}>
-                                                 {bottomRowSlots.map((slot) => {
-                                                   const isAvailable = slot.status === 'available';
-                                                   const isSelected = wizard.slotId === slot._id;
-                                                   
-                                                   return (
-                                                     <TouchableOpacity
-                                                       key={slot._id}
-                                                       style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                                       onPress={() => {
-                                                         if (isAvailable) {
-                                                           setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                           setDisplaySlotCode(slot.code);
-                                                         }
-                                                       }}
-                                                       disabled={!isAvailable}
-                                                       activeOpacity={0.8}
-                                                     >
-                                                       <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
-                                                         <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                                         {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
-                                                       </View>
-                                                       <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
-                                                       <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
-                                                     </TouchableOpacity>
-                                                   );
-                                                 })}
-                                               </View>
-
-                                               {/* ĐƯỜNG XE CHẠY Ở GIỮA (Driveway Space) */}
-                                               <View style={styles.drivewayLine3D}>
-                                                 <View style={styles.dashedDivider} />
-                                               </View>
-
-                                               {/* DÃY BÊN PHẢI (Right Parking Lane - Top Row) */}
-                                               <View style={styles.parkingLane3D}>
-                                                 {topRowSlots.map((slot) => {
-                                                   const isAvailable = slot.status === 'available';
-                                                   const isSelected = wizard.slotId === slot._id;
-                                                   
-                                                   return (
-                                                     <TouchableOpacity
-                                                       key={slot._id}
-                                                       style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                                       onPress={() => {
-                                                         if (isAvailable) {
-                                                           setWizard((p) => ({ ...p, slotId: slot._id }));
-                                                           setDisplaySlotCode(slot.code);
-                                                         }
-                                                       }}
-                                                       disabled={!isAvailable}
-                                                       activeOpacity={0.8}
-                                                     >
-                                                       <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
-                                                         <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                                         {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
-                                                       </View>
-                                                       <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
-                                                       <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
-                                                     </TouchableOpacity>
-                                                   );
-                                                 })}
-                                               </View>
-
-                                             </View>
-                                           </View>
-                                         </View>
-                                        </ScrollView>
-                                      </ScrollView>
-                                    );
+                                const getSlotSymbol = (sItem: SlotItem) => {
+                                  if (sItem.vehicleType?.name) {
+                                    const cat = guessVehicleCategory(sItem.vehicleType.name);
+                                    if (cat === 'motorcycle') return '🏍️';
+                                    return '🚗';
                                   }
-                                })()}
+                                  const selectedVt = vehicleTypes.find(vt => vt._id === wizard.vehicleTypeId);
+                                  if (selectedVt) {
+                                    const cat = guessVehicleCategory(selectedVt.name);
+                                    if (cat === 'motorcycle') return '🏍️';
+                                  }
+                                  return '🚗';
+                                };
+
+                                if (viewMode === '2D') {
+                                  return (
+                                    <ScrollView
+                                      horizontal
+                                      showsHorizontalScrollIndicator={false}
+                                      contentContainerStyle={styles.scroll2DHorizontal}
+                                    >
+                                      <ScrollView
+                                        showsVerticalScrollIndicator={false}
+                                        contentContainerStyle={styles.scroll2DVertical}
+                                      >
+                                        <View style={styles.basement2DContainer}>
+                                          {/* DÃY T (TOP ROW) */}
+                                          <View style={styles.rowHeaderRow2D}>
+                                            <Text style={styles.rowHeader2D}>DÃY T (TOP ROW)</Text>
+                                          </View>
+                                          <View style={styles.parkingLane2D}>
+                                            {topRowSlots.map((slot) => {
+                                              const isAvailable = slot.status === 'available';
+                                              const isSelected = wizard.slotId === slot._id;
+                                              return (
+                                                <TouchableOpacity
+                                                  key={slot._id}
+                                                  style={[
+                                                    styles.slotCell2D,
+                                                    { width: slotWidth + 12, height: slotHeight + 12 },
+                                                    isSelected && styles.slotCell2DSelected,
+                                                    !isAvailable && styles.slotCell2DDisabled,
+                                                  ]}
+                                                  onPress={() => {
+                                                    if (isAvailable) {
+                                                      setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                      setDisplaySlotCode(slot.code);
+                                                    }
+                                                  }}
+                                                  disabled={!isAvailable}
+                                                  activeOpacity={0.8}
+                                                >
+                                                  {isAvailable ? (
+                                                    <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                                      {slot.code}
+                                                    </Text>
+                                                  ) : (
+                                                    <View style={styles.slotOccupiedContainer2D}>
+                                                      <Text style={styles.slotCode2DDisabledTop}>
+                                                        {slot.code}
+                                                      </Text>
+                                                      <Text style={styles.slotVehicleEmoji2D}>
+                                                        {getSlotSymbol(slot)}
+                                                      </Text>
+                                                    </View>
+                                                  )}
+                                                </TouchableOpacity>
+                                              );
+                                            })}
+                                          </View>
+
+                                          {/* LÀN ĐƯỜNG XE CHẠY Ở GIỮA */}
+                                          <View style={styles.drivewayLine2D}>
+                                            <Text style={styles.drivewayArrow2D}>◀── LỐI VÀO (IN)</Text>
+                                            <View style={styles.dashedDivider2D} />
+                                            <Text style={styles.drivewayText2D}>ĐƯỜNG DI CHUYỂN</Text>
+                                            <View style={styles.dashedDivider2D} />
+                                            <Text style={styles.drivewayArrow2D}>LỐI RA (OUT) ──▶</Text>
+                                          </View>
+
+                                          {/* DÃY T (BOTTOM ROW) */}
+                                          <View style={styles.rowHeaderRow2D}>
+                                            <Text style={styles.rowHeader2D}>DÃY T (BOTTOM ROW)</Text>
+                                          </View>
+                                          <View style={styles.parkingLane2D}>
+                                            {bottomRowSlots.map((slot) => {
+                                              const isAvailable = slot.status === 'available';
+                                              const isSelected = wizard.slotId === slot._id;
+                                              return (
+                                                <TouchableOpacity
+                                                  key={slot._id}
+                                                  style={[
+                                                    styles.slotCell2D,
+                                                    { width: slotWidth + 12, height: slotHeight + 12 },
+                                                    isSelected && styles.slotCell2DSelected,
+                                                    !isAvailable && styles.slotCell2DDisabled,
+                                                  ]}
+                                                  onPress={() => {
+                                                    if (isAvailable) {
+                                                      setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                      setDisplaySlotCode(slot.code);
+                                                    }
+                                                  }}
+                                                  disabled={!isAvailable}
+                                                  activeOpacity={0.8}
+                                                >
+                                                  {isAvailable ? (
+                                                    <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                                      {slot.code}
+                                                    </Text>
+                                                  ) : (
+                                                    <View style={styles.slotOccupiedContainer2D}>
+                                                      <Text style={styles.slotCode2DDisabledTop}>
+                                                        {slot.code}
+                                                      </Text>
+                                                      <Text style={styles.slotVehicleEmoji2D}>
+                                                        {getSlotSymbol(slot)}
+                                                      </Text>
+                                                    </View>
+                                                  )}
+                                                </TouchableOpacity>
+                                              );
+                                            })}
+                                          </View>
+                                        </View>
+                                      </ScrollView>
+                                    </ScrollView>
+                                  );
+                                } else {
+                                  return (
+                                    <ScrollView
+                                      horizontal
+                                      showsHorizontalScrollIndicator={false}
+                                      contentContainerStyle={styles.scroll3DHorizontal}
+                                    >
+                                      <ScrollView
+                                        showsVerticalScrollIndicator={false}
+                                        contentContainerStyle={styles.scroll3DVertical}
+                                      >
+                                        <View style={styles.basement3DContainer}>
+                                          <View style={[
+                                            styles.isometricCanvas,
+                                            {
+                                              transform: [
+                                                { perspective: 900 },
+                                                { rotateX: '52deg' },
+                                                { rotateZ: '-35deg' },
+                                                { scale: 0.58 }
+                                              ]
+                                            }
+                                          ]}>
+                                            {/* Cột bê tông hầm xe */}
+                                            <View style={[styles.basementColumn, { top: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
+                                            <View style={[styles.basementColumn, { bottom: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
+
+                                            {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
+                                            <View style={styles.basementLanesRow}>
+
+                                              {/* DÃY BÊN TRÁI (Left Parking Lane - Bottom Row) */}
+                                              <View style={styles.parkingLane3D}>
+                                                {bottomRowSlots.map((slot) => {
+                                                  const isAvailable = slot.status === 'available';
+                                                  const isSelected = wizard.slotId === slot._id;
+
+                                                  return (
+                                                    <TouchableOpacity
+                                                      key={slot._id}
+                                                      style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
+                                                      onPress={() => {
+                                                        if (isAvailable) {
+                                                          setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                          setDisplaySlotCode(slot.code);
+                                                        }
+                                                      }}
+                                                      disabled={!isAvailable}
+                                                      activeOpacity={0.8}
+                                                    >
+                                                      <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
+                                                        <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
+                                                        {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
+                                                      </View>
+                                                      <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
+                                                      <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
+                                                    </TouchableOpacity>
+                                                  );
+                                                })}
+                                              </View>
+
+                                              {/* ĐƯỜNG XE CHẠY Ở GIỮA (Driveway Space) */}
+                                              <View style={styles.drivewayLine3D}>
+                                                <View style={styles.dashedDivider} />
+                                              </View>
+
+                                              {/* DÃY BÊN PHẢI (Right Parking Lane - Top Row) */}
+                                              <View style={styles.parkingLane3D}>
+                                                {topRowSlots.map((slot) => {
+                                                  const isAvailable = slot.status === 'available';
+                                                  const isSelected = wizard.slotId === slot._id;
+
+                                                  return (
+                                                    <TouchableOpacity
+                                                      key={slot._id}
+                                                      style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
+                                                      onPress={() => {
+                                                        if (isAvailable) {
+                                                          setWizard((p) => ({ ...p, slotId: slot._id }));
+                                                          setDisplaySlotCode(slot.code);
+                                                        }
+                                                      }}
+                                                      disabled={!isAvailable}
+                                                      activeOpacity={0.8}
+                                                    >
+                                                      <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
+                                                        <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
+                                                        {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
+                                                      </View>
+                                                      <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
+                                                      <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
+                                                    </TouchableOpacity>
+                                                  );
+                                                })}
+                                              </View>
+
+                                            </View>
+                                          </View>
+                                        </View>
+                                      </ScrollView>
+                                    </ScrollView>
+                                  );
+                                }
+                              })()}
                             </View>
 
                             {/* Footer Actions */}
@@ -1291,172 +1545,132 @@ export default function ReservationsScreen() {
 
             {/* ── STEP 3 ────────────────────────────────────────────────────── */}
             {step === 3 && (
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.wizardScrollView}>
                 <View style={{ gap: Spacing.md, paddingBottom: Spacing.lg }}>
 
-                  <View style={styles.summaryCard}>
-                    <Text style={styles.summaryTitle}>Summary</Text>
-                    <Text style={styles.summaryRow}>
-                      <Text style={styles.summaryKey}>Building: </Text>
-                      {selectedBuilding?.name ?? wizard.buildingId}
-                    </Text>
-                    <Text style={styles.summaryRow}>
-                      <Text style={styles.summaryKey}>Plate: </Text>
-                      {wizard.plateNumber}
-                      {(() => {
-                        const selectedPlate = plates.find((p) => p.plateNumber === wizard.plateNumber);
-                        return selectedPlate
-                          ? selectedPlate.vehicleType === 'car'
-                            ? ' (🚗 Car)'
-                            : ' (🏍️ Motorcycle)'
-                          : '';
-                      })()}
-                    </Text>
-                    <Text style={styles.summaryRow}>
-                      <Text style={styles.summaryKey}>Floor: </Text>
-                      {selectedFloor ? `${selectedFloor.name || selectedFloor.code}` : '—'}
-                    </Text>
-                    <Text style={styles.summaryRow}>
-                      <Text style={styles.summaryKey}>Slot: </Text>
-                      {displaySlotCode || slots.find((s) => s._id === wizard.slotId)?.code || wizard.slotId}
-                    </Text>
+                  <View style={styles.newSummaryCard}>
+                    <View style={styles.summaryHeader}>
+                      <Ionicons name="receipt-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.newSummaryTitle}>Reservation Summary</Text>
+                    </View>
+
+                    <View style={styles.summaryGrid}>
+                      <View style={styles.summaryItem}>
+                        <View style={styles.summaryIconBox}>
+                          <Ionicons name="business-outline" size={16} color={Colors.textDim} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.summaryItemLabel}>BUILDING</Text>
+                          <Text style={styles.summaryItemValue} numberOfLines={1}>
+                            {selectedBuilding?.name ?? wizard.buildingId}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.summaryItem}>
+                        <View style={styles.summaryIconBox}>
+                          <Ionicons name="car-outline" size={16} color={Colors.textDim} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.summaryItemLabel}>VEHICLE & PLATE</Text>
+                          <Text style={styles.summaryItemValue} numberOfLines={1}>
+                            {wizard.plateNumber}
+                            {(() => {
+                              const selectedPlate = plates.find((p) => p.plateNumber === wizard.plateNumber);
+                              return selectedPlate
+                                ? selectedPlate.vehicleType === 'car'
+                                  ? ' (🚗 Car)'
+                                  : ' (🏍️ Motorcycle)'
+                                : '';
+                            })()}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.summaryItem}>
+                        <View style={styles.summaryIconBox}>
+                          <Ionicons name="location-outline" size={16} color={Colors.textDim} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.summaryItemLabel}>PARKING SPOT</Text>
+                          <Text style={styles.summaryItemValue}>
+                            Floor {selectedFloor ? `${selectedFloor.name || selectedFloor.code}` : '—'} · Slot {displaySlotCode || slots.find((s) => s._id === wizard.slotId)?.code || wizard.slotId}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
 
-                  {Platform.OS === 'web' ? (
-                    /* ── Web fallback: native HTML datetime-local inputs ── */
-                    <>
-                      <View style={styles.dtButton}>
-                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(22,163,74,0.12)' }]}>
-                          <Ionicons name="enter-outline" size={18} color="#16a34a" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.dtLabel}>CHECK-IN</Text>
-                          {/* @ts-ignore – HTML input, valid on web */}
-                          <input
-                            type="datetime-local"
-                            value={toDateTimeLocal(startDateTime)}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                              const d = new Date(e.target.value);
-                              if (!isNaN(d.getTime())) applyDateTime('start', d);
-                            }}
-                            style={{
-                              background: 'transparent', border: 'none', outline: 'none',
-                              color: Colors.text, fontSize: 14, fontWeight: '700',
-                              fontFamily: 'inherit', cursor: 'pointer', width: '100%',
-                              colorScheme: 'dark',
-                            } as React.CSSProperties}
-                          />
-                        </View>
-                      </View>
+                  <InlineDateTimePicker
+                    value={startDateTime}
+                    onChange={(date) => applyDateTime('start', date)}
+                    label="CHECK-IN"
+                    accentColor="#16a34a"
+                  />
 
-                      <View style={styles.dtButton}>
-                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
-                          <Ionicons name="exit-outline" size={18} color={Colors.error} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.dtLabel}>CHECK-OUT</Text>
-                          {/* @ts-ignore – HTML input, valid on web */}
-                          <input
-                            type="datetime-local"
-                            value={toDateTimeLocal(endDateTime)}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                              const d = new Date(e.target.value);
-                              if (!isNaN(d.getTime())) applyDateTime('end', d);
-                            }}
-                            style={{
-                              background: 'transparent', border: 'none', outline: 'none',
-                              color: Colors.text, fontSize: 14, fontWeight: '700',
-                              fontFamily: 'inherit', cursor: 'pointer', width: '100%',
-                              colorScheme: 'dark',
-                            } as React.CSSProperties}
-                          />
-                        </View>
-                      </View>
-                    </>
-                  ) : (
-                    /* ── Native: touchable buttons + DateTimePicker ── */
-                    <>
-                      <TouchableOpacity style={styles.dtButton} onPress={() => openPicker('start')} activeOpacity={0.75}>
-                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(22,163,74,0.12)' }]}>
-                          <Ionicons name="enter-outline" size={18} color="#16a34a" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.dtLabel}>CHECK-IN</Text>
-                          <Text style={styles.dtValue}>{fmtPickerDate(startDateTime)}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={Colors.textDim} />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity style={styles.dtButton} onPress={() => openPicker('end')} activeOpacity={0.75}>
-                        <View style={[styles.dtIconCircle, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
-                          <Ionicons name="exit-outline" size={18} color={Colors.error} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.dtLabel}>CHECK-OUT</Text>
-                          <Text style={styles.dtValue}>{fmtPickerDate(endDateTime)}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={Colors.textDim} />
-                      </TouchableOpacity>
-
-                      {/* Android: inline dialog (2 bước: date → time) */}
-                      {pickerState && Platform.OS === 'android' && (
-                        <DateTimePicker
-                          value={pickerState.tempDate}
-                          mode={pickerState.mode}
-                          display="default"
-                          onChange={onPickerChange}
-                        />
-                      )}
-
-                      {/* iOS: bottom sheet modal với spinner */}
-                      {pickerState && Platform.OS === 'ios' && (
-                        <Modal transparent animationType="slide">
-                          <View style={styles.pickerOverlay}>
-                            <View style={styles.pickerSheet}>
-                              <View style={styles.pickerHeader}>
-                                <TouchableOpacity onPress={() => setPickerState(null)}>
-                                  <Text style={{ color: Colors.error, fontWeight: '700', fontSize: 14 }}>Cancel</Text>
-                                </TouchableOpacity>
-                                <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 14 }}>
-                                  {pickerState.target === 'start' ? 'Check-in Time' : 'Check-out Time'}
-                                </Text>
-                                <TouchableOpacity onPress={confirmIOSPicker}>
-                                  <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 14 }}>Done</Text>
-                                </TouchableOpacity>
-                              </View>
-                              <DateTimePicker
-                                value={pickerState.tempDate}
-                                mode="datetime"
-                                display="spinner"
-                                onChange={onPickerChange}
-                                style={{ height: 180 }}
-                              />
-                            </View>
-                          </View>
-                        </Modal>
-                      )}
-                    </>
-                  )}
+                  <InlineDateTimePicker
+                    value={endDateTime}
+                    onChange={(date) => applyDateTime('end', date)}
+                    label="CHECK-OUT"
+                    accentColor={Colors.error}
+                  />
 
                   {estimatedFeeInfo ? (
-                    <View style={[styles.feeHintBox, { flexDirection: 'column', gap: 4 }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
-                        <Text style={[styles.feeHintText, { fontWeight: '700' }]}>
-                          Duration: {estimatedFeeInfo.duration}
-                          {'rate' in estimatedFeeInfo ? ` · ${estimatedFeeInfo.rate}` : ''}
-                        </Text>
+                    <View style={styles.billingCard}>
+                      <View style={styles.billingHeader}>
+                        <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.billingTitle}>Fee Estimation</Text>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 20 }}>
-                        <Ionicons name="wallet-outline" size={12} color="#f59e0b" />
-                        <Text style={[styles.feeHintText, { color: '#f59e0b' }]}>{estimatedFeeInfo.depositText}</Text>
+
+                      <View style={styles.billingRow}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="time-outline" size={14} color={Colors.textDim} />
+                          <Text style={styles.billingLabel}>Duration</Text>
+                        </View>
+                        <Text style={styles.billingValue}>{estimatedFeeInfo.duration}</Text>
                       </View>
-                      {estimatedFeeInfo.remainingText ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 20 }}>
-                          <Ionicons name="checkmark-circle-outline" size={12} color="#10b981" />
-                          <Text style={[styles.feeHintText, { color: '#10b981' }]}>{estimatedFeeInfo.remainingText}</Text>
+
+                      {'rate' in estimatedFeeInfo && estimatedFeeInfo.rate ? (
+                        <View style={styles.billingRow}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="calculator-outline" size={14} color={Colors.textDim} />
+                            <Text style={styles.billingLabel}>Rate Applied</Text>
+                          </View>
+                          <Text style={[styles.billingValue, { fontSize: FontSize.xs, textAlign: 'right', flex: 1 }]} numberOfLines={2}>
+                            {estimatedFeeInfo.rate}
+                          </Text>
                         </View>
                       ) : null}
+
+                      <View style={styles.billingDivider} />
+
+                      {fetchingFee ? (
+                        <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 8 }} />
+                      ) : (
+                        <>
+                          <View style={[styles.billingRow, styles.depositRow]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name="wallet" size={15} color="#f59e0b" />
+                              <Text style={[styles.billingLabel, { color: '#f59e0b', fontWeight: '800' }]}>Deposit Now (15%)</Text>
+                            </View>
+                            <Text style={[styles.billingValue, { color: '#f59e0b', fontWeight: '900', fontSize: FontSize.md }]}>
+                              {feeEstimate ? fmtVND(feeEstimate.depositAmount) : '—'}
+                            </Text>
+                          </View>
+
+                          {feeEstimate && (
+                            <View style={styles.billingRow}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Ionicons name="checkmark-circle-outline" size={14} color="#10b981" />
+                                <Text style={styles.billingLabel}>Remaining at Checkout</Text>
+                              </View>
+                              <Text style={[styles.billingValue, { color: '#10b981', fontWeight: '700' }]}>
+                                {fmtVND(feeEstimate.remainingFee)}
+                              </Text>
+                            </View>
+                          )}
+                        </>
+                      )}
                     </View>
                   ) : null}
 
@@ -1592,6 +1806,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: Colors.border,
+    maxHeight: '90%',
   },
   modalHandle: {
     alignSelf: 'center',
@@ -2141,38 +2356,6 @@ const styles = StyleSheet.create({
   horizontalScrollPadding: {
     paddingRight: 20,
   },
-  // DateTimePicker button
-  dtButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  dtIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dtLabel: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 3,
-  },
-  dtValue: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text,
-  },
   // iOS picker modal
   pickerOverlay: {
     flex: 1,
@@ -2338,5 +2521,114 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: '700',
     color: Colors.textMuted,
+  },
+
+  // Step 3 Redesign Styles
+  newSummaryCard: {
+    backgroundColor: Colors.cardAlt,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  newSummaryTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  summaryGrid: {
+    gap: Spacing.md,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  summaryIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  summaryItemLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.textDim,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  summaryItemValue: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: 1,
+  },
+
+  // Billing estimation card
+  billingCard: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  billingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  billingTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  billingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  billingLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  billingValue: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  billingDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 2,
+  },
+  depositRow: {
+    backgroundColor: 'rgba(245,158,11,0.04)',
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.1)',
+  },
+  wizardScrollView: {
+    maxHeight: 380,
+    flexShrink: 1,
   },
 });
