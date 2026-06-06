@@ -10,16 +10,16 @@ export async function getWallet(token: string): Promise<WalletInfo> {
 }
 
 /**
- * Khởi tạo nạp ví qua PayOS.
- * Trả về checkoutUrl + qrCode để user thanh toán.
- * Số dư chỉ được cộng sau khi PayOS webhook xác nhận.
+ * Initialize top-up via PayOS.
+ * Returns checkoutUrl + qrCode for user payment.
+ * Balance is only credited after PayOS webhook confirmation.
  */
 export async function topup(token: string, amount: number): Promise<TopupResult> {
   const res = await apiRequest<{ data?: TopupResult }>(
     '/users/wallet/topup',
     { method: 'POST', body: { amount }, token },
   );
-  if (!res?.data?.checkoutUrl) throw new Error('Không nhận được link thanh toán từ PayOS');
+  if (!res?.data?.checkoutUrl) throw new Error('Payment link not received from PayOS');
   return res.data;
 }
 

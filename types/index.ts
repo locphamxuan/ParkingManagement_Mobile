@@ -25,8 +25,13 @@ export interface WalletInfo {
 /** Kết quả trả về khi tạo lệnh nạp ví qua PayOS */
 export interface TopupResult {
   checkoutUrl: string;  // URL trang thanh toán PayOS
-  qrCode: string;       // VietQR data string
+  qrCode: string;       // VietQR data string or URL
   orderCode: number;    // Mã đơn hàng PayOS
+  bin?: string;
+  accountNumber?: string;
+  accountName?: string;
+  description?: string;
+  amount: number;
 }
 
 export interface WalletTransaction {

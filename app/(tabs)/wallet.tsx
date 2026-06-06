@@ -12,16 +12,20 @@ import {
   Platform,
   Linking,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { useAuthStore } from '../../store/authStore';
 import { getWallet, topup, listTransactions, verifyTopup } from '../../services/wallet';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
-import type { WalletInfo, WalletTransaction } from '../../types';
+import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
+import { DateRangePicker } from '../../components/ui/DateRangePicker';
+
 
 const MIN_TOPUP = 2_000;
 const MAX_TOPUP = 10_000_000;
@@ -67,6 +71,11 @@ export default function WalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Date range state
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+
+
   // Topup modal
   const [showTopup, setShowTopup] = useState(false);
   const [topupAmount, setTopupAmount] = useState('');
@@ -78,6 +87,19 @@ export default function WalletScreen() {
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [orderCode, setOrderCode] = useState<number | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [topupResult, setTopupResult] = useState<TopupResult | null>(null);
+
+  const getBankName = (bin?: string) => {
+    if (!bin) return '—';
+    if (bin === '970422') return 'MB Bank (TMCP Quân Đội)';
+    return `Bank (BIN: ${bin})`;
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    if (!text) return;
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied', `${label} copied to clipboard!`);
+  };
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -120,6 +142,7 @@ export default function WalletScreen() {
       const result = await topup(token, amount);
       setShowTopup(false);
       setTopupAmount('');
+      setTopupResult(result);
       setPaymentUrl(result.checkoutUrl);
       setOrderCode(result.orderCode);
       setShowPaymentInfo(true);
@@ -128,10 +151,6 @@ export default function WalletScreen() {
     } finally {
       setTopupLoading(false);
     }
-  };
-
-  const openPayment = () => {
-    if (paymentUrl) Linking.openURL(paymentUrl);
   };
 
   // Actively reconcile with PayOS — fallback for when the webhook doesn't arrive.
@@ -144,6 +163,7 @@ export default function WalletScreen() {
         setShowPaymentInfo(false);
         setPaymentUrl(null);
         setOrderCode(null);
+        setTopupResult(null);
         await load();
         Alert.alert('Top-up Successful', `Your wallet has been credited.\nNew balance: ${fmtMoney(res.balance)}.`);
       } else if (res.status === 'cancelled' || res.status === 'expired') {
@@ -169,6 +189,7 @@ export default function WalletScreen() {
     setShowPaymentInfo(false);
     setPaymentUrl(null);
     setOrderCode(null);
+    setTopupResult(null);
     await load();
   };
 
@@ -212,13 +233,38 @@ export default function WalletScreen() {
         {/* Transactions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Transaction History</Text>
-          {transactions.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="receipt-outline" size={32} color={Colors.textDim} />
-              <Text style={styles.emptyText}>No transactions yet.</Text>
-            </View>
-          ) : (
-            transactions.map((tx) => (
+
+          <DateRangePicker
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromChange={setFromDate}
+            onToChange={setToDate}
+          />
+
+          {(() => {
+            const filteredTransactions = transactions.filter((tx) => {
+              if (!fromDate) return true;
+              const end = toDate ?? new Date();
+              const startOfDay = new Date(fromDate);
+              startOfDay.setHours(0, 0, 0, 0);
+              const endOfDay = new Date(end);
+              endOfDay.setHours(23, 59, 59, 999);
+              const d = new Date(tx.createdAt);
+              return d >= startOfDay && d <= endOfDay;
+            });
+
+            if (filteredTransactions.length === 0) {
+              return (
+                <View style={styles.emptyCard}>
+                  <Ionicons name="receipt-outline" size={32} color={Colors.textDim} />
+                  <Text style={styles.emptyText}>
+                    {transactions.length === 0 ? 'No transactions yet.' : 'No transactions found in this date range.'}
+                  </Text>
+                </View>
+              );
+            }
+
+            return filteredTransactions.map((tx) => (
               <View key={tx._id} style={styles.txRow}>
                 <View style={styles.txLeft}>
                   <Text style={styles.txDesc}>
@@ -236,8 +282,8 @@ export default function WalletScreen() {
                   </Text>
                 </View>
               </View>
-            ))
-          )}
+            ));
+          })()}
         </View>
       </ScrollView>
 
@@ -327,51 +373,121 @@ export default function WalletScreen() {
         onRequestClose={closePaymentInfo}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { gap: Spacing.lg }]}>
-            <View style={styles.modalHandle} />
-
-            <View style={styles.paymentIconWrap}>
-              <Ionicons name="qr-code-outline" size={48} color={Colors.primary} />
-            </View>
-
-            <View style={{ gap: 6 }}>
-              <Text style={styles.modalTitle}>Complete Payment</Text>
-              <Text style={styles.paymentDesc}>
-                Tap the button below to open the PayOS payment page.{'\n'}
-                Scan the QR code with your banking app to complete the transfer.
-              </Text>
-            </View>
-
-            <View style={styles.paymentInfoBox}>
-              <Ionicons name="information-circle-outline" size={15} color={Colors.blue} />
-              <Text style={styles.paymentInfoText}>
-                After paying, tap “I’ve Completed Payment” to confirm. Your balance usually
-                updates automatically, but this guarantees it’s credited.
-              </Text>
-            </View>
-
-            <View style={{ gap: Spacing.sm }}>
-              <Button
-                label="Open Payment Page"
-                onPress={openPayment}
-                size="lg"
-              />
-              <View style={styles.modalBtns}>
-                <Button
-                  label={verifying ? 'Verifying...' : 'I’ve Completed Payment'}
-                  onPress={handleVerify}
-                  loading={verifying}
-                  size="lg"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  label="Close"
-                  onPress={closePaymentInfo}
-                  variant="secondary"
-                  size="lg"
-                  style={{ flex: 1 }}
-                />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalSubTitle}>BANKING PAYMENT</Text>
+                <Text style={styles.modalTitle}>Wallet Top-Up</Text>
               </View>
+              <TouchableOpacity onPress={closePaymentInfo} style={styles.closeBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="close" size={24} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.paymentInstructions}>
+              Open your Banking app to scan the QR code below, or copy the transfer details to complete the transaction.
+            </Text>
+
+            <View style={styles.paymentContentRow}>
+              <View style={styles.qrColumn}>
+                <View style={styles.qrImageContainer}>
+                  {topupResult ? (
+                    <Image
+                      source={{
+                        uri: `https://img.vietqr.io/image/${topupResult.bin}-${topupResult.accountNumber}-qr_only.png?amount=${topupResult.amount}&addInfo=${encodeURIComponent(topupResult.description ?? '')}&accountName=${encodeURIComponent(topupResult.accountName ?? '')}`,
+                      }}
+                      style={styles.payQrImage}
+                      resizeMode="contain"
+                    />
+                  ) : null}
+                </View>
+                <Text style={styles.waitingStatusText}>
+                  <Text style={{ color: Colors.primary }}>● </Text>WAITING FOR PAYMENT...
+                </Text>
+              </View>
+
+              <View style={styles.detailsColumn}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>BENEFICIARY BANK</Text>
+                  <Text style={styles.detailValue}>{getBankName(topupResult?.bin)}</Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>ACCOUNT NUMBER</Text>
+                  <View style={styles.copyValueRow}>
+                    <Text style={styles.detailValueMonospace} numberOfLines={1}>
+                      {topupResult?.accountNumber || '—'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => copyToClipboard(topupResult?.accountNumber ?? '', 'Account number')}
+                      style={styles.copyBtn}
+                    >
+                      <Ionicons name="copy-outline" size={15} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>ACCOUNT HOLDER</Text>
+                  <Text style={styles.detailValue}>{topupResult?.accountName || '—'}</Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>AMOUNT</Text>
+                  <View style={styles.copyValueRow}>
+                    <Text style={[styles.detailValueMonospace, { color: Colors.primary, fontWeight: '900' }]} numberOfLines={1}>
+                      {topupResult?.amount ? fmtMoney(topupResult.amount) : '—'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => copyToClipboard(String(topupResult?.amount ?? ''), 'Amount')}
+                      style={styles.copyBtn}
+                    >
+                      <Ionicons name="copy-outline" size={15} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>TRANSFER CONTENT</Text>
+                  <View style={styles.copyValueRow}>
+                    <Text style={styles.detailValueMonospace} numberOfLines={1}>
+                      {topupResult?.description || '—'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => copyToClipboard(topupResult?.description ?? '', 'Description')}
+                      style={styles.copyBtn}
+                    >
+                      <Ionicons name="copy-outline" size={15} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.cautionBox}>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.warning} style={{ marginTop: 2 }} />
+              <Text style={styles.cautionText}>
+                Note: Please scan the QR code or enter the exact transfer details (especially Amount and Content) for the system to credit your balance automatically.
+              </Text>
+            </View>
+
+            <View style={styles.actionButtonsRow}>
+              <Button
+                label={verifying ? 'Verifying...' : 'VERIFY PAYMENT'}
+                onPress={handleVerify}
+                loading={verifying}
+                size="md"
+                style={styles.confirmPayBtn}
+                textStyle={{ fontSize: FontSize.xs }}
+              />
+              <Button
+                label="Cancel"
+                onPress={closePaymentInfo}
+                variant="secondary"
+                size="md"
+                style={styles.cancelPayBtn}
+                textStyle={{ fontSize: FontSize.xs }}
+              />
             </View>
           </View>
         </View>
@@ -535,17 +651,135 @@ const styles = StyleSheet.create({
   },
   modalBtns: { flexDirection: 'row', gap: Spacing.sm },
 
-  paymentIconWrap: { alignItems: 'center', paddingVertical: Spacing.md },
-  paymentDesc: { fontSize: FontSize.sm, color: Colors.textMuted, lineHeight: 20 },
-  paymentInfoBox: {
+  // Redesigned embedded payment modal styling
+  modalHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    backgroundColor: Colors.blueBg,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalSubTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  closeBtn: {
+    padding: Spacing.xs,
+  },
+  paymentInstructions: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    lineHeight: 18,
+  },
+  paymentContentRow: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+  },
+  qrColumn: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    width: 140,
+    gap: Spacing.xs,
+  },
+  qrImageContainer: {
+    backgroundColor: '#ffffff',
     borderRadius: Radius.md,
+    padding: Spacing.xs,
+  },
+  payQrImage: {
+    width: 128,
+    height: 128,
+  },
+  waitingStatusText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+  },
+  detailsColumn: {
+    flex: 1,
+    gap: 8,
+  },
+  detailItem: {
+    gap: 2,
+  },
+  detailLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.textDim,
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  detailValueMonospace: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    flex: 1,
+  },
+  copyValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.cardAlt,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.2)',
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  copyBtn: {
+    padding: 2,
+  },
+  cautionBox: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    backgroundColor: Colors.warningBg,
+    borderWidth: 1,
+    borderColor: Colors.warningBorder,
+    borderRadius: Radius.md,
     padding: Spacing.md,
   },
-  paymentInfoText: { flex: 1, fontSize: FontSize.xs, color: Colors.blue, lineHeight: 18 },
+  cautionText: {
+    flex: 1,
+    fontSize: 10,
+    color: Colors.warning,
+    lineHeight: 15,
+    fontWeight: '500',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  globeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.3)',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+  },
+  globeBtnText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.blue,
+  },
+  confirmPayBtn: {
+    flex: 1,
+    height: 44,
+  },
+  cancelPayBtn: {
+    flex: 0.5,
+    height: 44,
+  },
 });

@@ -14,6 +14,8 @@ import { listParkingHistory } from '../../services/history';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { ParkingSession } from '../../types';
+import { DateRangePicker } from '../../components/ui/DateRangePicker';
+
 
 function fmtDate(s?: string) {
   if (!s) return '—';
@@ -43,6 +45,11 @@ export default function HistoryScreen() {
   const [sessions, setSessions] = useState<ParkingSession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Date range state
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -80,13 +87,37 @@ export default function HistoryScreen() {
           </View>
         ) : null}
 
-        {sessions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="car-outline" size={32} color={Colors.textDim} />
-            <Text style={styles.emptyText}>No parking sessions yet.</Text>
-          </View>
-        ) : (
-          sessions.map((s) => (
+        <DateRangePicker
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromChange={setFromDate}
+          onToChange={setToDate}
+        />
+
+        {(() => {
+          const filteredSessions = sessions.filter((s) => {
+            if (!fromDate) return true;
+            const end = toDate ?? new Date();
+            const startOfDay = new Date(fromDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(end);
+            endOfDay.setHours(23, 59, 59, 999);
+            const d = new Date(s.checkIn);
+            return d >= startOfDay && d <= endOfDay;
+          });
+
+          if (filteredSessions.length === 0) {
+            return (
+              <View style={styles.emptyCard}>
+                <Ionicons name="car-outline" size={32} color={Colors.textDim} />
+                <Text style={styles.emptyText}>
+                  {sessions.length === 0 ? 'No parking sessions yet.' : 'No sessions found in this date range.'}
+                </Text>
+              </View>
+            );
+          }
+
+          return filteredSessions.map((s) => (
             <View key={s._id} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={{ flex: 1, gap: 4 }}>
@@ -129,8 +160,8 @@ export default function HistoryScreen() {
                 )}
               </View>
             </View>
-          ))
-        )}
+          ));
+        })()}
       </ScrollView>
     </SafeAreaView>
   );

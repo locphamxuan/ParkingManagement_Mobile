@@ -38,6 +38,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { Reservation } from '../../types';
+import { DateRangePicker } from '../../components/ui/DateRangePicker';
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -259,6 +261,12 @@ function InlineDateTimePicker({ value, onChange, label, accentColor = Colors.pri
   for (let i = 0; i < firstDay; i++) calCells.push(null);
   for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
 
+  // Pad to multiple of 7 to ensure rows always contain 7 cells
+  const totalCellsNeeded = Math.ceil(calCells.length / 7) * 7;
+  while (calCells.length < totalCellsNeeded) {
+    calCells.push(null);
+  }
+
   const isSelectedDay = (d: number | null) =>
     d !== null && d === selDay && viewYear === value.getFullYear() && viewMonth === value.getMonth();
   const isToday = (d: number | null) => {
@@ -318,32 +326,34 @@ function InlineDateTimePicker({ value, onChange, label, accentColor = Colors.pri
           <View style={dtStyles.calGrid}>
             {Array.from({ length: Math.ceil(calCells.length / 7) }, (_, rowIdx) => (
               <View key={rowIdx} style={dtStyles.calRow}>
-                {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => (
-                  <TouchableOpacity
-                    key={colIdx}
-                    style={[
-                      dtStyles.dayCell,
-                      isSelectedDay(day) && { backgroundColor: accentColor, borderRadius: 100 },
-                      isToday(day) && !isSelectedDay(day) && dtStyles.todayCell,
-                    ]}
-                    onPress={() => {
-                      if (day) {
+                {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
+                  if (day === null) {
+                    return <View key={colIdx} style={dtStyles.dayCell} />;
+                  }
+                  return (
+                    <TouchableOpacity
+                      key={colIdx}
+                      style={[
+                        dtStyles.dayCell,
+                        isSelectedDay(day) && { backgroundColor: accentColor, borderRadius: 100 },
+                        isToday(day) && !isSelectedDay(day) && dtStyles.todayCell,
+                      ]}
+                      onPress={() => {
                         setSelDay(day);
                         commit(viewYear, viewMonth, day, selHour, selMinute);
-                      }
-                    }}
-                    disabled={!day}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      dtStyles.dayCellText,
-                      isSelectedDay(day) && { color: '#fff', fontWeight: '800' },
-                      isToday(day) && !isSelectedDay(day) && { color: accentColor, fontWeight: '800' },
-                    ]}>
-                      {day ?? ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        dtStyles.dayCellText,
+                        isSelectedDay(day) && { color: '#fff', fontWeight: '800' },
+                        isToday(day) && !isSelectedDay(day) && { color: accentColor, fontWeight: '800' },
+                      ]}>
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ))}
           </View>
@@ -527,6 +537,11 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('booked');
+
+  // Date range state
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+
 
   // Wizard state
   const [showWizard, setShowWizard] = useState(false);
@@ -846,8 +861,23 @@ export default function ReservationsScreen() {
   const filtered = reservations.filter((r) =>
     filter === 'booked' ? !isCancelled(r.status) : isCancelled(r.status),
   );
+
+  const finalFiltered = (() => {
+    return filtered.filter((r) => {
+      if (!fromDate) return true;
+      const end = toDate ?? new Date();
+      const startOfDay = new Date(fromDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(end);
+      endOfDay.setHours(23, 59, 59, 999);
+      const d = new Date(r.startTime);
+      return d >= startOfDay && d <= endOfDay;
+    });
+  })();
+
   const selectedFloor = floors.find((f) => f._id === wizard.floorId);
   const selectedBuilding = buildings.find((b) => b._id === wizard.buildingId);
+
 
   // Plates filtered to match the selected vehicle type
   const selectedVt = vehicleTypes.find((vt) => vt._id === wizard.vehicleTypeId);
@@ -915,13 +945,23 @@ export default function ReservationsScreen() {
           ))}
         </View>
 
-        {filtered.length === 0 ? (
+        <DateRangePicker
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromChange={setFromDate}
+          onToChange={setToDate}
+        />
+
+        {finalFiltered.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="calendar-outline" size={32} color={Colors.textDim} />
-            <Text style={styles.emptyText}>No reservations found.</Text>
+            <Text style={styles.emptyText}>
+              {filtered.length === 0 ? 'No reservations found.' : 'No reservations found in this date range.'}
+            </Text>
           </View>
         ) : (
-          filtered.map((r) => (
+          finalFiltered.map((r) => (
+
             <View key={r._id} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={{ flex: 1, gap: 4 }}>
