@@ -16,8 +16,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import { listPackages, subscribe } from '../../services/longTerm';
+import type { LongTermPackage } from '../../types';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import {
   listReservations,
   createReservation,
@@ -39,6 +42,7 @@ import { Input } from '../../components/ui/Input';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { Reservation } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
+import { BookingDateModal } from '../../components/ui/BookingDateModal';
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,6 +81,48 @@ function guessVehicleCategory(name: string): 'car' | 'motorcycle' | null {
   if (lower.includes('motor') || lower.includes('moto') || lower.includes('xe máy') || lower.includes('xe may') || lower.includes('bike')) return 'motorcycle';
   if (lower.includes('car') || lower.includes('ô tô') || lower.includes('o to') || lower.includes('auto') || lower.includes('truck') || lower.includes('van') || lower.includes('suv')) return 'car';
   return null;
+}
+
+interface Particle {
+  id: number;
+  size: number;
+  color: string;
+}
+
+function GlitterParticle({ color, size }: { color: string; size: number }) {
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const opacity = useSharedValue(1);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.random() * 60 + 30;
+    
+    tx.value = withTiming(Math.cos(angle) * distance, { duration: 600 });
+    ty.value = withTiming(Math.sin(angle) * distance - 20, { duration: 600 });
+    opacity.value = withTiming(0, { duration: 600 });
+    scale.value = withTiming(0, { duration: 600 });
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: tx.value },
+        { translateY: ty.value },
+        { scale: scale.value },
+      ],
+      opacity: opacity.value,
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: color,
+      position: 'absolute',
+      alignSelf: 'center',
+    };
+  });
+
+  return <Animated.View style={animatedStyle} />;
 }
 
 interface GroupedRow {
@@ -201,322 +247,6 @@ function toWizardStr(date: Date): string {
 }
 
 
-// ─── Custom Inline DateTime Picker ────────────────────────────────────────────
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DAYS_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
-
-interface InlineDateTimePickerProps {
-  value: Date;
-  onChange: (date: Date) => void;
-  label: string;
-  accentColor?: string;
-}
-
-function InlineDateTimePicker({ value, onChange, label, accentColor = Colors.primary }: InlineDateTimePickerProps) {
-  const [open, setOpen] = useState(false);
-  const [viewYear, setViewYear] = useState(value.getFullYear());
-  const [viewMonth, setViewMonth] = useState(value.getMonth());
-  const [selDay, setSelDay] = useState(value.getDate());
-  const [selHour, setSelHour] = useState(value.getHours());
-  const [selMinute, setSelMinute] = useState(value.getMinutes());
-
-  // Sync internal state when value prop changes externally
-  React.useEffect(() => {
-    setViewYear(value.getFullYear());
-    setViewMonth(value.getMonth());
-    setSelDay(value.getDate());
-    setSelHour(value.getHours());
-    setSelMinute(value.getMinutes());
-  }, [value]);
-
-  const commit = (y: number, mo: number, d: number, h: number, mi: number) => {
-    const maxDay = getDaysInMonth(y, mo);
-    const safeDay = Math.min(d, maxDay);
-    onChange(new Date(y, mo, safeDay, h, mi, 0, 0));
-  };
-
-  const prevMonth = () => {
-    const nm = viewMonth === 0 ? 11 : viewMonth - 1;
-    const ny = viewMonth === 0 ? viewYear - 1 : viewYear;
-    setViewMonth(nm); setViewYear(ny);
-  };
-  const nextMonth = () => {
-    const nm = viewMonth === 11 ? 0 : viewMonth + 1;
-    const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
-    setViewMonth(nm); setViewYear(ny);
-  };
-
-  const daysInMonth = getDaysInMonth(viewYear, viewMonth);
-  const firstDay = getFirstDayOfMonth(viewYear, viewMonth);
-  // Build calendar grid (nulls = empty cells before first day)
-  const calCells: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) calCells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
-
-  const isSelectedDay = (d: number | null) =>
-    d !== null && d === selDay && viewYear === value.getFullYear() && viewMonth === value.getMonth();
-  const isToday = (d: number | null) => {
-    if (d === null) return false;
-    const now = new Date();
-    return d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
-  };
-
-  const displayStr = value.toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = Array.from({ length: 60 }, (_, i) => i);
-
-  return (
-    <View>
-      {/* Trigger button */}
-      <TouchableOpacity
-        style={[dtStyles.trigger, open && { borderColor: accentColor }]}
-        onPress={() => setOpen((v) => !v)}
-        activeOpacity={0.8}
-      >
-        <View style={[dtStyles.iconCircle, { backgroundColor: `${accentColor}18` }]}>
-          <Ionicons name={label === 'CHECK-IN' ? 'enter-outline' : 'exit-outline'} size={18} color={accentColor} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={dtStyles.triggerLabel}>{label}</Text>
-          <Text style={dtStyles.triggerValue}>{displayStr}</Text>
-        </View>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textDim} />
-      </TouchableOpacity>
-
-      {/* Inline expanded picker */}
-      {open && (
-        <View style={dtStyles.pickerPanel}>
-          {/* ── Month nav ── */}
-          <View style={dtStyles.monthNav}>
-            <TouchableOpacity onPress={prevMonth} style={dtStyles.navBtn}>
-              <Ionicons name="chevron-back" size={18} color={Colors.text} />
-            </TouchableOpacity>
-            <Text style={dtStyles.monthLabel}>{MONTHS[viewMonth]} {viewYear}</Text>
-            <TouchableOpacity onPress={nextMonth} style={dtStyles.navBtn}>
-              <Ionicons name="chevron-forward" size={18} color={Colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Day-of-week headers ── */}
-          <View style={dtStyles.dayHeaderRow}>
-            {DAYS_SHORT.map((d) => (
-              <Text key={d} style={dtStyles.dayHeader}>{d}</Text>
-            ))}
-          </View>
-
-          {/* ── Calendar grid — render theo từng hàng 7 ô cố định ── */}
-          <View style={dtStyles.calGrid}>
-            {Array.from({ length: Math.ceil(calCells.length / 7) }, (_, rowIdx) => (
-              <View key={rowIdx} style={dtStyles.calRow}>
-                {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => (
-                  <TouchableOpacity
-                    key={colIdx}
-                    style={[
-                      dtStyles.dayCell,
-                      isSelectedDay(day) && { backgroundColor: accentColor, borderRadius: 100 },
-                      isToday(day) && !isSelectedDay(day) && dtStyles.todayCell,
-                    ]}
-                    onPress={() => {
-                      if (day) {
-                        setSelDay(day);
-                        commit(viewYear, viewMonth, day, selHour, selMinute);
-                      }
-                    }}
-                    disabled={!day}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      dtStyles.dayCellText,
-                      isSelectedDay(day) && { color: '#fff', fontWeight: '800' },
-                      isToday(day) && !isSelectedDay(day) && { color: accentColor, fontWeight: '800' },
-                    ]}>
-                      {day ?? ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
-          </View>
-
-          {/* ── Divider ── */}
-          <View style={dtStyles.divider} />
-
-          {/* ── Time pickers ── */}
-          <View style={dtStyles.timeRow}>
-            <Text style={dtStyles.timeRowLabel}>Time</Text>
-            <View style={dtStyles.timePickersRow}>
-              {/* Hour scroll */}
-              <View style={dtStyles.scrollColumn}>
-                <Text style={dtStyles.scrollColLabel}>HH</Text>
-                <ScrollView style={dtStyles.scrollBox} showsVerticalScrollIndicator={false}>
-                  {hours.map((h) => (
-                    <TouchableOpacity
-                      key={h}
-                      style={[dtStyles.scrollItem, selHour === h && { backgroundColor: `${accentColor}25`, borderRadius: 8 }]}
-                      onPress={() => { setSelHour(h); commit(viewYear, viewMonth, selDay, h, selMinute); }}
-                    >
-                      <Text style={[dtStyles.scrollItemText, selHour === h && { color: accentColor, fontWeight: '800' }]}>
-                        {String(h).padStart(2, '0')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              <Text style={dtStyles.timeSep}>:</Text>
-
-              {/* Minute scroll */}
-              <View style={dtStyles.scrollColumn}>
-                <Text style={dtStyles.scrollColLabel}>MM</Text>
-                <ScrollView style={dtStyles.scrollBox} showsVerticalScrollIndicator={false}>
-                  {minutes.map((m) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[dtStyles.scrollItem, selMinute === m && { backgroundColor: `${accentColor}25`, borderRadius: 8 }]}
-                      onPress={() => { setSelMinute(m); commit(viewYear, viewMonth, selDay, selHour, m); }}
-                    >
-                      <Text style={[dtStyles.scrollItemText, selMinute === m && { color: accentColor, fontWeight: '800' }]}>
-                        {String(m).padStart(2, '0')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-          </View>
-
-          {/* ── Done button ── */}
-          <TouchableOpacity
-            style={[dtStyles.doneBtn, { backgroundColor: accentColor }]}
-            onPress={() => setOpen(false)}
-          >
-            <Text style={dtStyles.doneBtnText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
-}
-
-const dtStyles = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  iconCircle: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  triggerLabel: {
-    fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim,
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3,
-  },
-  triggerValue: {
-    fontSize: FontSize.sm, fontWeight: '700', color: Colors.text,
-  },
-  pickerPanel: {
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    marginTop: 4,
-    gap: 8,
-  },
-  monthNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 4, paddingBottom: 4,
-  },
-  navBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  monthLabel: {
-    fontSize: FontSize.base, fontWeight: '800', color: Colors.text,
-  },
-  dayHeaderRow: {
-    flexDirection: 'row',
-    paddingBottom: 4,
-  },
-  dayHeader: {
-    flex: 1, textAlign: 'center',
-    fontSize: 10, fontWeight: '800', color: Colors.textDim,
-    textTransform: 'uppercase',
-  },
-  calGrid: {
-    gap: 2,
-  },
-  calRow: {
-    flexDirection: 'row',
-  },
-  dayCell: {
-    flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  dayCellText: {
-    fontSize: FontSize.sm, color: Colors.text,
-  },
-  todayCell: {
-    borderRadius: 100, borderWidth: 1.5, borderColor: Colors.primary,
-  },
-  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
-  timeRow: { gap: 6 },
-  timeRowLabel: {
-    fontSize: 10, fontWeight: '800', color: Colors.textDim,
-    textTransform: 'uppercase', letterSpacing: 1,
-  },
-  timePickersRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-  },
-  scrollColumn: { flex: 1, alignItems: 'center', gap: 4 },
-  scrollColLabel: {
-    fontSize: 9, fontWeight: '900', color: Colors.textDim, letterSpacing: 1,
-  },
-  scrollBox: {
-    height: 120,
-    width: '100%',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  scrollItem: {
-    paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-  },
-  scrollItemText: {
-    fontSize: FontSize.sm, color: Colors.textMuted, fontFamily: 'monospace',
-  },
-  timeSep: {
-    fontSize: 20, fontWeight: '900', color: Colors.textDim,
-    marginTop: 28,
-  },
-  doneBtn: {
-    borderRadius: Radius.lg, paddingVertical: 10,
-    alignItems: 'center', justifyContent: 'center', marginTop: 4,
-  },
-  doneBtnText: {
-    fontSize: FontSize.sm, fontWeight: '800', color: '#fff',
-  },
-});
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -547,12 +277,56 @@ export default function ReservationsScreen() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [displaySlotCode, setDisplaySlotCode] = useState<string>('');
 
+  // Booking modal visibility state
+  const [showBookingModal, setShowBookingModal] = useState(false);
+
+  const params = useLocalSearchParams<{ buildingId?: string; packageId?: string; vehicleType?: string; mode?: string }>();
+
+  // Custom package states
+  const [bookingType, setBookingType] = useState<'hourly' | 'package'>(() => {
+    return params.packageId || params.mode === 'package' ? 'package' : 'hourly';
+  });
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+  const [packages, setPackages] = useState<LongTermPackage[]>([]);
+  const [fetchingPackages, setFetchingPackages] = useState(false);
+  const [reserveDedicatedSlot, setReserveDedicatedSlot] = useState<boolean>(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  const triggerGlitter = () => {
+    const newParticles: Particle[] = Array.from({ length: 10 }).map((_, i) => ({
+      id: Date.now() + i,
+      size: Math.random() * 6 + 4,
+      color: ['#fbbf24', '#f59e0b', '#d97706', '#fb7185', '#f472b6', '#38bdf8'][Math.floor(Math.random() * 6)],
+    }));
+    setParticles(newParticles);
+    setTimeout(() => {
+      setParticles([]);
+    }, 800);
+  };
+
+  // Helper to round to nearest 30-minute interval on or after current time
+  const getNearestValidTime = (date: Date): Date => {
+    const d = new Date(date);
+    const min = d.getMinutes();
+    if (min > 30) {
+      d.setHours(d.getHours() + 1);
+      d.setMinutes(0, 0, 0);
+    } else if (min > 0) {
+      d.setMinutes(30, 0, 0);
+    } else {
+      d.setMinutes(0, 0, 0);
+    }
+    return d;
+  };
+
   // Native date-time pickers
   const [startDateTime, setStartDateTime] = useState<Date>(() => {
-    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
+    return getNearestValidTime(new Date());
   });
   const [endDateTime, setEndDateTime] = useState<Date>(() => {
-    const d = new Date(); d.setHours(1, 0, 0, 0); return d;
+    const start = getNearestValidTime(new Date());
+    return new Date(start.getTime() + 3600000);
   });
 
 
@@ -631,12 +405,20 @@ export default function ReservationsScreen() {
   const doCancel = async (r: Reservation) => {
     setCancellingId(r._id);
     try {
-      await cancelReservation(token, r._id);
+      const result = await cancelReservation(token, r._id);
       await load();
-      Alert.alert(
-        'Reservation Cancelled',
-        'Your reservation has been cancelled. The deposit is non-refundable and has been forfeited as a cancellation fee.',
-      );
+      
+      const refundPct = result.refundPercent ?? r.refundPercent ?? 0;
+      const refundAmt = result.refund ?? Math.round(((r.fee ?? 0) * refundPct) / 100);
+      
+      let successMsg = 'Your reservation has been cancelled.';
+      if (refundPct > 0) {
+        successMsg += `\n\nRefunded ${fmtVND(refundAmt)} (${refundPct}%) to your wallet.`;
+      } else {
+        successMsg += '\n\nThe deposit is non-refundable and has been forfeited as a cancellation fee.';
+      }
+
+      Alert.alert('Reservation Cancelled', successMsg);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not cancel reservation';
       Alert.alert('Error', msg);
@@ -646,8 +428,19 @@ export default function ReservationsScreen() {
   };
 
   const handleCancel = (r: Reservation) => {
-    const depositText = r.fee ? ` Deposit of ${fmtVND(r.fee)} will NOT be refunded.` : '';
-    const msg = `Cancel reservation for plate "${r.plateNumber}"?\n\nWarning: The deposit is non-refundable.${depositText}`;
+    const refundPct = r.refundPercent ?? 0;
+    const depositPaid = r.fee ?? 0;
+    const refundAmt = Math.round((depositPaid * refundPct) / 100);
+    const forfeitAmt = depositPaid - refundAmt;
+
+    let refundMsg = '';
+    if (refundPct > 0) {
+      refundMsg = `You will be refunded ${fmtVND(refundAmt)} (${refundPct}% of deposit) to your wallet. The remaining ${fmtVND(forfeitAmt)} will be forfeited as a cancellation fee.`;
+    } else {
+      refundMsg = `Warning: The deposit of ${fmtVND(depositPaid)} is non-refundable and will be forfeited.`;
+    }
+
+    const msg = `Cancel reservation for plate "${r.plateNumber}"?\n\n${refundMsg}`;
     if (Platform.OS === 'web') {
       // biome-ignore lint/suspicious/noExplicitAny: web-only globalThis
       if ((globalThis as any).confirm?.(msg)) doCancel(r);
@@ -658,7 +451,7 @@ export default function ReservationsScreen() {
       msg,
       [
         { text: 'Keep Reservation', style: 'cancel' },
-        { text: 'Cancel & Forfeit Deposit', style: 'destructive', onPress: () => doCancel(r) },
+        { text: 'Cancel & Process Refund', style: 'destructive', onPress: () => doCancel(r) },
       ],
     );
   };
@@ -674,6 +467,9 @@ export default function ReservationsScreen() {
     setCreateError(null);
     setShowWizard(true);
     setDisplaySlotCode('');
+    setBookingType('hourly');
+    setSelectedPackageId('');
+    setReserveDedicatedSlot(false);
 
     // Load buildings immediately when wizard opens
     setFetchingBuildings(true);
@@ -687,12 +483,97 @@ export default function ReservationsScreen() {
     }
   };
 
+  const openWizardWithParams = async (bldId: string, pkgId: string, vtCodeVal: string) => {
+    setStep(1);
+    setCreateError(null);
+    setShowWizard(true);
+    setDisplaySlotCode('');
+    setWizard((prev) => ({
+      ...prev,
+      buildingId: bldId,
+      plateNumber: plates[0]?.plateNumber ?? '',
+    }));
+
+    setFetchingBuildings(true);
+    try {
+      const data = await listBuildings(token);
+      setBuildings(data);
+    } catch {
+      setBuildings([]);
+    } finally {
+      setFetchingBuildings(false);
+    }
+
+    if (bldId) {
+      setFetchingVT(true);
+      try {
+        const types = await getBuildingVehicleTypes(token, bldId);
+        setVehicleTypes(types);
+        let matchedVt = types.find(t => t.code === vtCodeVal || guessVehicleCategory(t.name) === vtCodeVal);
+        if (!matchedVt && types.length > 0) {
+          matchedVt = types[0];
+        }
+        if (matchedVt) {
+          const cat = guessVehicleCategory(matchedVt.name);
+          const matchPlate = cat ? plates.find((p) => p.vehicleType === cat) : plates[0];
+          setWizard((p) => ({
+            ...p,
+            vehicleTypeId: matchedVt!._id,
+            plateNumber: matchPlate?.plateNumber ?? '',
+          }));
+        }
+      } catch {
+        setVehicleTypes([]);
+      } finally {
+        setFetchingVT(false);
+      }
+
+      if (pkgId) {
+        setBookingType('package');
+        setSelectedPackageId(pkgId);
+        setReserveDedicatedSlot(false);
+        setFetchingPackages(true);
+        try {
+          const pkgs = await listPackages(token, bldId);
+          setPackages(pkgs);
+        } catch {
+          setPackages([]);
+        } finally {
+          setFetchingPackages(false);
+        }
+      } else {
+        setBookingType('hourly');
+      }
+    }
+  };
+
+  useEffect(() => {
+    if ((params.buildingId || params.packageId) && token) {
+      openWizardWithParams(params.buildingId ?? '', params.packageId ?? '', params.vehicleType ?? '');
+    }
+  }, [params.buildingId, params.packageId, params.vehicleType, token]);
+
+  // Auto-clear selected package if the selected vehicle type changes
+  useEffect(() => {
+    if (bookingType === 'package' && selectedPackageId && wizard.vehicleTypeId) {
+      const activePkg = packages.find((p) => p._id === selectedPackageId);
+      if (activePkg) {
+        const pkgVtId = typeof activePkg.vehicleType === 'object' && activePkg.vehicleType ? activePkg.vehicleType._id : activePkg.vehicleType;
+        if (pkgVtId !== wizard.vehicleTypeId) {
+          setSelectedPackageId('');
+        }
+      }
+    }
+  }, [wizard.vehicleTypeId, selectedPackageId, packages, bookingType]);
+
   const closeWizard = () => setShowWizard(false);
 
   // Step 1: building selected → fetch vehicle types, then auto-select a matching plate
   const handleSelectBuilding = async (buildingId: string) => {
     setWizard((p) => ({ ...p, buildingId, vehicleTypeId: '', plateNumber: '' }));
     setVehicleTypes([]);
+    setPackages([]);
+    setSelectedPackageId('');
     if (!buildingId) return;
     try {
       setFetchingVT(true);
@@ -711,10 +592,16 @@ export default function ReservationsScreen() {
           plateNumber: matchingPlate?.plateNumber ?? '',
         }));
       }
+
+      setFetchingPackages(true);
+      const pkgs = await listPackages(token, buildingId);
+      setPackages(pkgs.filter(p => p.isActive));
     } catch {
       setVehicleTypes([]);
+      setPackages([]);
     } finally {
       setFetchingVT(false);
+      setFetchingPackages(false);
     }
   };
 
@@ -745,6 +632,11 @@ export default function ReservationsScreen() {
         return;
       }
     }
+    if (bookingType === 'package' && !selectedPackageId) {
+      Alert.alert('Missing Info', 'Please select a package.');
+      return;
+    }
+
     setFloorsError(null);
     setFloors([]);
     setSlots([]);
@@ -780,6 +672,23 @@ export default function ReservationsScreen() {
 
   // Step 2 → Step 3
   const goToStep3 = () => {
+    if (bookingType === 'package' && !reserveDedicatedSlot) {
+      setCreateError(null);
+      const start = getNearestValidTime(new Date());
+      const end = new Date(start.getTime() + 3600000);
+      setStartDateTime(start);
+      setEndDateTime(end);
+      setWizard((prev) => ({
+        ...prev,
+        startTime: toWizardStr(start),
+        endTime: toWizardStr(end),
+        floorId: '',
+        slotId: '',
+      }));
+      setStep(3);
+      return;
+    }
+
     if (!wizard.floorId) {
       Alert.alert('Missing Info', 'Please select a floor.');
       return;
@@ -790,9 +699,8 @@ export default function ReservationsScreen() {
     }
     setCreateError(null);
 
-    const today = new Date();
-    const start = new Date(today); start.setHours(0, 0, 0, 0);
-    const end = new Date(today); end.setHours(1, 0, 0, 0);
+    const start = getNearestValidTime(new Date());
+    const end = new Date(start.getTime() + 3600000);
 
     setStartDateTime(start);
     setEndDateTime(end);
@@ -812,6 +720,59 @@ export default function ReservationsScreen() {
       setCreateError('Please select a start time.');
       return;
     }
+
+    if (bookingType === 'package') {
+      let startIso: string;
+      try {
+        startIso = new Date(wizard.startTime.trim()).toISOString();
+      } catch {
+        setCreateError('Invalid start date format.');
+        return;
+      }
+      try {
+        setCreating(true);
+        const result = await subscribe(
+          token,
+          selectedPackageId,
+          wizard.plateNumber.trim().toUpperCase(),
+          wizard.buildingId,
+          wizard.slotId || undefined,
+          startIso
+        );
+        closeWizard();
+        load();
+        
+        const resAny = result as any;
+        if (resAny.checkoutUrl) {
+          Alert.alert(
+            'Redirecting to Payment',
+            'Your wallet balance is insufficient. Redirecting to payment gateway...',
+            [
+              {
+                text: 'Pay Now',
+                onPress: () => {
+                  if (Platform.OS === 'web') {
+                    window.open(resAny.checkoutUrl, '_blank');
+                  } else {
+                    import('react-native').then(({ Linking }) => {
+                      Linking.openURL(resAny.checkoutUrl);
+                    });
+                  }
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert('Subscription Confirmed', `Successfully subscribed to package!`);
+        }
+      } catch (err) {
+        setCreateError(err instanceof Error ? err.message : 'Failed to subscribe to package');
+      } finally {
+        setCreating(false);
+      }
+      return;
+    }
+
     if (!wizard.endTime.trim()) {
       setCreateError('Please select a checkout time.');
       return;
@@ -854,6 +815,8 @@ export default function ReservationsScreen() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
+  const activePkg = packages.find((p) => p._id === selectedPackageId);
+
   const filtered = reservations.filter((r) =>
     filter === 'booked' ? !isCancelled(r.status) : isCancelled(r.status),
   );
@@ -892,9 +855,10 @@ export default function ReservationsScreen() {
     const rate = (feeEstimate.peakHours && feeEstimate.peakHours > 0)
       ? `${feeEstimate.regularHours}h × ${fmtVND(feeEstimate.hourlyRate)} + ${feeEstimate.peakHours}h × ${fmtVND(feeEstimate.peakRate ?? 0)} (peak)`
       : `${fmtVND(feeEstimate.hourlyRate)}/hr`;
+    const depPercent = feeEstimate.depositPercent ?? 15;
     return {
       duration,
-      depositText: `Deposit now (15%): ${fmtVND(feeEstimate.depositAmount)}`,
+      depositText: `Deposit now (${depPercent}%): ${fmtVND(feeEstimate.depositAmount)}`,
       remainingText: `Remaining at checkout: ${fmtVND(feeEstimate.remainingFee)}`,
       rate,
     };
@@ -1081,6 +1045,78 @@ export default function ReservationsScreen() {
                     )}
                   </View>
 
+                  {/* Booking Type selection */}
+                  {wizard.buildingId ? (
+                    <View style={{ gap: 6 }}>
+                      <Text style={styles.fieldLabel}>Booking Type</Text>
+                      <View style={styles.chipRow}>
+                        <TouchableOpacity
+                          style={[styles.chip, bookingType === 'hourly' && styles.chipActive]}
+                          onPress={() => {
+                            setBookingType('hourly');
+                            setSelectedPackageId('');
+                          }}
+                        >
+                          <Text style={[styles.chipText, bookingType === 'hourly' && styles.chipTextActive]}>
+                            Hourly Reservation
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.chip, bookingType === 'package' && styles.chipActive]}
+                          onPress={() => {
+                            setBookingType('package');
+                          }}
+                        >
+                          <Text style={[styles.chipText, bookingType === 'package' && styles.chipTextActive]}>
+                            Long-term Package
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {/* Package Selector */}
+                  {bookingType === 'package' && wizard.buildingId && (
+                    <View style={{ gap: Spacing.xs }}>
+                      <Text style={styles.fieldLabel}>Select Subscription Package</Text>
+                      {fetchingPackages ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : packages.length === 0 ? (
+                        <Text style={styles.hintText}>No packages available for this building.</Text>
+                      ) : (
+                        <View style={{ gap: Spacing.sm }}>
+                          {packages.filter((pkg) => {
+                            const pkgVtId = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType._id : pkg.vehicleType;
+                            return pkgVtId === wizard.vehicleTypeId;
+                          }).map((pkg) => {
+                            const isSelected = selectedPackageId === pkg._id;
+                            return (
+                              <TouchableOpacity
+                                key={pkg._id}
+                                style={[styles.pkgSelectCard, isSelected && styles.pkgSelectCardActive]}
+                                onPress={() => {
+                                  setSelectedPackageId(pkg._id);
+                                  triggerGlitter();
+                                }}
+                              >
+                                {isSelected && particles.map((p) => (
+                                  <GlitterParticle key={p.id} color={p.color} size={p.size} />
+                                ))}
+                                <View style={{ flex: 1, gap: 4 }}>
+                                  <Text style={[styles.pkgSelectName, isSelected && { color: Colors.primary }]}>{pkg.name}</Text>
+                                  <Text style={styles.pkgSelectDuration}>{pkg.durationDays} Days</Text>
+                                </View>
+                                <Text style={styles.pkgSelectPrice}>{(pkg.price).toLocaleString('en-US')} VND</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Dedicated Slot option removed from Step 1 */}
+
                   {/* License plate selector — filtered by vehicle type category */}
                   <View style={{ gap: 6 }}>
                     <Text style={styles.fieldLabel}>
@@ -1172,21 +1208,42 @@ export default function ReservationsScreen() {
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
                 <View style={{ gap: Spacing.lg, paddingBottom: Spacing.lg }}>
 
-                  <View style={{ gap: 8 }}>
-                    <Text style={styles.fieldLabel}>Select Floor</Text>
-                    {fetchingFloors ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : floorsError ? (
-                      <Text style={[styles.hintText, { color: Colors.error }]}>{floorsError}</Text>
-                    ) : floors.length === 0 ? (
-                      <Text style={styles.hintText}>No floors available.</Text>
-                    ) : (
-                      floors.map((floor) => (
-                        <TouchableOpacity
-                          key={floor._id}
-                          style={[styles.floorCard, wizard.floorId === floor._id && styles.floorCardActive]}
-                          onPress={() => handleSelectFloor(floor._id)}
-                        >
+                  {/* Ticketbox for optional parking slot choice */}
+                  {bookingType === 'package' && (
+                    <View style={{ gap: 6 }}>
+                      <Text style={styles.fieldLabel}>Parking Slot Selection Option</Text>
+                      <TouchableOpacity
+                        style={styles.checkboxContainer}
+                        activeOpacity={0.8}
+                        onPress={() => setReserveDedicatedSlot(!reserveDedicatedSlot)}
+                      >
+                        <Ionicons
+                          name={reserveDedicatedSlot ? 'checkbox-outline' : 'square-outline'}
+                          size={20}
+                          color={reserveDedicatedSlot ? Colors.primary : Colors.textDim}
+                        />
+                        <Text style={styles.checkboxLabel}>Do you want to choose your own slot parking?</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {(bookingType !== 'package' || reserveDedicatedSlot) ? (
+                    <>
+                      <View style={{ gap: 8 }}>
+                        <Text style={styles.fieldLabel}>Select Floor</Text>
+                        {fetchingFloors ? (
+                          <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : floorsError ? (
+                          <Text style={[styles.hintText, { color: Colors.error }]}>{floorsError}</Text>
+                        ) : floors.length === 0 ? (
+                          <Text style={styles.hintText}>No floors available.</Text>
+                        ) : (
+                          floors.map((floor) => (
+                            <TouchableOpacity
+                              key={floor._id}
+                              style={[styles.floorCard, wizard.floorId === floor._id && styles.floorCardActive]}
+                              onPress={() => handleSelectFloor(floor._id)}
+                            >
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.floorName, wizard.floorId === floor._id && { color: Colors.primary }]}>
                               {floor.code}
@@ -1574,6 +1631,8 @@ export default function ReservationsScreen() {
                       </Modal>
                     </View>
                   ) : null}
+                    </>
+                  ) : null}
                 </View>
               </ScrollView>
             )}
@@ -1583,6 +1642,38 @@ export default function ReservationsScreen() {
               <ScrollView showsVerticalScrollIndicator={false} style={styles.wizardScrollView}>
                 <View style={{ gap: Spacing.md, paddingBottom: Spacing.lg }}>
 
+                  {/* Choose Date & Time Trigger Card */}
+                  <TouchableOpacity
+                    style={styles.timeTriggerCard}
+                    onPress={() => setShowBookingModal(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.timeTriggerLabel}>Booking Date & Time</Text>
+                      <Text style={styles.timeTriggerValue}>Choose Date & Time</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textDim} />
+                  </TouchableOpacity>
+
+                  {/* Selected Time Preview */}
+                  <View style={styles.timePreviewCard}>
+                    <View style={styles.timePreviewColumn}>
+                      <Text style={styles.timePreviewLabel}>CHECK-IN</Text>
+                      <Text style={styles.timePreviewValue}>{fmtDate(startDateTime.toISOString())}</Text>
+                    </View>
+                    <View style={styles.timePreviewDivider} />
+                    <View style={styles.timePreviewColumn}>
+                      <Text style={styles.timePreviewLabel}>CHECK-OUT</Text>
+                      <Text style={styles.timePreviewValue}>
+                        {bookingType === 'package' && activePkg
+                          ? fmtDate(new Date(startDateTime.getTime() + activePkg.durationDays * 24 * 60 * 60 * 1000).toISOString())
+                          : fmtDate(endDateTime.toISOString())}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Reservation Summary */}
                   <View style={styles.newSummaryCard}>
                     <View style={styles.summaryHeader}>
                       <Ionicons name="receipt-outline" size={16} color={Colors.primary} />
@@ -1622,35 +1713,39 @@ export default function ReservationsScreen() {
                         </View>
                       </View>
 
-                      <View style={styles.summaryItem}>
-                        <View style={styles.summaryIconBox}>
-                          <Ionicons name="location-outline" size={16} color={Colors.textDim} />
+                      {(!bookingType || bookingType === 'hourly' || reserveDedicatedSlot) ? (
+                        <View style={styles.summaryItem}>
+                          <View style={styles.summaryIconBox}>
+                            <Ionicons name="location-outline" size={16} color={Colors.textDim} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.summaryItemLabel}>PARKING SPOT</Text>
+                            <Text style={styles.summaryItemValue}>
+                              Floor {selectedFloor ? `${selectedFloor.name || selectedFloor.code}` : '—'} · Slot {displaySlotCode || slots.find((s) => s._id === wizard.slotId)?.code || wizard.slotId}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.summaryItemLabel}>PARKING SPOT</Text>
-                          <Text style={styles.summaryItemValue}>
-                            Floor {selectedFloor ? `${selectedFloor.name || selectedFloor.code}` : '—'} · Slot {displaySlotCode || slots.find((s) => s._id === wizard.slotId)?.code || wizard.slotId}
-                          </Text>
-                        </View>
-                      </View>
+                      ) : null}
                     </View>
                   </View>
 
-                  <InlineDateTimePicker
-                    value={startDateTime}
-                    onChange={(date) => applyDateTime('start', date)}
-                    label="CHECK-IN"
-                    accentColor="#16a34a"
-                  />
-
-                  <InlineDateTimePicker
-                    value={endDateTime}
-                    onChange={(date) => applyDateTime('end', date)}
-                    label="CHECK-OUT"
-                    accentColor={Colors.error}
-                  />
-
-                  {estimatedFeeInfo ? (
+                  {bookingType === 'package' && activePkg ? (
+                    <View style={styles.billingCard}>
+                      <View style={styles.billingHeader}>
+                        <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.billingTitle}>Pricing Package</Text>
+                      </View>
+                      <View style={styles.billingRow}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="pricetag-outline" size={14} color={Colors.textDim} />
+                          <Text style={styles.billingLabel}>Package Price</Text>
+                        </View>
+                        <Text style={[styles.billingValue, { color: Colors.primary, fontWeight: '900' }]}>
+                          {(activePkg.price).toLocaleString('en-US')} VND
+                        </Text>
+                      </View>
+                    </View>
+                  ) : estimatedFeeInfo ? (
                     <View style={styles.billingCard}>
                       <View style={styles.billingHeader}>
                         <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
@@ -1686,7 +1781,7 @@ export default function ReservationsScreen() {
                           <View style={[styles.billingRow, styles.depositRow]}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                               <Ionicons name="wallet" size={15} color="#f59e0b" />
-                              <Text style={[styles.billingLabel, { color: '#f59e0b', fontWeight: '800' }]}>Deposit Now (15%)</Text>
+                              <Text style={[styles.billingLabel, { color: '#f59e0b', fontWeight: '800' }]}>Deposit Now ({feeEstimate?.depositPercent ?? 15}%)</Text>
                             </View>
                             <Text style={[styles.billingValue, { color: '#f59e0b', fontWeight: '900', fontSize: FontSize.md }]}>
                               {feeEstimate ? fmtVND(feeEstimate.depositAmount) : '—'}
@@ -1719,6 +1814,63 @@ export default function ReservationsScreen() {
               </ScrollView>
             )}
 
+            {/* Collapsible Summary Sheet */}
+            {step > 1 && (
+              <View style={[styles.bottomSummarySheet, summaryExpanded && styles.bottomSummarySheetExpanded]}>
+                <TouchableOpacity
+                  style={styles.summarySheetHeader}
+                  activeOpacity={0.8}
+                  onPress={() => setSummaryExpanded(!summaryExpanded)}
+                >
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="receipt-outline" size={18} color={Colors.primary} />
+                    <Text style={styles.summarySheetTitle}>Booking Summary</Text>
+                  </View>
+                  <Ionicons
+                    name={summaryExpanded ? 'chevron-down-outline' : 'chevron-up-outline'}
+                    size={18}
+                    color={Colors.textMuted}
+                  />
+                </TouchableOpacity>
+
+                {summaryExpanded && (
+                  <View style={styles.summarySheetDetails}>
+                    <View style={styles.summarySheetRow}>
+                      <Text style={styles.summarySheetLabel}>Building</Text>
+                      <Text style={styles.summarySheetValue}>{selectedBuilding?.name}</Text>
+                    </View>
+                    <View style={styles.summarySheetRow}>
+                      <Text style={styles.summarySheetLabel}>Vehicle / Plate</Text>
+                      <Text style={styles.summarySheetValue}>{wizard.plateNumber}</Text>
+                    </View>
+                    {(!bookingType || bookingType === 'hourly' || reserveDedicatedSlot) && wizard.slotId ? (
+                      <View style={styles.summarySheetRow}>
+                        <Text style={styles.summarySheetLabel}>Spot</Text>
+                        <Text style={styles.summarySheetValue}>Floor {selectedFloor?.code} · Slot {displaySlotCode || slots.find(s => s._id === wizard.slotId)?.code}</Text>
+                      </View>
+                    ) : null}
+                    {bookingType === 'package' && activePkg ? (
+                      <>
+                        <View style={styles.summarySheetRow}>
+                          <Text style={styles.summarySheetLabel}>Package</Text>
+                          <Text style={styles.summarySheetValue}>{activePkg.name}</Text>
+                        </View>
+                        <View style={styles.summarySheetRow}>
+                          <Text style={styles.summarySheetLabel}>Price</Text>
+                          <Text style={[styles.summarySheetValue, { color: Colors.primary, fontWeight: '900' }]}>{(activePkg.price).toLocaleString('en-US')} VND</Text>
+                        </View>
+                      </>
+                    ) : feeEstimate ? (
+                      <View style={styles.summarySheetRow}>
+                        <Text style={styles.summarySheetLabel}>Est. Fee</Text>
+                        <Text style={[styles.summarySheetValue, { color: Colors.primary }]}>{(feeEstimate.estimatedFee).toLocaleString('en-US')} VND</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* ── Navigation buttons ─────────────────────────────────────────── */}
             <View style={styles.modalBtns}>
               {step > 1 ? (
@@ -1735,12 +1887,31 @@ export default function ReservationsScreen() {
               {step === 1 && <Button label="Next →" onPress={goToStep2} size="lg" style={{ flex: 1 }} />}
               {step === 2 && <Button label="Next →" onPress={goToStep3} size="lg" style={{ flex: 1 }} />}
               {step === 3 && (
-                <Button label="Book & Pay" onPress={handleCreate} loading={creating} size="lg" style={{ flex: 1 }} />
+                <Button
+                  label={bookingType === 'package' ? 'SUBSCRIBE PACKAGE' : 'CONFIRM BOOKING'}
+                  onPress={handleCreate}
+                  loading={creating}
+                  size="lg"
+                  style={{ flex: 1 }}
+                />
               )}
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <BookingDateModal
+        visible={showBookingModal}
+        onClose={() => setShowBookingModal(false)}
+        onApply={(start, end) => {
+          applyDateTime('start', start);
+          applyDateTime('end', end);
+        }}
+        initialStart={startDateTime}
+        initialEnd={endDateTime}
+        isPackage={bookingType === 'package'}
+        packageDuration={activePkg?.durationDays}
+      />
     </SafeAreaView>
   );
 }
@@ -2665,5 +2836,149 @@ const styles = StyleSheet.create({
   wizardScrollView: {
     maxHeight: 380,
     flexShrink: 1,
+  },
+  timeTriggerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.cardAlt,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  timeTriggerLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.textDim,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 3,
+  },
+  timeTriggerValue: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  timePreviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardAlt,
+    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  timePreviewColumn: {
+    flex: 1,
+    gap: 4,
+  },
+  timePreviewLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.textDim,
+    textTransform: 'uppercase',
+  },
+  timePreviewValue: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  timePreviewDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing.md,
+  },
+  pkgSelectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  pkgSelectCardActive: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(249,115,22,0.04)',
+  },
+  pkgSelectName: {
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  pkgSelectDuration: {
+    fontSize: FontSize.xs,
+    color: Colors.textDim,
+  },
+  pkgSelectPrice: {
+    fontSize: FontSize.sm,
+    fontWeight: '900',
+    color: Colors.primary,
+  },
+  bottomSummarySheet: {
+    backgroundColor: Colors.cardAlt,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+  },
+  bottomSummarySheetExpanded: {
+    backgroundColor: Colors.card,
+  },
+  summarySheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  summarySheetTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summarySheetDetails: {
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    marginTop: 6,
+  },
+  summarySheetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summarySheetLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+  },
+  summarySheetValue: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.cardAlt,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginTop: 4,
+  },
+  checkboxLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    flex: 1,
   },
 });

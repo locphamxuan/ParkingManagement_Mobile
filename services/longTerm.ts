@@ -16,11 +16,11 @@ export async function listPackages(token: string, buildingId?: string): Promise<
 }
 
 export async function listSubscriptions(token: string): Promise<LongTermSubscription[]> {
-  const res = await apiRequest<ApiRes<{ subscriptions?: LongTermSubscription[] }>>(
+  const res = await apiRequest<ApiRes<{ items?: LongTermSubscription[]; subscriptions?: LongTermSubscription[] }>>(
     '/users/long-term/subscriptions',
     { token },
   );
-  return res?.data?.subscriptions ?? [];
+  return res?.data?.items ?? res?.data?.subscriptions ?? [];
 }
 
 export async function subscribe(
@@ -28,12 +28,14 @@ export async function subscribe(
   packageId: string,
   plateNumber: string,
   buildingId: string,
+  slotId?: string,
+  startDate?: string,
 ): Promise<LongTermSubscription> {
   const res = await apiRequest<ApiRes<{ subscription?: LongTermSubscription }>>(
     '/users/long-term/subscriptions',
     {
       method: 'POST',
-      body: { packageId, plateNumber, buildingId },
+      body: { packageId, plateNumber, buildingId, slotId, startDate },
       token,
     },
   );

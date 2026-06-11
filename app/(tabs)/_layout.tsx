@@ -8,7 +8,7 @@ function tabIcon(
   focused: boolean,
   activeIcon: IoniconName,
   inactiveIcon: IoniconName,
-  color: string,
+  color: any,
 ) {
   return <Ionicons name={focused ? activeIcon : inactiveIcon} size={22} color={color} />;
 }
