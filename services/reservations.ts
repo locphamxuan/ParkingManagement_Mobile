@@ -73,12 +73,16 @@ export async function getBuildingVehicleTypes(
   return res?.data?.items ?? [];
 }
 
-export async function cancelReservation(token: string, id: string): Promise<{ refund: number }> {
-  const res = await apiRequest<ApiRes<{ refund?: number }>>(
+export async function cancelReservation(token: string, id: string): Promise<{ refund: number; refundPercent?: number; amountPaid?: number }> {
+  const res = await apiRequest<ApiRes<{ refund?: number; refundPercent?: number; amountPaid?: number }>>(
     `/users/reservations/${id}`,
     { method: 'DELETE', token },
   );
-  return { refund: res?.data?.refund ?? 0 };
+  return {
+    refund: res?.data?.refund ?? 0,
+    refundPercent: res?.data?.refundPercent ?? 0,
+    amountPaid: res?.data?.amountPaid ?? 0,
+  };
 }
 
 export async function getReservation(token: string, id: string): Promise<Reservation> {
@@ -94,6 +98,8 @@ export interface FeeEstimate {
   estimatedFee: number;
   depositAmount: number;
   remainingFee: number;
+  depositPercent?: number;
+  remainingPercent?: number;
   hourlyRate: number;
   hours: number;
   regularHours?: number;

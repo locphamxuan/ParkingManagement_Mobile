@@ -69,6 +69,8 @@ export interface Reservation {
   gates?: ReservationGate[];
   status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'expired';
   createdAt: string;
+  refundPercent?: number;
+  refundAmount?: number;
 }
 
 // ─── Parking History ──────────────────────────────────────────────────────────
@@ -108,6 +110,7 @@ export interface LongTermSubscription {
   plateNumber: string;
   startDate: string;
   endDate: string;
-  status: 'active' | 'expired' | 'cancelled';
-  building?: { name: string };
+  status: 'active' | 'expired' | 'cancelled' | 'pending';
+  building?: { _id: string; name: string; code?: string; address?: { fullAddress?: string } } | null;
+  slot?: { _id: string; code: string; floor?: { _id: string; name?: string; code?: string } | string } | null;
 }
