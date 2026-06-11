@@ -1653,7 +1653,7 @@ export default function ReservationsScreen() {
                       <Text style={styles.timeTriggerLabel}>Booking Date & Time</Text>
                       <Text style={styles.timeTriggerValue}>Choose Date & Time</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.textDim} />
+                    <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
                   </TouchableOpacity>
 
                   {/* Selected Time Preview */}
@@ -2841,10 +2841,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: 'rgba(249,115,22,0.06)',
     borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderColor: 'rgba(249,115,22,0.35)',
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
