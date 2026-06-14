@@ -1274,7 +1274,7 @@ export default function ReservationsScreen() {
                   ) : null}
 
                   {/* Package Selector */}
-                  {bookingType === 'package' && wizard.buildingId && (
+                  {bookingType === 'package' && !!wizard.buildingId && (
                     <View style={{ gap: Spacing.xs }}>
                       <Text style={styles.fieldLabel}>Select Subscription Package</Text>
                       {fetchingPackages ? (
