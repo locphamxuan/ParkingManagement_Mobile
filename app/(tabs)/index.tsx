@@ -28,6 +28,7 @@ import { listReservations } from '../../services/reservations';
 import { listParkingHistory } from '../../services/history';
 import { listPackages } from '../../services/longTerm';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import NotificationBellStream from '../../components/shared/NotificationBellStream';
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage } from '../../types';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -222,12 +223,28 @@ export default function HomeScreen() {
               {session?.displayName || 'User'}
             </Text>
           </View>
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+          <View style={styles.headerActions}>
+            <NotificationBellStream token={session?.token ?? ""} />
+            <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+              <Ionicons name="log-out-outline" size={16} color={Colors.error} />
+              <Text style={styles.logoutText}>Sign out</Text>
+            </TouchableOpacity>
+          </View>
+=======
+>>>>>>> Stashed changes
           <AnimatedPressable style={styles.logoutBtn} onPress={logout}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Ionicons name="log-out-outline" size={16} color={Colors.error} />
               <Text style={styles.logoutText}>Sign out</Text>
             </View>
           </AnimatedPressable>
+<<<<<<< Updated upstream
+=======
+>>>>>>> 21af8a9f9f8562e4f18335eee779fae7bbbc8a94
+>>>>>>> Stashed changes
         </View>
 
         {/* Hero card */}
@@ -560,6 +577,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   greeting: {
     fontSize: FontSize.sm,
