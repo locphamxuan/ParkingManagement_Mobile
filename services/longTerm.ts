@@ -42,3 +42,20 @@ export async function subscribe(
   if (!res?.data?.subscription) throw new Error('Subscribe failed');
   return res.data.subscription;
 }
+
+export async function cancelSubscription(
+  token: string,
+  id: string,
+  cancelReason: string = 'no_longer_needed',
+  cancelNote: string = ''
+): Promise<any> {
+  const res = await apiRequest<ApiRes<any>>(
+    `/users/long-term/subscriptions/${id}/cancel`,
+    {
+      method: 'POST',
+      body: { cancelReason, cancelNote },
+      token,
+    },
+  );
+  return res?.data;
+}

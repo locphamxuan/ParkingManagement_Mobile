@@ -9,7 +9,16 @@ import {
   Modal,
   Image,
   Platform,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +31,36 @@ import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage } from '../../types';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+function AnimatedPressable({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.96, { duration: 100 });
+  };
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 150 });
+  };
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 function StatCard({
   label,
@@ -50,12 +89,12 @@ function QuickLink({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.quickLink} onPress={onPress} activeOpacity={0.7}>
+    <AnimatedPressable style={styles.quickLink} onPress={onPress}>
       <View style={styles.quickLinkIcon}>
         <Ionicons name={icon} size={24} color={Colors.primary} />
       </View>
       <Text style={styles.quickLinkLabel}>{label}</Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -69,6 +108,58 @@ export default function HomeScreen() {
   const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
   const [showQR, setShowQR] = useState(false);
+
+  // Animations Shared Values
+  const heroOpacity = useSharedValue(0);
+  const heroTranslateY = useSharedValue(15);
+  const statsScale = useSharedValue(0.95);
+  const statsOpacity = useSharedValue(0);
+
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0.8);
+
+  useEffect(() => {
+    // Hero balance fade and slide entrance
+    heroOpacity.value = withTiming(1, { duration: 600 });
+    heroTranslateY.value = withTiming(0, { duration: 600 });
+
+    // Stats card staggered spring scale
+    statsScale.value = withDelay(150, withTiming(1, { duration: 500 }));
+    statsOpacity.value = withDelay(150, withTiming(1, { duration: 500 }));
+
+    // Loop active check-in pulse dot
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.6, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      false
+    );
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.2, { duration: 1000 }),
+        withTiming(0.8, { duration: 1000 })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const heroStyle = useAnimatedStyle(() => ({
+    opacity: heroOpacity.value,
+    transform: [{ translateY: heroTranslateY.value }],
+  }));
+
+  const statsStyle = useAnimatedStyle(() => ({
+    opacity: statsOpacity.value,
+    transform: [{ scale: statsScale.value }],
+  }));
+
+  const pulseDotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: pulseOpacity.value,
+  }));
 
   const load = async () => {
     if (!session?.token) return;
@@ -128,14 +219,16 @@ export default function HomeScreen() {
               {session?.displayName || 'User'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <Ionicons name="log-out-outline" size={16} color={Colors.error} />
-            <Text style={styles.logoutText}>Sign out</Text>
-          </TouchableOpacity>
+          <AnimatedPressable style={styles.logoutBtn} onPress={logout}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Ionicons name="log-out-outline" size={16} color={Colors.error} />
+              <Text style={styles.logoutText}>Sign out</Text>
+            </View>
+          </AnimatedPressable>
         </View>
 
         {/* Hero card */}
-        <View style={styles.heroCard}>
+        <Animated.View style={[styles.heroCard, heroStyle]}>
           <View style={[styles.heroBg, { pointerEvents: 'none' }]} />
           <Text style={styles.heroLabel}>WALLET BALANCE</Text>
           <Text style={styles.heroValue}>
@@ -144,14 +237,28 @@ export default function HomeScreen() {
               : '—'}
           </Text>
           <Text style={styles.heroSub}>{session?.email}</Text>
-        </View>
+        </Animated.View>
 
         {/* Active Parking Session Card */}
         {activeSession && (
           <View style={styles.activeSessionCard}>
             <View style={styles.activeCardHeader}>
               <View style={styles.activePulseRow}>
-                <View style={styles.pulseDot} />
+                <View style={{ width: 14, height: 14, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}>
+                  <Animated.View style={[{
+                    position: 'absolute',
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: Colors.success,
+                  }, pulseDotStyle]} />
+                  <View style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: Colors.success,
+                  }} />
+                </View>
                 <Text style={styles.activeSessionTitle}>ACTIVE PARKING</Text>
               </View>
               <Text style={styles.activeBuildingText}>
@@ -184,7 +291,7 @@ export default function HomeScreen() {
         )}
 
         {/* Stats row */}
-        <View style={styles.statsRow}>
+        <Animated.View style={[styles.statsRow, statsStyle]}>
           <StatCard
             label="Active Reservations"
             value={String(activeReservations)}
@@ -200,26 +307,27 @@ export default function HomeScreen() {
             value="Active"
             color={Colors.success}
           />
-        </View>
+        </Animated.View>
 
         {/* Quick QR Check-in Entry */}
         {session?.role?.toLowerCase() === 'user' && session?.userId ? (
-          <TouchableOpacity 
+          <AnimatedPressable 
             style={styles.qrShortcutCard} 
-            activeOpacity={0.8}
             onPress={() => setShowQR(true)}
           >
-            <View style={styles.qrShortcutLeft}>
-              <View style={styles.qrShortcutIconContainer}>
-                <Ionicons name="qr-code-outline" size={24} color={Colors.primary} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <View style={styles.qrShortcutLeft}>
+                <View style={styles.qrShortcutIconContainer}>
+                  <Ionicons name="qr-code-outline" size={24} color={Colors.primary} />
+                </View>
+                <View style={{ gap: 2 }}>
+                  <Text style={styles.qrShortcutTitle}>My QR Check-in</Text>
+                  <Text style={styles.qrShortcutSubtitle}>Tap to show check-in code at the gate</Text>
+                </View>
               </View>
-              <View style={{ gap: 2 }}>
-                <Text style={styles.qrShortcutTitle}>My QR Check-in</Text>
-                <Text style={styles.qrShortcutSubtitle}>Tap to show check-in code at the gate</Text>
-              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color={Colors.textDim} />
             </View>
-            <Ionicons name="chevron-forward-outline" size={20} color={Colors.textDim} />
-          </TouchableOpacity>
+          </AnimatedPressable>
         ) : null}
 
         {/* Package Pricing Carousel */}
@@ -238,10 +346,9 @@ export default function HomeScreen() {
                 const buildingId = typeof pkg.building === 'object' && pkg.building ? pkg.building._id : '';
                 const vehicleType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : 'car';
                 return (
-                  <TouchableOpacity
+                  <AnimatedPressable
                     key={pkg._id}
                     style={styles.packageCard}
-                    activeOpacity={0.8}
                     onPress={() => {
                       router.push({
                         pathname: '/(tabs)/reservations',
@@ -270,7 +377,7 @@ export default function HomeScreen() {
                       <Text style={styles.packagePrice}>{(pkg.price).toLocaleString('en-US')} VND</Text>
                       <Text style={styles.packageActionBtn}>Subscribe</Text>
                     </View>
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 );
               })}
             </ScrollView>

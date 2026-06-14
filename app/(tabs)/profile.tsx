@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,14 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { updateProfile, changePassword } from '../../services/profile';
@@ -20,6 +28,57 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { LicensePlate } from '../../types';
+
+function AnimatedPressable({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.96, { duration: 100 });
+  };
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 150 });
+  };
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(15);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
+  }, [index]);
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
 
 const MAX_PLATES = 3;
 const PLATE_REGEX = /^\d{2}[A-Z]{1,2}-\d{3,5}$/;
@@ -62,6 +121,20 @@ export default function ProfileScreen() {
   const [plateQrToShow, setPlateQrToShow] = useState<LicensePlate | null>(null);
 
   const plates = session?.licensePlates ?? [];
+
+  // Header animation shared values
+  const headerY = useSharedValue(-15);
+  const headerOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    headerY.value = withTiming(0, { duration: 400 });
+    headerOpacity.value = withTiming(1, { duration: 400 });
+  }, []);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerY.value }],
+  }));
 
   // ── Profile Info save ─────────────────────────────────────────────────────
   const handleSaveInfo = async () => {
@@ -188,7 +261,7 @@ export default function ProfileScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <View style={styles.header}>
+          <Animated.View style={[styles.header, headerStyle]}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
                 {(session?.displayName?.[0] ?? 'U').toUpperCase()}
@@ -199,20 +272,20 @@ export default function ProfileScreen() {
               <Text style={styles.email}>{session?.email}</Text>
               <Badge label={session?.role ?? 'user'} variant="orange" />
             </View>
-          </View>
+          </Animated.View>
 
           {/* Tabs */}
           <View style={styles.tabRow}>
             {(['info', 'plates', 'password'] as Tab[]).map((t) => (
-              <TouchableOpacity
+              <AnimatedPressable
                 key={t}
-                style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
+                style={[styles.tabBtn, tab === t && styles.tabBtnActive, { flex: 1 }]}
                 onPress={() => setTab(t)}
               >
                 <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
                   {t === 'info' ? 'Info' : t === 'plates' ? 'Plates' : 'Password'}
                 </Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             ))}
           </View>
 
@@ -293,11 +366,13 @@ export default function ProfileScreen() {
                       { label: 'Email', value: session?.email },
                       { label: 'Phone', value: session?.phone || '— Not set —' },
                       { label: 'Role', value: (session?.role ?? 'user').toUpperCase() },
-                    ].map((item) => (
-                      <View key={item.label} style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>{item.label}</Text>
-                        <Text style={styles.infoValue}>{item.value}</Text>
-                      </View>
+                    ].map((item, idx) => (
+                      <AnimatedCard key={item.label} index={idx}>
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>{item.label}</Text>
+                          <Text style={styles.infoValue}>{item.value}</Text>
+                        </View>
+                      </AnimatedCard>
                     ))}
                   </View>
                 )}
@@ -353,76 +428,77 @@ export default function ProfileScreen() {
               </View>
 
               {/* Plate list */}
-<View style={styles.plateList}>
-  {plates.length === 0 ? (
-    <Text style={styles.emptyText}>
-      No license plates linked yet.
-    </Text>
-  ) : (
-    plates.map((plate) => (
-        <View
-          key={plate.plateNumber}
-          style={[
-            styles.plateItem,
-            plate.isDefault && styles.plateItemDefault,
-          ]}
-        >
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                styles.plateNumber,
-                plate.isDefault && { color: Colors.amber },
-              ]}
-            >
-              {plate.plateNumber}
-            </Text>
+              <View style={styles.plateList}>
+                {plates.length === 0 ? (
+                  <Text style={styles.emptyText}>
+                    No license plates linked yet.
+                  </Text>
+                ) : (
+                  plates.map((plate, idx) => (
+                    <AnimatedCard key={plate.plateNumber} index={idx}>
+                      <View
+                        style={[
+                          styles.plateItem,
+                          plate.isDefault && styles.plateItemDefault,
+                        ]}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[
+                              styles.plateNumber,
+                              plate.isDefault && { color: Colors.amber },
+                            ]}
+                          >
+                            {plate.plateNumber}
+                          </Text>
 
-            <Text style={styles.plateType}>
-              {plate.vehicleType === 'car'
-                ? 'Car'
-                : 'Motorcycle'}
-              {plate.isDefault ? ' · Default' : ''}
-            </Text>
-          </View>
+                          <Text style={styles.plateType}>
+                            {plate.vehicleType === 'car'
+                              ? 'Car'
+                              : 'Motorcycle'}
+                            {plate.isDefault ? ' · Default' : ''}
+                          </Text>
+                        </View>
 
-          <View style={styles.plateBtns}>
-            {plate.qrCode && (
-              <TouchableOpacity
-                style={styles.plateAction}
-                onPress={() => setPlateQrToShow(plate)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.plateActionText}>⊞ QR</Text>
-              </TouchableOpacity>
-            )}
+                        <View style={styles.plateBtns}>
+                          {plate.qrCode && (
+                            <TouchableOpacity
+                              style={styles.plateAction}
+                              onPress={() => setPlateQrToShow(plate)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Text style={styles.plateActionText}>⊞ QR</Text>
+                            </TouchableOpacity>
+                          )}
 
-            {!plate.isDefault && plate._id && (
-              <TouchableOpacity
-                style={styles.plateAction}
-                onPress={() => handleSetDefault(plate)}
-                disabled={loadingPlate === plate._id}
-              >
-                <Text style={styles.plateActionText}>
-                  ★ Set default
-                </Text>
-              </TouchableOpacity>
-            )}
+                          {!plate.isDefault && plate._id && (
+                            <TouchableOpacity
+                              style={styles.plateAction}
+                              onPress={() => handleSetDefault(plate)}
+                              disabled={loadingPlate === plate._id}
+                            >
+                              <Text style={styles.plateActionText}>
+                                ★ Set default
+                              </Text>
+                            </TouchableOpacity>
+                          )}
 
-            {plate._id && (
-              <TouchableOpacity
-                style={[styles.plateAction, styles.plateActionDelete]}
-                onPress={() => handleRemovePlate(plate)}
-                disabled={loadingPlate === plate._id}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.plateActionDeleteText}>Remove</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      ))
-  )}
-</View>
+                          {plate._id && (
+                            <TouchableOpacity
+                              style={[styles.plateAction, styles.plateActionDelete]}
+                              onPress={() => handleRemovePlate(plate)}
+                              disabled={loadingPlate === plate._id}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Text style={styles.plateActionDeleteText}>Remove</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    </AnimatedCard>
+                  ))
+                )}
+              </View>
 
               {/* Add plate form */}
               {plates.length < MAX_PLATES && (
@@ -774,7 +850,7 @@ const styles = StyleSheet.create({
 
   confirmOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(2, 6, 23, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
@@ -784,21 +860,31 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     backgroundColor: Colors.card,
     borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
     padding: Spacing.xl,
     gap: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 10,
   },
   qrDialog: {
     width: '100%',
     maxWidth: 320,
     backgroundColor: Colors.card,
     borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
     padding: Spacing.xl,
     gap: Spacing.md,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 10,
   },
   qrPlateText: {
     fontSize: FontSize.lg,

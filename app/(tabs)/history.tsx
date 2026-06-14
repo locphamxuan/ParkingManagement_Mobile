@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -15,7 +16,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { ParkingSession } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
-
 
 function fmtDate(s?: string) {
   if (!s) return '—';
@@ -36,6 +36,27 @@ function fmtDuration(checkIn: string, checkOut?: string): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${h}h${m > 0 ? ` ${m}m` : ''}`;
+}
+
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(15);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
+  }, [index]);
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 export default function HistoryScreen() {
@@ -117,8 +138,8 @@ export default function HistoryScreen() {
             );
           }
 
-          return filteredSessions.map((s) => (
-            <View key={s._id} style={styles.card}>
+          return filteredSessions.map((s, idx) => (
+            <AnimatedCard key={s._id} index={idx} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={styles.plateTxt}>{s.plateNumber}</Text>
@@ -159,7 +180,7 @@ export default function HistoryScreen() {
                   </View>
                 )}
               </View>
-            </View>
+            </AnimatedCard>
           ));
         })()}
       </ScrollView>

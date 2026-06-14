@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
-  Alert,
   Image,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -25,6 +33,57 @@ import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
+
+function AnimatedPressable({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.96, { duration: 100 });
+  };
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 150 });
+  };
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(15);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
+  }, [index]);
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
 
 
 const MIN_TOPUP = 2_000;
@@ -89,6 +148,91 @@ export default function WalletScreen() {
   const [verifying, setVerifying] = useState(false);
   const [topupResult, setTopupResult] = useState<TopupResult | null>(null);
 
+  // Custom Alert / Confirm Dialog State
+  const [dialog, setDialog] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm' | 'error' | 'success';
+    onConfirm?: () => void;
+    onCancel?: () => void;
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'alert',
+  });
+
+  const showCustomAlert = useCallback((title: string, message: string, onConfirm?: () => void, type: 'alert' | 'error' | 'success' = 'alert') => {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm: () => {
+        setDialog((d) => ({ ...d, visible: false }));
+        onConfirm?.();
+      },
+      confirmText: 'OK',
+    });
+  }, []);
+
+  const showCustomConfirm = useCallback((
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    onCancel?: () => void,
+    confirmText = 'Yes, Process',
+    cancelText = 'Cancel'
+  ) => {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      type: 'confirm',
+      onConfirm: () => {
+        setDialog((d) => ({ ...d, visible: false }));
+        onConfirm();
+      },
+      onCancel: () => {
+        setDialog((d) => ({ ...d, visible: false }));
+        onCancel?.();
+      },
+      confirmText,
+      cancelText,
+    });
+  }, []);
+
+  // Glow animation for balance card
+  const glowScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.7);
+
+  useEffect(() => {
+    glowScale.value = withRepeat(
+      withSequence(
+        withTiming(1.15, { duration: 3000 }),
+        withTiming(1.0, { duration: 3000 })
+      ),
+      -1,
+      true
+    );
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.85, { duration: 3000 }),
+        withTiming(0.55, { duration: 3000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: glowScale.value }],
+    opacity: glowOpacity.value,
+  }));
+
   const getBankName = (bin?: string) => {
     if (!bin) return '—';
     if (bin === '970422') return 'MB Bank (TMCP Quân Đội)';
@@ -98,7 +242,7 @@ export default function WalletScreen() {
   const copyToClipboard = async (text: string, label: string) => {
     if (!text) return;
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', `${label} copied to clipboard!`);
+    showCustomAlert('Copied', `${label} copied to clipboard!`, undefined, 'success');
   };
 
   const load = useCallback(async () => {
@@ -165,17 +309,19 @@ export default function WalletScreen() {
         setOrderCode(null);
         setTopupResult(null);
         await load();
-        Alert.alert('Top-up Successful', `Your wallet has been credited.\nNew balance: ${fmtMoney(res.balance)}.`);
+        showCustomAlert('Top-up Successful', `Your wallet has been credited.\nNew balance: ${fmtMoney(res.balance)}.`, undefined, 'success');
       } else if (res.status === 'cancelled' || res.status === 'expired') {
-        Alert.alert('Payment Not Completed', `This payment was ${res.status}. Please start a new top-up.`);
+        showCustomAlert('Payment Not Completed', `This payment was ${res.status}. Please start a new top-up.`, undefined, 'error');
       } else {
-        Alert.alert(
+        showCustomAlert(
           'Payment Pending',
           'We haven’t received your payment yet. If you just paid, wait a few seconds and tap verify again.',
+          undefined,
+          'alert'
         );
       }
     } catch (err) {
-      Alert.alert('Verification Failed', err instanceof Error ? err.message : 'Could not verify payment.');
+      showCustomAlert('Verification Failed', err instanceof Error ? err.message : 'Could not verify payment.', undefined, 'error');
     } finally {
       setVerifying(false);
     }
@@ -213,7 +359,7 @@ export default function WalletScreen() {
 
         {/* Balance card */}
         <View style={styles.balanceCard}>
-          <View style={styles.balanceGlow} pointerEvents="none" />
+          <Animated.View style={[styles.balanceGlow, glowStyle]} pointerEvents="none" />
           <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
           <Text style={styles.balanceValue}>
             {wallet !== null ? fmtMoney(wallet.balance) : '—'}
@@ -264,24 +410,26 @@ export default function WalletScreen() {
               );
             }
 
-            return filteredTransactions.map((tx) => (
-              <View key={tx._id} style={styles.txRow}>
-                <View style={styles.txLeft}>
-                  <Text style={styles.txDesc}>
-                    {tx.description || tx.reason || txLabel(tx.type)}
-                  </Text>
-                  <Text style={styles.txDate}>{fmtDate(tx.createdAt)}</Text>
+            return filteredTransactions.map((tx, idx) => (
+              <AnimatedCard key={tx._id} index={idx}>
+                <View style={styles.txRow}>
+                  <View style={styles.txLeft}>
+                    <Text style={styles.txDesc}>
+                      {tx.description || tx.reason || txLabel(tx.type)}
+                    </Text>
+                    <Text style={styles.txDate}>{fmtDate(tx.createdAt)}</Text>
+                  </View>
+                  <View style={styles.txRight}>
+                    <Badge label={txLabel(tx.type)} variant={txVariant(tx.type)} />
+                    <Text style={[
+                      styles.txAmount,
+                      { color: txSign(tx.type) === '+' ? Colors.success : Colors.error },
+                    ]}>
+                      {txSign(tx.type)}{fmtMoney(tx.amount)}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.txRight}>
-                  <Badge label={txLabel(tx.type)} variant={txVariant(tx.type)} />
-                  <Text style={[
-                    styles.txAmount,
-                    { color: txSign(tx.type) === '+' ? Colors.success : Colors.error },
-                  ]}>
-                    {txSign(tx.type)}{fmtMoney(tx.amount)}
-                  </Text>
-                </View>
-              </View>
+              </AnimatedCard>
             ));
           })()}
         </View>
@@ -492,6 +640,41 @@ export default function WalletScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Custom Dialog Modal ────────────────────────────────────────────────── */}
+      <Modal visible={dialog.visible} transparent animationType="fade" onRequestClose={() => setDialog(d => ({ ...d, visible: false }))}>
+        <View style={styles.dialogOverlay}>
+          <View style={styles.dialogContainer}>
+            <View style={styles.dialogIconContainer}>
+              {dialog.type === 'success' && <Ionicons name="checkmark-circle" size={42} color={Colors.success} />}
+              {dialog.type === 'error' && <Ionicons name="alert-circle" size={42} color={Colors.error} />}
+              {dialog.type === 'confirm' && <Ionicons name="warning" size={42} color={Colors.amber} />}
+              {dialog.type === 'alert' && <Ionicons name="information-circle" size={42} color={Colors.primary} />}
+            </View>
+
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={[
+                  styles.dialogBtn,
+                  dialog.type === 'confirm' ? styles.dialogBtnConfirmDanger : styles.dialogBtnConfirmPrimary
+                ]}
+                onPress={dialog.onConfirm}
+              >
+                <Text style={styles.dialogBtnConfirmText}>{dialog.confirmText || 'OK'}</Text>
+              </TouchableOpacity>
+              {dialog.type === 'confirm' && (
+                <TouchableOpacity style={[styles.dialogBtn, styles.dialogBtnCancel]} onPress={dialog.onCancel}>
+                  <Text style={styles.dialogBtnCancelText}>{dialog.cancelText || 'Cancel'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -781,5 +964,86 @@ const styles = StyleSheet.create({
   cancelPayBtn: {
     flex: 0.5,
     height: 44,
+  },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing['2xl'],
+  },
+  dialogContainer: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
+    padding: Spacing['2xl'],
+    alignItems: 'center',
+    gap: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  dialogIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.cardAlt,
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  dialogTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '900',
+    color: Colors.text,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  dialogMessage: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  dialogActions: {
+    flexDirection: 'column',
+    width: '100%',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  dialogBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogBtnCancel: {
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
+    backgroundColor: Colors.cardAlt,
+  },
+  dialogBtnCancelText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+  },
+  dialogBtnConfirmPrimary: {
+    backgroundColor: Colors.primary,
+  },
+  dialogBtnConfirmDanger: {
+    backgroundColor: Colors.error,
+  },
+  dialogBtnConfirmText: {
+    color: '#fff',
+    fontSize: FontSize.sm,
+    fontWeight: '800',
   },
 });

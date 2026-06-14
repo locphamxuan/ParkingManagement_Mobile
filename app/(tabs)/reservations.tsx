@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  FlatList,
   RefreshControl,
   TouchableOpacity,
   Modal,
@@ -13,14 +12,15 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { listPackages, subscribe, listSubscriptions } from '../../services/longTerm';
+import { listPackages, subscribe, listSubscriptions, cancelSubscription } from '../../services/longTerm';
 import type { LongTermPackage, LongTermSubscription } from '../../types';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import {
   listReservations,
   createReservation,
@@ -38,7 +38,7 @@ import {
 import type { FloorWithAvailability, SlotItem } from '../../services/floors';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { Reservation } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
@@ -125,64 +125,58 @@ function GlitterParticle({ color, size }: { color: string; size: number }) {
   return <Animated.View style={animatedStyle} />;
 }
 
-interface GroupedRow {
-  rowLabel: string;
-  slots: SlotItem[];
+function AnimatedPressable({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.96, { duration: 100 });
+  };
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 150 });
+  };
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
 }
 
-function groupSlotsIntoGrid(slots: SlotItem[]): GroupedRow[] {
-  let hasAlphabetic = false;
-  for (const s of slots) {
-    if (/[A-Za-z]/.test(s.code)) {
-      hasAlphabetic = true;
-      break;
-    }
-  }
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(15);
 
-  if (hasAlphabetic) {
-    const rowsMap: { [key: string]: SlotItem[] } = {};
-    for (const s of slots) {
-      const match = s.code.match(/^([A-Za-z]+)?(\d+)?(.*)$/);
-      const rowLabel = match && match[1] ? match[1].toUpperCase() : 'A';
-      if (!rowsMap[rowLabel]) {
-        rowsMap[rowLabel] = [];
-      }
-      rowsMap[rowLabel].push(s);
-    }
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
-    for (const rowLabel of Object.keys(rowsMap)) {
-      rowsMap[rowLabel].sort((a, b) => {
-        const numA = parseInt(a.code.replace(/^\D+/g, ''), 10) || 0;
-        const numB = parseInt(b.code.replace(/^\D+/g, ''), 10) || 0;
-        return numA - numB;
-      });
-    }
+  useEffect(() => {
+    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
+  }, [index]);
 
-    const sortedRowLabels = Object.keys(rowsMap).sort();
-    return sortedRowLabels.map((rowLabel) => ({
-      rowLabel,
-      slots: rowsMap[rowLabel],
-    }));
-  } else {
-    const sortedSlots = [...slots].sort((a, b) => {
-      const numA = parseInt(a.code, 10) || 0;
-      const numB = parseInt(b.code, 10) || 0;
-      return numA - numB;
-    });
-
-    const rows: GroupedRow[] = [];
-    const chunkSize = 3;
-    for (let i = 0; i < sortedSlots.length; i += chunkSize) {
-      const chunk = sortedSlots.slice(i, i + chunkSize);
-      const rowNum = Math.floor(i / chunkSize) + 1;
-      rows.push({
-        rowLabel: `Row ${rowNum}`,
-        slots: chunk,
-      });
-    }
-    return rows;
-  }
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
 }
+
+
 
 function splitSlotsSymmetrically(allSlots: SlotItem[]) {
   const top: SlotItem[] = [];
@@ -260,6 +254,63 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('booked');
+
+  // Custom Alert / Confirm Dialog State
+  const [dialog, setDialog] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm' | 'error' | 'success';
+    onConfirm?: () => void;
+    onCancel?: () => void;
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'alert',
+  });
+
+  const showCustomAlert = useCallback((title: string, message: string, onConfirm?: () => void, type: 'alert' | 'error' | 'success' = 'alert') => {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm: () => {
+        setDialog((d) => ({ ...d, visible: false }));
+        onConfirm?.();
+      },
+      confirmText: 'OK',
+    });
+  }, []);
+
+  const showCustomConfirm = useCallback((
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    onCancel?: () => void,
+    confirmText = 'Yes, Process',
+    cancelText = 'Cancel'
+  ) => {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      type: 'confirm',
+      onConfirm: () => {
+        setDialog((d) => ({ ...d, visible: false }));
+        onConfirm();
+      },
+      onCancel: () => {
+        setDialog((d) => ({ ...d, visible: false }));
+        onCancel?.();
+      },
+      confirmText,
+      cancelText,
+    });
+  }, []);
 
   // Date range state
   const [fromDate, setFromDate] = useState<Date>(() => {
@@ -407,40 +458,71 @@ export default function ReservationsScreen() {
 
   // ── Cancel ─────────────────────────────────────────────────────────────────
 
-  const doCancel = async (r: Reservation) => {
+  // ── Cancel ─────────────────────────────────────────────────────────────────
+
+  const doCancel = async (r: any) => {
     setCancellingId(r._id);
     try {
-      const result = await cancelReservation(token, r._id);
-      await load();
-
-      const refundPct = result.refundPercent ?? r.refundPercent ?? 0;
-      const refundAmt = result.refund ?? Math.round(((r.fee ?? 0) * refundPct) / 100);
-
-      let successMsg = 'Your reservation has been cancelled.';
-      if (refundPct > 0) {
-        successMsg += `\n\nRefunded ${fmtVND(refundAmt)} (${refundPct}%) to your wallet.`;
+      if ((r as any).isSubscription) {
+        await cancelSubscription(token, r._id);
+        await load();
+        const price = r.fee ?? 0;
+        const refundAmt = Math.round(price * 0.95);
+        const successMsg = `Your package subscription has been cancelled.\n\nRefunded ${fmtVND(refundAmt)} (95%) to your wallet.`;
+        showCustomAlert('Subscription Cancelled', successMsg, undefined, 'success');
       } else {
-        successMsg += '\n\nThe deposit is non-refundable and has been forfeited as a cancellation fee.';
-      }
+        const result = await cancelReservation(token, r._id);
+        await load();
 
-      if (Platform.OS === 'web') {
-        alert(`Reservation Cancelled\n\n${successMsg}`);
-      } else {
-        Alert.alert('Reservation Cancelled', successMsg);
+        const refundPct = result.refundPercent ?? r.refundPercent ?? 0;
+        const refundAmt = result.refund ?? Math.round(((r.fee ?? 0) * refundPct) / 100);
+
+        let successMsg = 'Your reservation has been cancelled.';
+        if (refundPct > 0) {
+          successMsg += `\n\nRefunded ${fmtVND(refundAmt)} (${refundPct}%) to your wallet.`;
+        } else {
+          successMsg += '\n\nThe deposit is non-refundable and has been forfeited as a cancellation fee.';
+        }
+
+        showCustomAlert('Reservation Cancelled', successMsg, undefined, 'success');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not cancel reservation';
-      if (Platform.OS === 'web') {
-        alert(`Error\n\n${msg}`);
-      } else {
-        Alert.alert('Error', msg);
-      }
+      showCustomAlert('Error', msg, undefined, 'error');
     } finally {
       setCancellingId(null);
     }
   };
 
-  const handleCancel = (r: Reservation) => {
+  const handleCancel = (r: any) => {
+    if ((r as any).isSubscription) {
+      const now = new Date();
+      const startDate = new Date(r.startTime);
+      const diffMs = now.getTime() - startDate.getTime();
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+      if (now.getTime() > startDate.getTime() && diffMs > threeDaysMs) {
+        const errMsg = "This package subscription cannot be cancelled because it has exceeded the 3-day self-cancellation limit.";
+        showCustomAlert('Policy Limit', errMsg, undefined, 'error');
+        return;
+      }
+
+      const price = r.fee ?? 0;
+      const refundAmt = Math.round(price * 0.95);
+      const forfeitAmt = price - refundAmt;
+      const msg = `Cancel long-term subscription for plate "${r.plateNumber}"?\n\nYou will be refunded ${fmtVND(refundAmt)} (95% of price) to your wallet. The remaining ${fmtVND(forfeitAmt)} (5%) will be forfeited as a cancellation fee.`;
+      
+      showCustomConfirm(
+        'Cancel Subscription',
+        msg,
+        () => doCancel(r),
+        undefined,
+        'Cancel Subscription',
+        'Keep Subscription'
+      );
+      return;
+    }
+
     const refundPct = r.refundPercent ?? 0;
     const depositPaid = r.fee ?? 0;
     const refundAmt = Math.round((depositPaid * refundPct) / 100);
@@ -454,18 +536,13 @@ export default function ReservationsScreen() {
     }
 
     const msg = `Cancel reservation for plate "${r.plateNumber}"?\n\n${refundMsg}`;
-    if (Platform.OS === 'web') {
-      // biome-ignore lint/suspicious/noExplicitAny: web-only globalThis
-      if ((globalThis as any).confirm?.(msg)) doCancel(r);
-      return;
-    }
-    Alert.alert(
+    showCustomConfirm(
       'Cancel Reservation',
       msg,
-      [
-        { text: 'Keep Reservation', style: 'cancel' },
-        { text: 'Cancel & Process Refund', style: 'destructive', onPress: () => doCancel(r) },
-      ],
+      () => doCancel(r),
+      undefined,
+      'Cancel & Process Refund',
+      'Keep Reservation'
     );
   };
 
@@ -621,15 +698,15 @@ export default function ReservationsScreen() {
   // Step 1 → Step 2
   const goToStep2 = async () => {
     if (!wizard.buildingId) {
-      Alert.alert('Missing Info', 'Please select a building.');
+      showCustomAlert('Missing Info', 'Please select a building.');
       return;
     }
     if (!wizard.vehicleTypeId) {
-      Alert.alert('Missing Info', 'Please select a vehicle type.');
+      showCustomAlert('Missing Info', 'Please select a vehicle type.');
       return;
     }
     if (!wizard.plateNumber.trim()) {
-      Alert.alert('Missing Info', 'Please select or enter a license plate.');
+      showCustomAlert('Missing Info', 'Please select or enter a license plate.');
       return;
     }
     // Validate plate matches the selected vehicle type category
@@ -638,15 +715,17 @@ export default function ReservationsScreen() {
       const vtCategory = guessVehicleCategory(selectedVt.name);
       const plate = plates.find((p) => p.plateNumber === wizard.plateNumber);
       if (vtCategory && plate && plate.vehicleType !== vtCategory) {
-        Alert.alert(
+        showCustomAlert(
           'Vehicle Mismatch',
           `This building only accepts ${vtCategory === 'motorcycle' ? 'motorcycles' : 'cars'}. Please select a matching plate.`,
+          undefined,
+          'error'
         );
         return;
       }
     }
     if (bookingType === 'package' && !selectedPackageId) {
-      Alert.alert('Missing Info', 'Please select a package.');
+      showCustomAlert('Missing Info', 'Please select a package.');
       return;
     }
 
@@ -703,11 +782,11 @@ export default function ReservationsScreen() {
     }
 
     if (!wizard.floorId) {
-      Alert.alert('Missing Info', 'Please select a floor.');
+      showCustomAlert('Missing Info', 'Please select a floor.', undefined, 'error');
       return;
     }
     if (!wizard.slotId) {
-      Alert.alert('Missing Info', 'Please select a parking slot.');
+      showCustomAlert('Missing Info', 'Please select a parking slot.', undefined, 'error');
       return;
     }
     setCreateError(null);
@@ -756,47 +835,39 @@ export default function ReservationsScreen() {
         const resAny = result as any;
         if (resAny.checkoutUrl) {
           const payMsg = 'Your wallet balance is insufficient. Redirecting to payment gateway...';
-          if (Platform.OS === 'web') {
-            alert(`Redirecting to Payment\n\n${payMsg}`);
-            window.open(resAny.checkoutUrl, '_blank');
-            closeWizard();
-            load();
-          } else {
-            Alert.alert(
-              'Redirecting to Payment',
-              payMsg,
-              [
-                {
-                  text: 'Pay Now',
-                  onPress: () => {
-                    import('react-native').then(({ Linking }) => {
-                      Linking.openURL(resAny.checkoutUrl);
-                    });
-                    closeWizard();
-                    load();
-                  }
-                }
-              ]
-            );
-          }
+          showCustomConfirm(
+            'Redirecting to Payment',
+            payMsg,
+            () => {
+              if (Platform.OS === 'web') {
+                window.open(resAny.checkoutUrl, '_blank');
+              } else {
+                import('react-native').then(({ Linking }) => {
+                  Linking.openURL(resAny.checkoutUrl);
+                });
+              }
+              closeWizard();
+              load();
+            },
+            () => {
+              closeWizard();
+              load();
+            },
+            'Pay Now',
+            'Cancel'
+          );
         } else {
           const okMsg = 'Successfully subscribed to package!';
-          if (Platform.OS === 'web') {
-            alert(`Subscription Confirmed\n\n${okMsg}`);
-            closeWizard();
-            load();
-            router.replace({ pathname: '/packages', params: { tab: 'my' } });
-          } else {
-            Alert.alert(
-              'Subscription Confirmed',
-              okMsg,
-              [{ text: 'OK', onPress: () => {
-                closeWizard();
-                load();
-                router.replace({ pathname: '/packages', params: { tab: 'my' } });
-              }}]
-            );
-          }
+          showCustomAlert(
+            'Subscription Confirmed',
+            okMsg,
+            () => {
+              closeWizard();
+              load();
+              router.replace({ pathname: '/packages', params: { tab: 'my' } });
+            },
+            'success'
+          );
         }
       } catch (err) {
         setCreateError(err instanceof Error ? err.message : 'Failed to subscribe to package');
@@ -836,17 +907,15 @@ export default function ReservationsScreen() {
       const depositTxt = result.depositAmount
         ? `\nDeposit paid: ${fmtVND(result.depositAmount)} (15%)\nRemaining at checkout: ${fmtVND((result.estimatedFee ?? 0) - (result.depositAmount ?? 0))}`
         : '';
-      if (Platform.OS === 'web') {
-        alert(`Reservation Confirmed\n\nYour slot is booked.${depositTxt}`);
-        closeWizard();
-        load();
-      } else {
-        Alert.alert(
-          'Reservation Confirmed',
-          `Your slot is booked.${depositTxt}`,
-          [{ text: 'OK', onPress: () => { closeWizard(); load(); } }]
-        );
-      }
+      showCustomAlert(
+        'Reservation Confirmed',
+        `Your slot is booked.${depositTxt}`,
+        () => {
+          closeWizard();
+          load();
+        },
+        'success'
+      );
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
     } finally {
@@ -957,7 +1026,7 @@ export default function ReservationsScreen() {
             { key: 'booked', label: 'Booked' },
             { key: 'cancelled', label: 'Cancelled' },
           ] as { key: FilterStatus; label: string }[]).map(({ key, label }) => (
-            <TouchableOpacity
+            <AnimatedPressable
               key={key}
               style={[styles.filterBtn, styles.filterBtnFlex, filter === key && styles.filterBtnActive]}
               onPress={() => setFilter(key)}
@@ -965,7 +1034,7 @@ export default function ReservationsScreen() {
               <Text style={[styles.filterText, filter === key && styles.filterTextActive]}>
                 {label}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           ))}
         </View>
 
@@ -984,9 +1053,9 @@ export default function ReservationsScreen() {
             </Text>
           </View>
         ) : (
-          finalFiltered.map((r) => (
+          finalFiltered.map((r, idx) => (
 
-            <View key={r._id} style={styles.card}>
+            <AnimatedCard key={r._id} index={idx} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1039,9 +1108,9 @@ export default function ReservationsScreen() {
                 </View>
               ) : null}
 
-              {(r.status === 'pending' || r.status === 'confirmed') && !(r as any).isSubscription && (
+              {(r.status === 'pending' || r.status === 'confirmed') && (
                 <Button
-                  label={cancellingId === r._id ? 'Cancelling...' : 'Cancel Reservation'}
+                  label={cancellingId === r._id ? 'Cancelling...' : ((r as any).isSubscription ? 'Cancel Subscription' : 'Cancel Reservation')}
                   onPress={() => handleCancel(r)}
                   variant="danger"
                   size="sm"
@@ -1049,7 +1118,7 @@ export default function ReservationsScreen() {
                   style={{ alignSelf: 'flex-start', marginTop: Spacing.xs }}
                 />
               )}
-            </View>
+            </AnimatedCard>
           ))
         )}
       </ScrollView>
@@ -2005,6 +2074,40 @@ export default function ReservationsScreen() {
         isPackage={bookingType === 'package'}
         packageDuration={activePkg?.durationDays}
       />
+      {/* ── Custom Dialog Modal ────────────────────────────────────────────────── */}
+      <Modal visible={dialog.visible} transparent animationType="fade" onRequestClose={() => setDialog(d => ({ ...d, visible: false }))}>
+        <View style={styles.dialogOverlay}>
+          <View style={styles.dialogContainer}>
+            <View style={styles.dialogIconContainer}>
+              {dialog.type === 'success' && <Ionicons name="checkmark-circle" size={42} color={Colors.success} />}
+              {dialog.type === 'error' && <Ionicons name="alert-circle" size={42} color={Colors.error} />}
+              {dialog.type === 'confirm' && <Ionicons name="warning" size={42} color={Colors.amber} />}
+              {dialog.type === 'alert' && <Ionicons name="information-circle" size={42} color={Colors.primary} />}
+            </View>
+
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={[
+                  styles.dialogBtn,
+                  dialog.type === 'confirm' ? styles.dialogBtnConfirmDanger : styles.dialogBtnConfirmPrimary
+                ]}
+                onPress={dialog.onConfirm}
+              >
+                <Text style={styles.dialogBtnConfirmText}>{dialog.confirmText || 'OK'}</Text>
+              </TouchableOpacity>
+              {dialog.type === 'confirm' && (
+                <TouchableOpacity style={[styles.dialogBtn, styles.dialogBtnCancel]} onPress={dialog.onCancel}>
+                  <Text style={styles.dialogBtnCancelText}>{dialog.cancelText || 'Cancel'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -3069,5 +3172,87 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textMuted,
     flex: 1,
+  },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing['2xl'],
+  },
+  dialogContainer: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
+    padding: Spacing['2xl'],
+    alignItems: 'center',
+    gap: Spacing.md,
+    // Add shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  dialogIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.cardAlt,
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  dialogTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '900',
+    color: Colors.text,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  dialogMessage: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  dialogActions: {
+    flexDirection: 'column',
+    width: '100%',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  dialogBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogBtnCancel: {
+    borderWidth: 1.5,
+    borderColor: Colors.borderAlt,
+    backgroundColor: Colors.cardAlt,
+  },
+  dialogBtnCancelText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+  },
+  dialogBtnConfirmPrimary: {
+    backgroundColor: Colors.primary,
+  },
+  dialogBtnConfirmDanger: {
+    backgroundColor: Colors.error,
+  },
+  dialogBtnConfirmText: {
+    color: '#fff',
+    fontSize: FontSize.sm,
+    fontWeight: '800',
   },
 });

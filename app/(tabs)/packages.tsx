@@ -7,20 +7,70 @@ import {
   RefreshControl,
   TouchableOpacity,
   Modal,
-  FlatList,
-  Alert,
-  Platform,
   TextInput,
+  Pressable,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, router } from 'expo-router';
+import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { listPackages, subscribe, listSubscriptions } from '../../services/longTerm';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../../types';
+
+function AnimatedPressable({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.96, { duration: 100 });
+  };
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 150 });
+  };
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(15);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  React.useEffect(() => {
+    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
+  }, [index]);
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
 
 function fmtMoney(n: number) {
   return `${n.toLocaleString('en-US')} VND`;
@@ -72,6 +122,13 @@ export default function PackagesScreen() {
   const plates: LicensePlate[] = session?.licensePlates ?? [];
 
   const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
+  const params = useLocalSearchParams<{ tab?: string }>();
+
+  React.useEffect(() => {
+    if (params.tab === 'my') {
+      setActiveTab('my');
+    }
+  }, [params.tab]);
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
   const [subscriptions, setSubscriptions] = useState<LongTermSubscription[]>([]);
   const [loading, setLoading] = useState(false);
@@ -190,22 +247,22 @@ export default function PackagesScreen() {
 
         {/* Top Tab Section */}
         <View style={styles.tabSection}>
-          <TouchableOpacity
+          <AnimatedPressable
             style={[styles.topTab, activeTab === 'browse' && styles.topTabActive]}
             onPress={() => setActiveTab('browse')}
           >
             <Text style={[styles.topTabText, activeTab === 'browse' && styles.topTabTextActive]}>
               Browse Packages
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </AnimatedPressable>
+          <AnimatedPressable
             style={[styles.topTab, activeTab === 'my' && styles.topTabActive]}
             onPress={() => setActiveTab('my')}
           >
             <Text style={[styles.topTabText, activeTab === 'my' && styles.topTabTextActive]}>
               My Packages
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         {/* Search & Collapsible Filters */}
@@ -476,10 +533,10 @@ export default function PackagesScreen() {
                   </View>
 
                   {/* Package cards */}
-                  {visiblePackages.map((pkg) => {
+                  {visiblePackages.map((pkg, idx) => {
                     const code = vtCode(pkg.vehicleType);
                     return (
-                      <View key={pkg._id} style={styles.pkgCard}>
+                      <AnimatedCard key={pkg._id} index={idx} style={styles.pkgCard}>
                         <View style={styles.pkgTop}>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.pkgName}>{pkg.name}</Text>
@@ -507,27 +564,26 @@ export default function PackagesScreen() {
                           </View>
                         </View>
 
-                        <TouchableOpacity
+                        <AnimatedPressable
                           style={styles.subscribeBtn}
                           onPress={() => {
                             const code = vtCode(pkg.vehicleType);
-                            const vtStr = code || vtLabel(pkg.vehicleType).toLowerCase();
                             router.push({
-                              pathname: '/reservations',
+                              pathname: '/(tabs)/reservations',
                               params: {
-                                buildingId: typeof pkg.building === 'object' && pkg.building ? pkg.building._id : pkg.building,
+                                buildingId: pkg.building?._id || '',
                                 packageId: pkg._id,
-                                mode: 'package',
-                                vehicleType: vtStr,
-                              }
+                                vehicleType: code || 'car',
+                              },
                             });
                           }}
-                          activeOpacity={0.8}
                         >
-                          <Ionicons name="eye-outline" size={14} color={Colors.card} />
-                          <Text style={styles.subscribeBtnText}>View Now</Text>
-                        </TouchableOpacity>
-                      </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="eye-outline" size={14} color={Colors.card} />
+                            <Text style={styles.subscribeBtnText}>View Now</Text>
+                          </View>
+                        </AnimatedPressable>
+                      </AnimatedCard>
                     );
                   })}
 
@@ -569,7 +625,7 @@ export default function PackagesScreen() {
             }
             contentContainerStyle={styles.scrollContent}
           >
-            {filteredSubscriptions.map((sub) => {
+            {filteredSubscriptions.map((sub, idx) => {
               const pkg = sub.package;
               const bld = sub.building || pkg?.building;
               const hasDedicatedSlot = !!sub.slot;
@@ -582,7 +638,7 @@ export default function PackagesScreen() {
               const config = statusColors[sub.status] || { bg: 'rgba(100,116,139,0.12)', text: '#64748b', label: sub.status };
 
               return (
-                <View key={sub._id} style={styles.subCard}>
+                <AnimatedCard key={sub._id} index={idx} style={styles.subCard}>
                   <View style={styles.subCardTop}>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={styles.subPkgName}>{pkg?.name ?? 'Subscription Package'}</Text>
@@ -634,7 +690,7 @@ export default function PackagesScreen() {
                     <Text style={styles.subPriceLabel}>Price Paid</Text>
                     <Text style={styles.subPriceVal}>{fmtMoney(pkg?.price ?? 0)}</Text>
                   </View>
-                </View>
+                </AnimatedCard>
               );
             })}
           </ScrollView>

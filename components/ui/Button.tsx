@@ -1,12 +1,13 @@
 import React from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   ActivityIndicator,
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Colors, Radius, FontSize } from '../../constants/theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
@@ -53,38 +54,60 @@ export function Button({
   const ss = sizeStyle[size];
   const isDisabled = disabled || loading;
 
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    if (!isDisabled) scale.value = withTiming(0.97, { duration: 100 });
+  };
+  const handlePressOut = () => {
+    if (!isDisabled) scale.value = withTiming(1, { duration: 150 });
+  };
+
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={isDisabled}
-      activeOpacity={0.75}
       style={[
-        styles.base,
         {
-          backgroundColor: vs.bg,
-          borderColor: vs.border,
-          height: ss.height,
-          paddingHorizontal: ss.px,
-          opacity: isDisabled ? 0.55 : 1,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator size="small" color={vs.text} />
-      ) : (
-        <Text
-          style={[
-            styles.label,
-            { color: vs.text, fontSize: ss.fontSize },
-            textStyle,
-          ]}
-        >
-          {label}
-        </Text>
-      )}
-    </TouchableOpacity>
+      <Animated.View
+        style={[
+          styles.base,
+          {
+            backgroundColor: vs.bg,
+            borderColor: vs.border,
+            height: ss.height,
+            paddingHorizontal: ss.px,
+            opacity: isDisabled ? 0.55 : 1,
+            width: fullWidth ? '100%' : undefined,
+          },
+          animatedStyle,
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={vs.text} />
+        ) : (
+          <Text
+            style={[
+              styles.label,
+              { color: vs.text, fontSize: ss.fontSize },
+              textStyle,
+            ]}
+          >
+            {label}
+          </Text>
+        )}
+      </Animated.View>
+    </Pressable>
   );
 }
 
