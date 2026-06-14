@@ -511,7 +511,7 @@ export default function ReservationsScreen() {
       const refundAmt = Math.round(price * 0.95);
       const forfeitAmt = price - refundAmt;
       const msg = `Cancel long-term subscription for plate "${r.plateNumber}"?\n\nYou will be refunded ${fmtVND(refundAmt)} (95% of price) to your wallet. The remaining ${fmtVND(forfeitAmt)} (5%) will be forfeited as a cancellation fee.`;
-      
+
       showCustomConfirm(
         'Cancel Subscription',
         msg,
@@ -1219,7 +1219,7 @@ export default function ReservationsScreen() {
                   ) : null}
 
                   {/* Package Selector */}
-                  {bookingType === 'package' && wizard.buildingId && (
+                  {bookingType === 'package' && !!wizard.buildingId && (
                     <View style={{ gap: Spacing.xs }}>
                       <Text style={styles.fieldLabel}>Select Subscription Package</Text>
                       {fetchingPackages ? (
