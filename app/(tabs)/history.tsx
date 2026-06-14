@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { ParkingSession } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
+import FeedbackModal from '../../components/shared/FeedbackModal';
 
 function fmtDate(s?: string) {
   if (!s) return '—';
@@ -38,7 +40,15 @@ function fmtDuration(checkIn: string, checkOut?: string): string {
   return `${h}h${m > 0 ? ` ${m}m` : ''}`;
 }
 
-function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+function AnimatedCard({
+  children,
+  index,
+  style,
+}: {
+  children: React.ReactNode;
+  index: number;
+  style?: any;
+}) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(15);
 
@@ -52,11 +62,7 @@ function AnimatedCard({ children, index, style }: { children: React.ReactNode; i
     translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
   }, [index]);
 
-  return (
-    <Animated.View style={[style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
 }
 
 export default function HistoryScreen() {
@@ -66,11 +72,10 @@ export default function HistoryScreen() {
   const [sessions, setSessions] = useState<ParkingSession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedbackSession, setFeedbackSession] = useState<ParkingSession | null>(null);
 
-  // Date range state
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
-
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -83,13 +88,28 @@ export default function HistoryScreen() {
     }
   }, [token]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   };
+
+  const filteredSessions = sessions.filter((s) => {
+    if (!fromDate) return true;
+    const end = toDate ?? new Date();
+    const startOfDay = new Date(fromDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(end);
+    endOfDay.setHours(23, 59, 59, 999);
+    const d = new Date(s.checkIn);
+    return d >= startOfDay && d <= endOfDay;
+  });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -115,40 +135,23 @@ export default function HistoryScreen() {
           onToChange={setToDate}
         />
 
-        {(() => {
-          const filteredSessions = sessions.filter((s) => {
-            if (!fromDate) return true;
-            const end = toDate ?? new Date();
-            const startOfDay = new Date(fromDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(end);
-            endOfDay.setHours(23, 59, 59, 999);
-            const d = new Date(s.checkIn);
-            return d >= startOfDay && d <= endOfDay;
-          });
-
-          if (filteredSessions.length === 0) {
-            return (
-              <View style={styles.emptyCard}>
-                <Ionicons name="car-outline" size={32} color={Colors.textDim} />
-                <Text style={styles.emptyText}>
-                  {sessions.length === 0 ? 'No parking sessions yet.' : 'No sessions found in this date range.'}
-                </Text>
-              </View>
-            );
-          }
-
-          return filteredSessions.map((s, idx) => (
+        {filteredSessions.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="car-outline" size={32} color={Colors.textDim} />
+            <Text style={styles.emptyText}>
+              {sessions.length === 0
+                ? 'No parking sessions yet.'
+                : 'No sessions found in this date range.'}
+            </Text>
+          </View>
+        ) : (
+          filteredSessions.map((s, idx) => (
             <AnimatedCard key={s._id} index={idx} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={styles.plateTxt}>{s.plateNumber}</Text>
-                  {s.building && (
-                    <Text style={styles.subTxt}>{s.building.name}</Text>
-                  )}
-                  {s.slot && (
-                    <Text style={styles.subTxt}>Slot {s.slot.code}</Text>
-                  )}
+                  {s.building ? <Text style={styles.subTxt}>{s.building.name}</Text> : null}
+                  {s.slot ? <Text style={styles.subTxt}>Slot {s.slot.code}</Text> : null}
                 </View>
                 <Badge
                   label={s.status === 'active' ? 'Active' : 'Done'}
@@ -171,19 +174,41 @@ export default function HistoryScreen() {
                   <Text style={styles.infoLabel}>DURATION</Text>
                   <Text style={styles.infoValue}>{fmtDuration(s.checkIn, s.checkOut)}</Text>
                 </View>
-                {s.fee !== undefined && (
+                {s.fee !== undefined ? (
                   <View style={styles.infoCell}>
                     <Text style={styles.infoLabel}>FEE</Text>
                     <Text style={[styles.infoValue, { color: Colors.primary }]}>
                       {s.fee.toLocaleString('en-US')} VND
                     </Text>
                   </View>
-                )}
+                ) : null}
               </View>
+
+              {s.status !== 'active' ? (
+                <TouchableOpacity
+                  style={styles.feedbackBtn}
+                  onPress={() => setFeedbackSession(s)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="star-outline" size={16} color="#020617" />
+                  <Text style={styles.feedbackBtnText}>Rate your parking experience</Text>
+                </TouchableOpacity>
+              ) : null}
             </AnimatedCard>
-          ));
-        })()}
+          ))
+        )}
       </ScrollView>
+
+      <FeedbackModal
+        visible={feedbackSession !== null}
+        session={feedbackSession}
+        token={token}
+        onClose={() => setFeedbackSession(null)}
+        onSuccess={() => {
+          setFeedbackSession(null);
+          void load();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -205,4 +230,6 @@ const styles = StyleSheet.create({
   infoCell: { minWidth: '40%', gap: 3 },
   infoLabel: { fontSize: 9, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
   infoValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-});;
+  feedbackBtn: { marginTop: Spacing.xs, height: 44, borderRadius: Radius.full, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
+  feedbackBtnText: { color: '#020617', fontSize: FontSize.xs, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.6 },
+});

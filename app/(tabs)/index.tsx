@@ -33,6 +33,7 @@ import {
   markAllNotificationsRead 
 } from '../../services/notifications';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import NotificationBellStream from '../../components/shared/NotificationBellStream';
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notification } from '../../types';
 import { useUIStore } from '../../store/uiStore';
 
@@ -341,7 +342,7 @@ export default function HomeScreen() {
               {session?.displayName || 'User'}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={styles.headerActions}>
             <TouchableOpacity 
               style={styles.bellBtn} 
               onPress={handleBellPress}
@@ -355,6 +356,7 @@ export default function HomeScreen() {
                 </View>
               )}
             </TouchableOpacity>
+            <NotificationBellStream token={session?.token ?? ""} />
             <AnimatedPressable style={styles.logoutBtn} onPress={logout} fullWidth={false}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <Ionicons name="log-out-outline" size={16} color={Colors.error} />
@@ -778,6 +780,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.xl },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   greeting: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '600' },
   name: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text, maxWidth: 220 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder },

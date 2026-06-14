@@ -57,9 +57,14 @@ export async function setToken(token: string | null): Promise<void> {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  errorCode?: string;
+  payload?: unknown;
+
+  constructor(message: string, status: number, errorCode?: string, payload?: unknown) {
     super(message);
     this.status = status;
+    this.errorCode = errorCode;
+    this.payload = payload;
   }
 }
 
@@ -102,7 +107,13 @@ export async function apiRequest<T = unknown>(
       'message' in payload
         ? String((payload as { message?: unknown }).message)
         : `Request failed (${res.status})`;
-    throw new ApiError(message, res.status);
+    const errorCode =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'errorCode' in payload
+        ? String((payload as { errorCode?: unknown }).errorCode)
+        : undefined;
+    throw new ApiError(message, res.status, errorCode, payload);
   }
 
   return payload as T;
