@@ -388,10 +388,18 @@ export default function HomeScreen() {
                     const buildingName = typeof pkg.building === 'object' && pkg.building ? pkg.building.name : 'All Buildings';
                     const buildingId = typeof pkg.building === 'object' && pkg.building ? pkg.building._id : '';
                     const vehicleType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : 'car';
+
+                    const isWeekly = pkg.durationDays <= 7;
+                    const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
+                    const themeColor = isWeekly ? Colors.primary : isMonthly ? Colors.blue : Colors.purple;
+                    const themeBg = isWeekly ? 'rgba(249,115,22,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
+                    const borderThemeColor = isWeekly ? 'rgba(249,115,22,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
+                    const glowOrbColor = isWeekly ? 'rgba(249,115,22,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
+
                     return (
                       <AnimatedPressable
                         key={pkg._id}
-                        style={styles.packageCard}
+                        style={[styles.packageCard, { borderColor: borderThemeColor, shadowColor: themeColor }]}
                         contentStyle={{ alignItems: 'stretch' }}
                         onPress={() => {
                           router.push({
@@ -400,9 +408,20 @@ export default function HomeScreen() {
                           });
                         }}
                       >
+                        <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.lg - 1, overflow: 'hidden', pointerEvents: 'none' }]}>
+                          <View style={[styles.packageCardGlowOrb, { backgroundColor: glowOrbColor }]} />
+                        </View>
                         <View style={styles.packageCardHeader}>
-                          <Text style={styles.packageTag}>{tagLabel}</Text>
-                          <View style={styles.packageVehicleBadge}>
+                          <Text style={[styles.packageTag, { backgroundColor: themeBg, color: themeColor }]}>
+                            {tagLabel}
+                          </Text>
+                          <View style={[
+                            styles.packageVehicleBadge,
+                            { 
+                              borderColor: isCar ? 'rgba(59,130,246,0.12)' : 'rgba(16,185,129,0.12)',
+                              backgroundColor: isCar ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)'
+                            }
+                          ]}>
                             <Ionicons name={isCar ? "car" : "bicycle"} size={10} color={isCar ? Colors.blue : Colors.success} />
                             <Text style={[styles.packageVehicleText, { color: isCar ? Colors.blue : Colors.success }]}>
                               {isCar ? 'Car' : 'Motorcycle'}
@@ -427,7 +446,7 @@ export default function HomeScreen() {
                             <Text style={styles.packagePriceLabel}>PRICE</Text>
                             <Text style={styles.packagePrice}>{(pkg.price).toLocaleString('en-US')} VND</Text>
                           </View>
-                          <View style={styles.packageActionBtnContainer}>
+                          <View style={[styles.packageActionBtnContainer, { backgroundColor: themeColor }]}>
                             <Text style={styles.packageActionBtnText}>Subscribe</Text>
                             <Ionicons name="arrow-forward" size={10} color="#ffffff" />
                           </View>
@@ -1029,5 +1048,13 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  packageCardGlowOrb: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
   },
 });
