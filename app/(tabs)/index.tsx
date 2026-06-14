@@ -223,28 +223,15 @@ export default function HomeScreen() {
               {session?.displayName || 'User'}
             </Text>
           </View>
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
           <View style={styles.headerActions}>
             <NotificationBellStream token={session?.token ?? ""} />
-            <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-              <Ionicons name="log-out-outline" size={16} color={Colors.error} />
-              <Text style={styles.logoutText}>Sign out</Text>
-            </TouchableOpacity>
+            <AnimatedPressable style={styles.logoutBtn} onPress={logout}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Ionicons name="log-out-outline" size={16} color={Colors.error} />
+                <Text style={styles.logoutText}>Sign out</Text>
+              </View>
+            </AnimatedPressable>
           </View>
-=======
->>>>>>> Stashed changes
-          <AnimatedPressable style={styles.logoutBtn} onPress={logout}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <Ionicons name="log-out-outline" size={16} color={Colors.error} />
-              <Text style={styles.logoutText}>Sign out</Text>
-            </View>
-          </AnimatedPressable>
-<<<<<<< Updated upstream
-=======
->>>>>>> 21af8a9f9f8562e4f18335eee779fae7bbbc8a94
->>>>>>> Stashed changes
         </View>
 
         {/* Hero card */}

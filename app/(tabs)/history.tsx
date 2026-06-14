@@ -1,12 +1,4 @@
-<<<<<<< Updated upstream
-import React, { useCallback, useState, useEffect } from 'react';
-=======
-<<<<<<< HEAD
-﻿import React, { useCallback, useState } from 'react';
-=======
-import React, { useCallback, useState, useEffect } from 'react';
->>>>>>> 21af8a9f9f8562e4f18335eee779fae7bbbc8a94
->>>>>>> Stashed changes
+﻿import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -25,13 +17,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { ParkingSession } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
 import FeedbackModal from '../../components/shared/FeedbackModal';
-=======
->>>>>>> 21af8a9f9f8562e4f18335eee779fae7bbbc8a94
->>>>>>> Stashed changes
 
 function fmtDate(s?: string) {
   if (!s) return '—';
@@ -54,7 +40,15 @@ function fmtDuration(checkIn: string, checkOut?: string): string {
   return `${h}h${m > 0 ? ` ${m}m` : ''}`;
 }
 
-function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+function AnimatedCard({
+  children,
+  index,
+  style,
+}: {
+  children: React.ReactNode;
+  index: number;
+  style?: any;
+}) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(15);
 
@@ -68,11 +62,7 @@ function AnimatedCard({ children, index, style }: { children: React.ReactNode; i
     translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
   }, [index]);
 
-  return (
-    <Animated.View style={[style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
 }
 
 export default function HistoryScreen() {
@@ -145,47 +135,18 @@ export default function HistoryScreen() {
           onToChange={setToDate}
         />
 
-<<<<<<< HEAD
         {filteredSessions.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="car-outline" size={32} color={Colors.textDim} />
             <Text style={styles.emptyText}>
-              {sessions.length === 0 ? 'No parking sessions yet.' : 'No sessions found in this date range.'}
+              {sessions.length === 0
+                ? 'No parking sessions yet.'
+                : 'No sessions found in this date range.'}
             </Text>
           </View>
         ) : (
-          filteredSessions.map((s) => (
-            <View key={s._id} style={styles.card}>
-=======
-        {(() => {
-          const filteredSessions = sessions.filter((s) => {
-            if (!fromDate) return true;
-            const end = toDate ?? new Date();
-            const startOfDay = new Date(fromDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(end);
-            endOfDay.setHours(23, 59, 59, 999);
-            const d = new Date(s.checkIn);
-            return d >= startOfDay && d <= endOfDay;
-          });
-
-          if (filteredSessions.length === 0) {
-            return (
-              <View style={styles.emptyCard}>
-                <Ionicons name="car-outline" size={32} color={Colors.textDim} />
-                <Text style={styles.emptyText}>
-                  {sessions.length === 0 ? 'No parking sessions yet.' : 'No sessions found in this date range.'}
-                </Text>
-              </View>
-            );
-          }
-
-          return filteredSessions.map((s, idx) => (
+          filteredSessions.map((s, idx) => (
             <AnimatedCard key={s._id} index={idx} style={styles.card}>
-<<<<<<< Updated upstream
-=======
->>>>>>> 21af8a9f9f8562e4f18335eee779fae7bbbc8a94
->>>>>>> Stashed changes
               <View style={styles.cardTop}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={styles.plateTxt}>{s.plateNumber}</Text>
@@ -222,9 +183,6 @@ export default function HistoryScreen() {
                   </View>
                 ) : null}
               </View>
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
 
               {s.status !== 'active' ? (
                 <TouchableOpacity
@@ -236,15 +194,9 @@ export default function HistoryScreen() {
                   <Text style={styles.feedbackBtnText}>Rate your parking experience</Text>
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </AnimatedCard>
           ))
         )}
-=======
->>>>>>> Stashed changes
-            </AnimatedCard>
-          ));
-        })()}
->>>>>>> 21af8a9f9f8562e4f18335eee779fae7bbbc8a94
       </ScrollView>
 
       <FeedbackModal
