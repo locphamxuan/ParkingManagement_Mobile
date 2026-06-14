@@ -20,6 +20,8 @@ export interface SlotItem {
   code: string;
   status: 'available' | 'occupied' | 'reserved' | 'maintenance';
   vehicleType?: { _id: string; name: string; code?: string };
+  selectable?: boolean;
+  owner?: { plateNumber: string; accountName: string | null } | null;
 }
 
 export async function getBuildingFloors(

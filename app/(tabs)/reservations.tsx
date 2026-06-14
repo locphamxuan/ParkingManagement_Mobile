@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { listPackages, subscribe, listSubscriptions, cancelSubscription } from '../../services/longTerm';
+import { listPackages, subscribe, listSubscriptions, cancelSubscription, renewSubscription } from '../../services/longTerm';
 import type { LongTermPackage, LongTermSubscription } from '../../types';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import {
@@ -43,6 +43,7 @@ import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { Reservation } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { BookingDateModal } from '../../components/ui/BookingDateModal';
+import { useUIStore } from '../../store/uiStore';
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -240,8 +241,6 @@ function toWizardStr(date: Date): string {
   return `${d} ${t}`;
 }
 
-
-
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function ReservationsScreen() {
@@ -331,6 +330,13 @@ export default function ReservationsScreen() {
 
   // Booking modal visibility state
   const [showBookingModal, setShowBookingModal] = useState(false);
+
+  const setTabBarHidden = useUIStore((state) => state.setTabBarHidden);
+
+  useEffect(() => {
+    setTabBarHidden(showWizard || showBookingModal || showMapModal);
+    return () => setTabBarHidden(false);
+  }, [showWizard, showBookingModal, showMapModal, setTabBarHidden]);
 
   const params = useLocalSearchParams<{ buildingId?: string; packageId?: string; vehicleType?: string; mode?: string }>();
 
@@ -431,6 +437,33 @@ export default function ReservationsScreen() {
   // Cancel state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
+  const [renewingId, setRenewingId] = useState<string | null>(null);
+
+  const handleRenewSubscription = async (r: any) => {
+    const sub = r.rawSubscription;
+    if (!sub || !sub.package) return;
+    const msg = `Renew package "${sub.package.name}" for license plate "${sub.plateNumber}"?\n\nPrice: ${fmtVND(sub.package.price)} will be deducted from your wallet balance.`;
+
+    showCustomConfirm(
+      'Renew Subscription',
+      msg,
+      async () => {
+        setRenewingId(r._id);
+        try {
+          await renewSubscription(token, sub._id);
+          showCustomAlert('Success', 'Subscription renewed successfully!', () => load(), 'success');
+        } catch (err) {
+          showCustomAlert('Error', err instanceof Error ? err.message : 'Renewal failed', undefined, 'error');
+        } finally {
+          setRenewingId(null);
+        }
+      },
+      undefined,
+      'Renew',
+      'Cancel'
+    );
+  };
+
   // ── Load reservations ──────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
@@ -511,7 +544,7 @@ export default function ReservationsScreen() {
       const refundAmt = Math.round(price * 0.95);
       const forfeitAmt = price - refundAmt;
       const msg = `Cancel long-term subscription for plate "${r.plateNumber}"?\n\nYou will be refunded ${fmtVND(refundAmt)} (95% of price) to your wallet. The remaining ${fmtVND(forfeitAmt)} (5%) will be forfeited as a cancellation fee.`;
-      
+
       showCustomConfirm(
         'Cancel Subscription',
         msg,
@@ -1108,16 +1141,38 @@ export default function ReservationsScreen() {
                 </View>
               ) : null}
 
-              {(r.status === 'pending' || r.status === 'confirmed') && (
-                <Button
-                  label={cancellingId === r._id ? 'Cancelling...' : ((r as any).isSubscription ? 'Cancel Subscription' : 'Cancel Reservation')}
-                  onPress={() => handleCancel(r)}
-                  variant="danger"
-                  size="sm"
-                  loading={cancellingId === r._id}
-                  style={{ alignSelf: 'flex-start', marginTop: Spacing.xs }}
-                />
-              )}
+              {(r as any).isSubscription && (r as any).rawSubscription?.package?.maxHoursPerDay ? (
+                <View style={[styles.metaBox, { marginTop: 4 }]}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="hourglass-outline" size={14} color={Colors.textMuted} />
+                    <Text style={styles.metaText}>
+                      Max Hours/Day: <Text style={styles.metaStrong}>{(r as any).rawSubscription.package.maxHoursPerDay} hrs</Text>
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs }}>
+                {(r.status === 'pending' || r.status === 'confirmed') && (
+                  <Button
+                    label={cancellingId === r._id ? 'Cancelling...' : ((r as any).isSubscription ? 'Cancel Subscription' : 'Cancel Reservation')}
+                    onPress={() => handleCancel(r)}
+                    variant="danger"
+                    size="sm"
+                    loading={cancellingId === r._id}
+                    style={{ alignSelf: 'flex-start' }}
+                  />
+                )}
+                {(r as any).isSubscription && (r.status === 'confirmed' || r.status === 'expired') && !(r as any).rawSubscription?.slotReleased && (
+                  <Button
+                    label={renewingId === r._id ? 'Renewing...' : 'Renew'}
+                    onPress={() => handleRenewSubscription(r)}
+                    size="sm"
+                    loading={renewingId === r._id}
+                    style={{ alignSelf: 'flex-start' }}
+                  />
+                )}
+              </View>
             </AnimatedCard>
           ))
         )}
@@ -1558,6 +1613,7 @@ export default function ReservationsScreen() {
                                                     vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
                                                   );
                                                   const isAvailable = slot.status === 'available' && isCompatible;
+                                                  const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
                                                   const isSelected = wizard.slotId === slot._id;
                                                   return (
                                                     <TouchableOpacity
@@ -1566,18 +1622,19 @@ export default function ReservationsScreen() {
                                                         styles.slotCell2D,
                                                         { width: slotWidth + 12, height: slotHeight + 12 },
                                                         isSelected && styles.slotCell2DSelected,
-                                                        !isAvailable && styles.slotCell2DDisabled,
+                                                        !isSelectable && styles.slotCell2DDisabled,
                                                       ]}
                                                       onPress={() => {
-                                                        if (isAvailable) {
+                                                        if (isSelectable) {
                                                           setWizard((p) => ({ ...p, slotId: slot._id }));
                                                           setDisplaySlotCode(slot.code);
+                                                        } else {
+                                                          Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
                                                         }
                                                       }}
-                                                      disabled={!isAvailable}
                                                       activeOpacity={0.8}
                                                     >
-                                                      {isAvailable ? (
+                                                      {isSelectable ? (
                                                         <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
                                                           {slot.code}
                                                         </Text>
@@ -1615,6 +1672,7 @@ export default function ReservationsScreen() {
                                                     vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
                                                   );
                                                   const isAvailable = slot.status === 'available' && isCompatible;
+                                                  const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
                                                   const isSelected = wizard.slotId === slot._id;
                                                   return (
                                                     <TouchableOpacity
@@ -1623,18 +1681,19 @@ export default function ReservationsScreen() {
                                                         styles.slotCell2D,
                                                         { width: slotWidth + 12, height: slotHeight + 12 },
                                                         isSelected && styles.slotCell2DSelected,
-                                                        !isAvailable && styles.slotCell2DDisabled,
+                                                        !isSelectable && styles.slotCell2DDisabled,
                                                       ]}
                                                       onPress={() => {
-                                                        if (isAvailable) {
+                                                        if (isSelectable) {
                                                           setWizard((p) => ({ ...p, slotId: slot._id }));
                                                           setDisplaySlotCode(slot.code);
+                                                        } else {
+                                                          Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
                                                         }
                                                       }}
-                                                      disabled={!isAvailable}
                                                       activeOpacity={0.8}
                                                     >
-                                                      {isAvailable ? (
+                                                      {isSelectable ? (
                                                         <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
                                                           {slot.code}
                                                         </Text>
@@ -1693,6 +1752,7 @@ export default function ReservationsScreen() {
                                                         vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
                                                       );
                                                       const isAvailable = slot.status === 'available' && isCompatible;
+                                                      const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
                                                       const isSelected = wizard.slotId === slot._id;
 
                                                       return (
@@ -1700,20 +1760,21 @@ export default function ReservationsScreen() {
                                                           key={slot._id}
                                                           style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
                                                           onPress={() => {
-                                                            if (isAvailable) {
+                                                            if (isSelectable) {
                                                               setWizard((p) => ({ ...p, slotId: slot._id }));
                                                               setDisplaySlotCode(slot.code);
+                                                            } else {
+                                                              Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
                                                             }
                                                           }}
-                                                          disabled={!isAvailable}
                                                           activeOpacity={0.8}
                                                         >
-                                                          <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
+                                                          <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isSelectable && styles.faceTopDisabled3D]}>
                                                             <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                                            {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
+                                                            {!isSelectable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
                                                           </View>
-                                                          <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
-                                                          <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
+                                                          <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isSelectable && styles.faceLeftDisabled3D]} />
+                                                          <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isSelectable && styles.faceRightDisabled3D]} />
                                                         </TouchableOpacity>
                                                       );
                                                     })}
@@ -1731,6 +1792,7 @@ export default function ReservationsScreen() {
                                                         vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
                                                       );
                                                       const isAvailable = slot.status === 'available' && isCompatible;
+                                                      const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
                                                       const isSelected = wizard.slotId === slot._id;
 
                                                       return (
@@ -1738,20 +1800,21 @@ export default function ReservationsScreen() {
                                                           key={slot._id}
                                                           style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
                                                           onPress={() => {
-                                                            if (isAvailable) {
+                                                            if (isSelectable) {
                                                               setWizard((p) => ({ ...p, slotId: slot._id }));
                                                               setDisplaySlotCode(slot.code);
+                                                            } else {
+                                                              Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
                                                             }
                                                           }}
-                                                          disabled={!isAvailable}
                                                           activeOpacity={0.8}
                                                         >
-                                                          <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isAvailable && styles.faceTopDisabled3D]}>
+                                                          <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isSelectable && styles.faceTopDisabled3D]}>
                                                             <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                                            {!isAvailable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
+                                                            {!isSelectable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
                                                           </View>
-                                                          <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isAvailable && styles.faceLeftDisabled3D]} />
-                                                          <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isAvailable && styles.faceRightDisabled3D]} />
+                                                          <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isSelectable && styles.faceLeftDisabled3D]} />
+                                                          <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isSelectable && styles.faceRightDisabled3D]} />
                                                         </TouchableOpacity>
                                                       );
                                                     })}
@@ -2003,7 +2066,11 @@ export default function ReservationsScreen() {
                     </View>
                     <View style={styles.summarySheetRow}>
                       <Text style={styles.summarySheetLabel}>Vehicle / Plate</Text>
-                      <Text style={styles.summarySheetValue}>{wizard.plateNumber}</Text>
+                      <Text style={styles.summarySheetValue}>
+                        {vtCategory === 'motorcycle' ? 'Motorbike' : vtCategory === 'car' ? 'Car' : ''}
+                        {vtCategory ? '/' : ''}
+                        {wizard.plateNumber}
+                      </Text>
                     </View>
                     {(!bookingType || bookingType === 'hourly' || reserveDedicatedSlot) && wizard.slotId ? (
                       <View style={styles.summarySheetRow}>
@@ -2116,66 +2183,20 @@ export default function ReservationsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: 32,
-    gap: Spacing.lg,
-  },
+  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.lg },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pageTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
-
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.errorBorder,
-    padding: Spacing.md,
-  },
+  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
   errorText: { color: Colors.error, fontSize: FontSize.sm, fontWeight: '600', flex: 1 },
-
-  filterRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.full,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  filterRow: { flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.cardAlt, borderRadius: Radius.full, padding: 4, borderWidth: 1, borderColor: Colors.border },
+  filterBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   filterBtnFlex: { flex: 1 },
   filterBtnActive: { backgroundColor: Colors.primary },
   filterText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted },
   filterTextActive: { color: '#fff' },
-
-  emptyCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing['2xl'],
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
+  emptyCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.sm },
   emptyText: { color: Colors.textDim, fontSize: FontSize.sm },
-
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
+  card: { backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   plateTxt: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text, fontFamily: 'monospace' },
   buildingTxt: { fontSize: FontSize.sm, color: Colors.textMuted },
@@ -2184,1075 +2205,185 @@ const styles = StyleSheet.create({
   timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
   timeLabel: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
   timeValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-
-  metaBox: {
-    gap: 6,
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-  },
+  metaBox: { gap: 6, backgroundColor: Colors.cardAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: FontSize.sm, color: Colors.textMuted, flex: 1 },
   metaStrong: { fontWeight: '800', color: Colors.text, fontFamily: 'monospace' },
-
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalSheet: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: Spacing['2xl'],
-    paddingBottom: 36,
-    gap: Spacing.lg,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: Colors.border,
-    maxHeight: '90%',
-  },
-  modalHandle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    marginBottom: Spacing.xs,
-  },
+  modalSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing['2xl'], paddingBottom: 36, gap: Spacing.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border, maxHeight: '90%' },
+  modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: Spacing.xs },
   modalTitle: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.text },
-
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: -Spacing.sm,
-  },
-  stepDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.cardAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
+  stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: -Spacing.sm },
+  stepDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   stepDotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   stepDotText: { fontSize: 11, fontWeight: '800', color: Colors.textDim },
   stepDotTextActive: { color: '#fff' },
   stepLine: { height: 2, width: 32, backgroundColor: Colors.border, marginHorizontal: -1 },
   stepLineActive: { backgroundColor: Colors.primary },
-
-  fieldLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
+  fieldLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
   hintText: { fontSize: FontSize.xs, color: Colors.textDim, fontStyle: 'italic' },
-
-  // Building card
-  buildingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  buildingCardActive: {
-    borderColor: 'rgba(249,115,22,0.5)',
-    backgroundColor: 'rgba(249,115,22,0.08)',
-  },
+  buildingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm },
+  buildingCardActive: { borderColor: 'rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.08)' },
   buildingName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
   buildingAddr: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2 },
-  buildingCode: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.textDim,
-    fontFamily: 'monospace',
-    backgroundColor: Colors.cardAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-
+  buildingCode: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, fontFamily: 'monospace', backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.cardAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  chipActive: {
-    backgroundColor: 'rgba(249,115,22,0.15)',
-    borderColor: 'rgba(249,115,22,0.4)',
-  },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border },
+  chipActive: { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.4)' },
   chipText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted, fontFamily: 'monospace' },
   chipTextActive: { color: Colors.primary },
-
-  textInput: {
-    backgroundColor: Colors.cardAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: 14,
-    height: 48,
-    color: Colors.text,
-    fontSize: FontSize.base,
-  },
-
-  floorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  floorCardActive: {
-    borderColor: 'rgba(249,115,22,0.5)',
-    backgroundColor: 'rgba(249,115,22,0.08)',
-  },
+  textInput: { backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 14, height: 48, color: Colors.text, fontSize: FontSize.base },
+  floorCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm },
+  floorCardActive: { borderColor: 'rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.08)' },
   floorName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
   floorSub: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2 },
   availBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
   availBadgeOpen: { backgroundColor: 'rgba(22,163,74,0.12)' },
   availBadgeFull: { backgroundColor: 'rgba(239,68,68,0.12)' },
   availBadgeText: { fontSize: 11, fontWeight: '800' },
-
   slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  slotCell: {
-    width: 64,
-    height: 52,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.45)',
-    backgroundColor: 'rgba(249,115,22,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  slotCellSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(249,115,22,0.25)',
-  },
+  slotCell: { width: 64, height: 52, borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(249,115,22,0.45)', backgroundColor: 'rgba(249,115,22,0.10)', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  slotCellSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(249,115,22,0.25)' },
   slotCellDisabled: { borderColor: Colors.border, backgroundColor: Colors.cardAlt, opacity: 0.5 },
   slotCode: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary, fontFamily: 'monospace' },
   slotCodeSelected: { color: Colors.primary },
   slotCodeDisabled: { color: Colors.textDim },
   slotTakenLabel: { fontSize: 9, fontWeight: '700', color: Colors.textDim, textTransform: 'uppercase' },
-
-  summaryCard: {
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: 4,
-  },
+  summaryCard: { backgroundColor: Colors.cardAlt, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: 4 },
   summaryTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
   summaryRow: { fontSize: FontSize.sm, color: Colors.text },
   summaryKey: { fontWeight: '700', color: Colors.textMuted },
-
-  feeHintBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(249,115,22,0.08)',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.2)',
-    padding: Spacing.sm,
-  },
+  feeHintBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(249,115,22,0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)', padding: Spacing.sm },
   feeHintText: { fontSize: FontSize.xs, color: Colors.primary, flex: 1 },
   modalBtns: { flexDirection: 'row', gap: Spacing.sm },
-
-  // ─── 3D Isometric Map Styles ───────────────────────────────────────────────
-  openMapBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    paddingVertical: 14,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  openMapBtnText: {
-    color: '#fff',
-    fontSize: FontSize.sm,
-    fontWeight: '800',
-  },
-  selectedSlotConfirmBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(22, 163, 74, 0.08)',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(22, 163, 74, 0.2)',
-    padding: Spacing.md,
-  },
-  selectedSlotConfirmText: {
-    color: Colors.textMuted,
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-  },
-  selectSlotPrompt: {
-    color: Colors.textDim,
-    fontSize: FontSize.xs,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginVertical: 4,
-  },
-
-  // Map Modal Styles
-  mapModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)', // Elegant slate dark backdrop
-    justifyContent: 'flex-end',
-  },
-  mapModalSheet: {
-    backgroundColor: Colors.bg,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    height: '85%', // Tràn màn hình nhưng vẫn thấy lớp nền phía trên
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  mapModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  mapModalTitle: {
-    fontSize: FontSize.md,
-    fontWeight: '900',
-    color: Colors.text,
-  },
-  mapModalSubtitle: {
-    fontSize: FontSize.xs,
-    color: Colors.primary,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  mapToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.cardAlt,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  mapSelectHint: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.textDim,
-  },
-  mapModalContent: {
-    flex: 1,
-    backgroundColor: '#090d16', // Ultra dark theme inside map canvas
-  },
-  scroll2DContainer: {
-    padding: Spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapModalFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    backgroundColor: Colors.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  footerInfoCol: {
-    gap: 4,
-  },
-  footerSelectedTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  footerSelectedValue: {
-    fontSize: FontSize.base,
-    fontWeight: '900',
-    color: Colors.primary,
-  },
-  confirmSelectionBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmSelectionBtnDisabled: {
-    backgroundColor: Colors.border,
-    opacity: 0.5,
-  },
-  confirmSelectionBtnText: {
-    color: '#fff',
-    fontSize: FontSize.sm,
-    fontWeight: '800',
-  },
-
-  // Concrete Columns 3D
-  columnBase: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    zIndex: 15,
-  },
-  pillarLeftFace: {
-    position: 'absolute',
-    left: 0,
-    top: -24,
-    width: 10,
-    height: 24,
-    backgroundColor: '#fbbf24',
-    overflow: 'hidden',
-    borderTopLeftRadius: 1,
-    borderBottomLeftRadius: 1,
-    zIndex: 16,
-  },
-  pillarRightFace: {
-    position: 'absolute',
-    left: 10,
-    top: -24,
-    width: 10,
-    height: 24,
-    backgroundColor: '#d97706',
-    overflow: 'hidden',
-    borderTopRightRadius: 1,
-    borderBottomRightRadius: 1,
-    zIndex: 16,
-  },
-  pillarTopFace: {
-    position: 'absolute',
-    top: -29,
-    left: 5,
-    width: 20,
-    height: 20,
-    backgroundColor: '#475569',
-    borderWidth: 1,
-    borderColor: '#94a3b8',
-    zIndex: 17,
-  },
-
-  viewModeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
-  },
-  toggleBtnGroup: {
-    flexDirection: 'row',
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.md,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-    gap: 4,
-  },
-  toggleBtnActive: {
-    backgroundColor: Colors.primary,
-  },
-  toggleBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textMuted,
-  },
-  scroll3DHorizontal: {
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  scroll3DVertical: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  basement3DContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 380, // Explicit width to host rotated bounds without clipping
-    height: 720, // Explicit height to host rotated bounds without clipping
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-  },
-  basementColumn: {
-    position: 'absolute',
-    width: 14,
-    height: 40,
-    backgroundColor: '#334155', // Slate dark
-    borderLeftWidth: 3,
-    borderLeftColor: '#fbbf24', // Yellow stripe
-    borderRightWidth: 3,
-    borderRightColor: '#fbbf24', // Yellow stripe
-    borderRadius: 2,
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  basementLanesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-  },
-  isometricCanvas: {
-    transform: [
-      { perspective: 900 },
-      { rotateX: '58deg' },
-      { rotateZ: '-38deg' }
-    ],
-    width: 320,
-    padding: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)', // Dark premium background
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  slots3DLayout: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-  },
-  parkingLane3D: {
-    flexDirection: 'column',
-    gap: 20,
-  },
-  slot3DBoxContainer: {
-    position: 'relative',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 4,
-  },
-  faceTop3D: {
-    position: 'absolute',
-    borderRadius: 4,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)', // Glassmorphism green
-    borderColor: 'rgba(34, 197, 94, 0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    width: '100%',
-    height: '100%',
-  },
-  faceTopSelected3D: {
-    backgroundColor: 'rgba(249, 115, 22, 0.35)', // Orange neon glow
-    borderColor: '#f97316',
-    shadowColor: '#f97316',
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-  },
-  faceTopDisabled3D: {
-    backgroundColor: 'rgba(71, 85, 105, 0.1)', // Slate sẫm mờ
-    borderColor: '#475569',
-    shadowOpacity: 0,
-  },
-  faceLeft3D: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    backgroundColor: 'rgba(34, 197, 94, 0.4)',
-    borderTopLeftRadius: 4,
-    borderBottomLeftRadius: 4,
-    zIndex: 2,
-    height: '100%',
-  },
-  faceLeftSelected3D: {
-    backgroundColor: 'rgba(249, 115, 22, 0.7)',
-  },
-  faceLeftDisabled3D: {
-    backgroundColor: 'rgba(71, 85, 105, 0.3)',
-  },
-  faceRight3D: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    backgroundColor: 'rgba(34, 197, 94, 0.25)',
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    zIndex: 1,
-    width: '100%',
-  },
-  faceRightSelected3D: {
-    backgroundColor: 'rgba(249, 115, 22, 0.5)',
-  },
-  faceRightDisabled3D: {
-    backgroundColor: 'rgba(71, 85, 105, 0.2)',
-  },
-  codeText3D: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#fff',
-    fontFamily: 'monospace',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  carSymbol3D: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  drivewayLine3D: {
-    width: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dashedDivider: {
-    height: '100%',
-    width: 2,
-    borderStyle: 'dashed',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-
-  // Premium Picker Styles
-  horizontalScrollPadding: {
-    paddingRight: 20,
-  },
-  // iOS picker modal
-  pickerOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  pickerSheet: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 32,
-    overflow: 'hidden',
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-
-  // Premium 2D Layout Styles
-  scroll2DHorizontal: {
-    paddingHorizontal: 20,
-  },
-  scroll2DVertical: {
-    paddingVertical: 20,
-  },
-  basement2DContainer: {
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  rowHeaderRow2D: {
-    width: '100%',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-    paddingLeft: 4,
-  },
-  rowHeader2D: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  parkingLane2D: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  slotCell2D: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(16, 185, 129, 0.5)', // border-emerald-500/50
-    backgroundColor: 'rgba(16, 185, 129, 0.1)', // bg-emerald-500/10
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  slotCell2DSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  slotCell2DDisabled: {
-    borderColor: '#475569', // Slate sẫm mờ border
-    backgroundColor: 'rgba(71, 85, 105, 0.1)', // Slate sẫm mờ bg
-    shadowOpacity: 0,
-  },
-  slotCode2D: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#10b981',
-    fontFamily: 'monospace',
-  },
-  slotCode2DSelected: {
-    color: Colors.primary,
-  },
-  slotCode2DDisabledTop: {
-    fontSize: 8,
-    fontWeight: '800',
-    color: Colors.textDim,
-    fontFamily: 'monospace',
-    position: 'absolute',
-    top: 4,
-  },
-  slotVehicleEmoji2D: {
-    fontSize: 14,
-    marginTop: 10,
-  },
-  slotOccupiedContainer2D: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
-  },
-  drivewayLine2D: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginVertical: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 8,
-  },
-  drivewayArrow2D: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: Colors.primary,
-    fontFamily: 'monospace',
-    letterSpacing: 0.8,
-  },
-  drivewayText2D: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: Colors.textMuted,
-    letterSpacing: 1.5,
-  },
-  dashedDivider2D: {
-    width: 1,
-    height: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-
-  // Legend Styles
-  legendRow2D: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    paddingVertical: 12,
-    backgroundColor: Colors.cardAlt,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  legendItem2D: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot2D: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-  },
-  legendText2D: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.textMuted,
-  },
-
-  // Step 3 Redesign Styles
-  newSummaryCard: {
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  newSummaryTitle: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  summaryGrid: {
-    gap: Spacing.md,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  summaryIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.md,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryItemLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  summaryItemValue: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text,
-    marginTop: 1,
-  },
-
-  // Billing estimation card
-  billingCard: {
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    marginTop: Spacing.xs,
-  },
-  billingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
-  },
-  billingTitle: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  billingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  billingLabel: {
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  billingValue: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  billingDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 2,
-  },
-  depositRow: {
-    backgroundColor: 'rgba(245,158,11,0.04)',
-    padding: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.1)',
-  },
-  wizardScrollView: {
-    maxHeight: 380,
-    flexShrink: 1,
-  },
-  timeTriggerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(249,115,22,0.06)',
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    borderColor: 'rgba(249,115,22,0.35)',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  timeTriggerLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 3,
-  },
-  timeTriggerValue: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  timePreviewCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardAlt,
-    padding: Spacing.md,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  timePreviewColumn: {
-    flex: 1,
-    gap: 4,
-  },
-  timePreviewLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-  },
-  timePreviewValue: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  timePreviewDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.border,
-    marginHorizontal: Spacing.md,
-  },
-  pkgSelectCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  pkgSelectCardActive: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(249,115,22,0.04)',
-  },
-  pkgSelectName: {
-    fontSize: FontSize.sm,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  pkgSelectDuration: {
-    fontSize: FontSize.xs,
-    color: Colors.textDim,
-  },
-  pkgSelectPrice: {
-    fontSize: FontSize.sm,
-    fontWeight: '900',
-    color: Colors.primary,
-  },
-  bottomSummarySheet: {
-    backgroundColor: Colors.cardAlt,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-  },
-  bottomSummarySheetExpanded: {
-    backgroundColor: Colors.card,
-  },
-  summarySheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  summarySheetTitle: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  summarySheetDetails: {
-    gap: 8,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    marginTop: 6,
-  },
-  summarySheetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summarySheetLabel: {
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
-  },
-  summarySheetValue: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    marginTop: 4,
-  },
-  checkboxLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    flex: 1,
-  },
-  dialogOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 6, 23, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing['2xl'],
-  },
-  dialogContainer: {
-    width: '100%',
-    maxWidth: 320,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    borderColor: Colors.borderAlt,
-    padding: Spacing['2xl'],
-    alignItems: 'center',
-    gap: Spacing.md,
-    // Add shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  dialogIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.cardAlt,
-    borderWidth: 1.5,
-    borderColor: Colors.borderAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  dialogTitle: {
-    fontSize: FontSize.md,
-    fontWeight: '900',
-    color: Colors.text,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  dialogMessage: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  dialogActions: {
-    flexDirection: 'column',
-    width: '100%',
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  dialogBtn: {
-    width: '100%',
-    height: 44,
-    borderRadius: Radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dialogBtnCancel: {
-    borderWidth: 1.5,
-    borderColor: Colors.borderAlt,
-    backgroundColor: Colors.cardAlt,
-  },
-  dialogBtnCancelText: {
-    color: Colors.textMuted,
-    fontSize: FontSize.sm,
-    fontWeight: '800',
-  },
-  dialogBtnConfirmPrimary: {
-    backgroundColor: Colors.primary,
-  },
-  dialogBtnConfirmDanger: {
-    backgroundColor: Colors.error,
-  },
-  dialogBtnConfirmText: {
-    color: '#fff',
-    fontSize: FontSize.sm,
-    fontWeight: '800',
-  },
-});
+  openMapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingVertical: 14, gap: 8, borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.4)', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
+  openMapBtnText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
+  selectedSlotConfirmBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(22, 163, 74, 0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(22, 163, 74, 0.2)', padding: Spacing.md },
+  selectedSlotConfirmText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: '600' },
+  selectSlotPrompt: { color: Colors.textDim, fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center', marginVertical: 4 },
+  mapModalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end' },
+  mapModalSheet: { backgroundColor: Colors.bg, borderTopLeftRadius: 32, borderTopRightRadius: 32, height: '85%', borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border, overflow: 'hidden' },
+  mapModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  mapModalTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text },
+  mapModalSubtitle: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '700', marginTop: 2 },
+  mapToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.cardAlt, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  mapSelectHint: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDim },
+  mapModalContent: { flex: 1, backgroundColor: '#090d16' },
+  scroll2DContainer: { padding: Spacing.xl, alignItems: 'center', justifyContent: 'center' },
+  mapModalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
+  footerInfoCol: { gap: 4 },
+  footerSelectedTitle: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 0.8 },
+  footerSelectedValue: { fontSize: FontSize.base, fontWeight: '900', color: Colors.primary },
+  confirmSelectionBtn: { backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  confirmSelectionBtnDisabled: { backgroundColor: Colors.border, opacity: 0.5 },
+  confirmSelectionBtnText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
+  columnBase: { position: 'absolute', width: 20, height: 20, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 15 },
+  pillarLeftFace: { position: 'absolute', left: 0, top: -24, width: 10, height: 24, backgroundColor: '#fbbf24', overflow: 'hidden', borderTopLeftRadius: 1, borderBottomLeftRadius: 1, zIndex: 16 },
+  pillarRightFace: { position: 'absolute', left: 10, top: -24, width: 10, height: 24, backgroundColor: '#d97706', overflow: 'hidden', borderTopRightRadius: 1, borderBottomRightRadius: 1, zIndex: 16 },
+  pillarTopFace: { position: 'absolute', top: -29, left: 5, width: 20, height: 20, backgroundColor: '#475569', borderWidth: 1, borderColor: '#94a3b8', zIndex: 17 },
+  viewModeContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  toggleBtnGroup: { flexDirection: 'row', backgroundColor: Colors.cardAlt, borderRadius: Radius.md, padding: 3, borderWidth: 1, borderColor: Colors.border },
+  toggleBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.sm, gap: 4 },
+  toggleBtnActive: { backgroundColor: Colors.primary },
+  toggleBtnText: { fontSize: 10, fontWeight: '700', color: Colors.textMuted },
+  scroll3DHorizontal: { paddingHorizontal: 20, alignItems: 'center' },
+  scroll3DVertical: { paddingVertical: 20, alignItems: 'center' },
+  basement3DContainer: { alignItems: 'center', justifyContent: 'center', width: 380, height: 720, paddingHorizontal: 20, paddingVertical: 40 },
+  basementColumn: { position: 'absolute', width: 14, height: 40, backgroundColor: '#334155', borderLeftWidth: 3, borderLeftColor: '#fbbf24', borderRightWidth: 3, borderRightColor: '#fbbf24', borderRadius: 2, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+  basementLanesRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  isometricCanvas: { transform: [{ perspective: 900 }, { rotateX: '58deg' }, { rotateZ: '-38deg' }], width: 320, padding: 20, backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)' },
+  slots3DLayout: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  parkingLane3D: { flexDirection: 'column', gap: 20 },
+  slot3DBoxContainer: { position: 'relative', backgroundColor: 'rgba(0, 0, 0, 0.3)', borderRadius: 4 },
+  faceTop3D: { position: 'absolute', borderRadius: 4, borderWidth: 1.5, backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 3, shadowColor: '#22c55e', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, width: '100%', height: '100%' },
+  faceTopSelected3D: { backgroundColor: 'rgba(249, 115, 22, 0.35)', borderColor: '#f97316', shadowColor: '#f97316', shadowOpacity: 0.4, shadowRadius: 8 },
+  faceTopDisabled3D: { backgroundColor: 'rgba(71, 85, 105, 0.1)', borderColor: '#475569', shadowOpacity: 0 },
+  faceLeft3D: { position: 'absolute', left: 0, top: 0, backgroundColor: 'rgba(34, 197, 94, 0.4)', borderTopLeftRadius: 4, borderBottomLeftRadius: 4, zIndex: 2, height: '100%' },
+  faceLeftSelected3D: { backgroundColor: 'rgba(249, 115, 22, 0.7)' },
+  faceLeftDisabled3D: { backgroundColor: 'rgba(71, 85, 105, 0.3)' },
+  faceRight3D: { position: 'absolute', left: 0, top: 0, backgroundColor: 'rgba(34, 197, 94, 0.25)', borderTopLeftRadius: 4, borderTopRightRadius: 4, zIndex: 1, width: '100%' },
+  faceRightSelected3D: { backgroundColor: 'rgba(249, 115, 22, 0.5)' },
+  faceRightDisabled3D: { backgroundColor: 'rgba(71, 85, 105, 0.2)' },
+  codeText3D: { fontSize: 10, fontWeight: '900', color: '#fff', fontFamily: 'monospace', textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
+  carSymbol3D: { fontSize: 14, marginTop: 2 },
+  drivewayLine3D: { width: 24, alignItems: 'center', justifyContent: 'center' },
+  dashedDivider: { height: '100%', width: 2, borderStyle: 'dashed', borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.25)' },
+  horizontalScrollPadding: { paddingRight: 20 },
+  pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  pickerSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, overflow: 'hidden' },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  scroll2DHorizontal: { paddingHorizontal: 20 },
+  scroll2DVertical: { paddingVertical: 20 },
+  basement2DContainer: { paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center' },
+  rowHeaderRow2D: { width: '100%', alignItems: 'flex-start', marginBottom: 6, paddingLeft: 4 },
+  rowHeader2D: { fontSize: 9, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1.2 },
+  parkingLane2D: { flexDirection: 'row', gap: 10, paddingVertical: 8 },
+  slotCell2D: { borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)', alignItems: 'center', justifyContent: 'center', shadowColor: '#10b981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 1 },
+  slotCell2DSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(249, 115, 22, 0.15)', shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 6 },
+  slotCell2DDisabled: { borderColor: '#475569', backgroundColor: 'rgba(71, 85, 105, 0.1)', shadowOpacity: 0 },
+  slotCode2D: { fontSize: 11, fontWeight: '900', color: '#10b981', fontFamily: 'monospace' },
+  slotCode2DSelected: { color: Colors.primary },
+  slotCode2DDisabledTop: { fontSize: 8, fontWeight: '800', color: Colors.textDim, fontFamily: 'monospace', position: 'absolute', top: 4 },
+  slotVehicleEmoji2D: { fontSize: 14, marginTop: 10 },
+  slotOccupiedContainer2D: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
+  drivewayLine2D: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginVertical: 14, paddingVertical: 8, paddingHorizontal: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: 8 },
+  drivewayArrow2D: { fontSize: 8, fontWeight: '900', color: Colors.primary, fontFamily: 'monospace', letterSpacing: 0.8 },
+  drivewayText2D: { fontSize: 9, fontWeight: '900', color: Colors.textMuted, letterSpacing: 1.5 },
+  dashedDivider2D: { width: 1, height: 10, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+  legendRow2D: { flexDirection: 'row', justifyContent: 'center', gap: 20, paddingVertical: 12, backgroundColor: Colors.cardAlt, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  legendItem2D: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot2D: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5 },
+  legendText2D: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
+  newSummaryCard: { backgroundColor: Colors.cardAlt, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md },
+  summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  newSummaryTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
+  summaryGrid: { gap: Spacing.md },
+  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  summaryIconBox: { width: 32, height: 32, borderRadius: Radius.md, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  summaryItemLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
+  summaryItemValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, marginTop: 1 },
+  billingCard: { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md, marginTop: Spacing.xs },
+  billingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  billingTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
+  billingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.md },
+  billingLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
+  billingValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  billingDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 2 },
+  depositRow: { backgroundColor: 'rgba(245,158,11,0.04)', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(245,158,11,0.1)' },
+  wizardScrollView: { maxHeight: 380, flexShrink: 1 },
+  timeTriggerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(249,115,22,0.06)', borderRadius: Radius.xl, borderWidth: 1.5, borderColor: 'rgba(249,115,22,0.35)', paddingVertical: 14, paddingHorizontal: 16 },
+  timeTriggerLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 },
+  timeTriggerValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  timePreviewCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, padding: Spacing.md, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border },
+  timePreviewColumn: { flex: 1, gap: 4 },
+  timePreviewLabel: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase' },
+  timePreviewValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
+  timePreviewDivider: { width: 1, height: 24, backgroundColor: Colors.border, marginHorizontal: Spacing.md },
+  pkgSelectCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, marginBottom: Spacing.xs },
+  pkgSelectCardActive: { borderColor: Colors.primary, backgroundColor: 'rgba(249,115,22,0.04)' },
+  pkgSelectName: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
+  pkgSelectDuration: { fontSize: FontSize.xs, color: Colors.textDim },
+  pkgSelectPrice: { fontSize: FontSize.sm, fontWeight: '900', color: Colors.primary },
+  bottomSummarySheet: { backgroundColor: Colors.cardAlt, borderTopWidth: 1, borderTopColor: Colors.border, paddingHorizontal: 16, paddingVertical: 10, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg },
+  bottomSummarySheetExpanded: { backgroundColor: Colors.card },
+  summarySheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
+  summarySheetTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text, textTransform: 'uppercase', letterSpacing: 0.5 },
+  summarySheetDetails: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 6 },
+  summarySheetRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  summarySheetLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
+  summarySheetValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.cardAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, marginTop: 4 },
+  checkboxLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted, flex: 1 },
+  dialogOverlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.75)', justifyContent: 'center', alignItems: 'center', padding: Spacing['2xl'] },
+  dialogContainer: { width: '100%', maxWidth: 320, backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1.5, borderColor: Colors.borderAlt, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 15, elevation: 10 },
+  dialogIconContainer: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.cardAlt, borderWidth: 1.5, borderColor: Colors.borderAlt, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.xs },
+  dialogTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text, textAlign: 'center', lineHeight: 24 },
+  dialogMessage: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  dialogActions: { flexDirection: 'column', width: '100%', gap: Spacing.sm, marginTop: Spacing.md },
+  dialogBtn: { width: '100%', height: 44, borderRadius: Radius.md, justifyContent: 'center', alignItems: 'center' },
+  dialogBtnCancel: { borderWidth: 1.5, borderColor: Colors.borderAlt, backgroundColor: Colors.cardAlt },
+  dialogBtnCancelText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: '800' },
+  dialogBtnConfirmPrimary: { backgroundColor: Colors.primary },
+  dialogBtnConfirmDanger: { backgroundColor: Colors.error },
+  dialogBtnConfirmText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
+});;
