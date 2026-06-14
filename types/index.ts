@@ -94,6 +94,7 @@ export interface LongTermPackage {
   durationDays: number;
   price: number;
   description?: string;
+  allowDedicatedSlot?: boolean;
   vehicleType?: { _id: string; name: string; code: string } | 'car' | 'motorcycle' | 'all' | null;
   isActive?: boolean;
   building?: {

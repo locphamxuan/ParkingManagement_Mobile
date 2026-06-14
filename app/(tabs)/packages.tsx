@@ -535,54 +535,79 @@ export default function PackagesScreen() {
                   {/* Package cards */}
                   {visiblePackages.map((pkg, idx) => {
                     const code = vtCode(pkg.vehicleType);
+                    const isCar = String(code || (typeof pkg.vehicleType === 'string' ? pkg.vehicleType : (pkg.vehicleType?.name || ''))).toLowerCase().includes('car');
+                    const isWeekly = pkg.durationDays <= 7;
+                    const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
+                    const tagLabel = isWeekly ? 'Weekly' : isMonthly ? 'Monthly' : 'Yearly';
+
+                    const themeColor = isWeekly ? Colors.primary : isMonthly ? Colors.blue : Colors.purple;
+                    const themeBg = isWeekly ? 'rgba(249,115,22,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
+                    const borderThemeColor = isWeekly ? 'rgba(249,115,22,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
+                    const glowOrbColor = isWeekly ? 'rgba(249,115,22,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
+
                     return (
-                      <AnimatedCard key={pkg._id} index={idx} style={styles.pkgCard}>
-                        <View style={styles.pkgTop}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.pkgName}>{pkg.name}</Text>
-                            <View style={styles.pkgMetaRow}>
-                              <View style={styles.tag}>
-                                <Ionicons name="time-outline" size={11} color={Colors.textDim} />
-                                <Text style={styles.tagText}>{pkg.durationDays} days</Text>
-                              </View>
-                              <View style={styles.tag}>
-                                <Ionicons name="car-outline" size={11} color={Colors.textDim} />
-                                <Text style={styles.tagText}>
-                                  {vtLabel(pkg.vehicleType)}
-                                  {code ? ` (${code})` : ''}
-                                </Text>
-                              </View>
-                            </View>
-                            {pkg.description ? (
-                              <Text style={styles.pkgDesc} numberOfLines={2}>
-                                {pkg.description}
-                              </Text>
-                            ) : null}
-                          </View>
-                          <View style={styles.pkgRight}>
-                            <Text style={styles.pkgPrice}>{fmtMoney(pkg.price)}</Text>
+                      <AnimatedCard key={pkg._id} index={idx} style={[styles.pkgCard, { borderColor: borderThemeColor, shadowColor: themeColor }]}>
+                        <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.lg - 1, overflow: 'hidden', pointerEvents: 'none' }]}>
+                          <View style={[styles.pkgCardGlowOrb, { backgroundColor: glowOrbColor }]} />
+                        </View>
+                        <View style={styles.pkgHeaderRow}>
+                          <Text style={[styles.pkgTagBadge, { backgroundColor: themeBg, color: themeColor }]}>{tagLabel}</Text>
+                          <View style={[
+                            styles.pkgVehicleBadge,
+                            { 
+                              borderColor: isCar ? 'rgba(59,130,246,0.12)' : 'rgba(16,185,129,0.12)',
+                              backgroundColor: isCar ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)'
+                            }
+                          ]}>
+                            <Ionicons name={isCar ? "car" : "bicycle"} size={10} color={isCar ? Colors.blue : Colors.success} />
+                            <Text style={[styles.pkgVehicleText, { color: isCar ? Colors.blue : Colors.success }]}>
+                              {isCar ? 'Car' : 'Motorcycle'}
+                            </Text>
                           </View>
                         </View>
-
-                        <AnimatedPressable
-                          style={styles.subscribeBtn}
-                          onPress={() => {
-                            const code = vtCode(pkg.vehicleType);
-                            router.push({
-                              pathname: '/(tabs)/reservations',
-                              params: {
-                                buildingId: pkg.building?._id || '',
-                                packageId: pkg._id,
-                                vehicleType: code || 'car',
-                              },
-                            });
-                          }}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Ionicons name="eye-outline" size={14} color={Colors.card} />
-                            <Text style={styles.subscribeBtnText}>View Now</Text>
+                        <Text style={styles.pkgName}>{pkg.name}</Text>
+                        {pkg.description ? (
+                          <Text style={styles.pkgDesc} numberOfLines={2}>
+                            {pkg.description}
+                          </Text>
+                        ) : null}
+                        <View style={styles.pkgMetaRow}>
+                          <View style={styles.tag}>
+                            <Ionicons name="time-outline" size={12} color={Colors.textDim} />
+                            <Text style={styles.tagText}>{pkg.durationDays} Days</Text>
                           </View>
-                        </AnimatedPressable>
+                          <View style={styles.tag}>
+                            <Ionicons name="grid-outline" size={12} color={Colors.textDim} />
+                            <Text style={styles.tagText}>
+                              {pkg.allowDedicatedSlot ? 'Dedicated Slot' : 'Flexible Slot'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.pkgBottomRow}>
+                          <View>
+                            <Text style={styles.pkgPriceLabel}>PRICE</Text>
+                            <Text style={styles.pkgPriceText}>{fmtMoney(pkg.price)}</Text>
+                          </View>
+                          <AnimatedPressable
+                            style={[styles.pkgActionBtn, { backgroundColor: themeColor }]}
+                            onPress={() => {
+                              const code = vtCode(pkg.vehicleType);
+                              router.push({
+                                pathname: '/(tabs)/reservations',
+                                params: {
+                                  buildingId: pkg.building?._id || '',
+                                  packageId: pkg._id,
+                                  vehicleType: code || 'car',
+                                },
+                              });
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name="eye-outline" size={14} color="#ffffff" />
+                              <Text style={styles.pkgActionBtnText}>View Now</Text>
+                            </View>
+                          </AnimatedPressable>
+                        </View>
                       </AnimatedCard>
                     );
                   })}
@@ -799,73 +824,125 @@ const styles = StyleSheet.create({
   pkgCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.06)',
     padding: Spacing.lg,
     marginBottom: Spacing.md,
-  },
-  pkgTop: {
-    flexDirection: 'row',
     gap: Spacing.md,
-    marginBottom: Spacing.md,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  pkgCardGlowOrb: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
+  pkgHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  pkgTagBadge: {
+    fontSize: 9,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  pkgVehicleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  pkgVehicleText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   pkgName: {
     fontSize: FontSize.base,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: Spacing.xs,
+    marginTop: -2,
+  },
+  pkgDesc: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    lineHeight: 18,
+    marginTop: -4,
   },
   pkgMetaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
+    marginTop: -2,
   },
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: 'rgba(255,255,255,0.02)',
     borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255,255,255,0.04)',
   },
   tagText: {
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
+    fontSize: 11,
+    color: Colors.textDim,
     fontWeight: '600',
   },
-  pkgDesc: {
-    fontSize: FontSize.xs,
+  pkgBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    paddingTop: Spacing.md,
+    marginTop: 2,
+  },
+  pkgPriceLabel: {
+    fontSize: 8,
+    fontWeight: '700',
     color: Colors.textDim,
-    lineHeight: 16,
-    marginTop: 4,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
-  pkgRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
+  pkgPriceText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
   },
-  pkgPrice: {
-    fontSize: FontSize.base,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-
-  subscribeBtn: {
+  pkgActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  subscribeBtnText: {
-    color: Colors.card,
-    fontWeight: '700',
-    fontSize: FontSize.sm,
+  pkgActionBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: FontSize.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   seeMoreBtn: {
     flexDirection: 'row',
