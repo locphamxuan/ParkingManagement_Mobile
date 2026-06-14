@@ -16,10 +16,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { listPackages, subscribe } from '../../services/longTerm';
-import type { LongTermPackage } from '../../types';
+import { listPackages, subscribe, listSubscriptions } from '../../services/longTerm';
+import type { LongTermPackage, LongTermSubscription } from '../../types';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import {
   listReservations,
@@ -256,6 +256,7 @@ export default function ReservationsScreen() {
   const plates = session?.licensePlates ?? [];
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [subscriptions, setSubscriptions] = useState<LongTermSubscription[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('booked');
@@ -385,8 +386,12 @@ export default function ReservationsScreen() {
     if (!token) return;
     setLoadError(null);
     try {
-      const data = await listReservations(token);
-      setReservations(data);
+      const [resData, subData] = await Promise.all([
+        listReservations(token),
+        listSubscriptions(token).catch(() => []),
+      ]);
+      setReservations(resData);
+      setSubscriptions(subData);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load reservations');
     }
@@ -744,26 +749,33 @@ export default function ReservationsScreen() {
         
         const resAny = result as any;
         if (resAny.checkoutUrl) {
-          Alert.alert(
-            'Redirecting to Payment',
-            'Your wallet balance is insufficient. Redirecting to payment gateway...',
-            [
-              {
-                text: 'Pay Now',
-                onPress: () => {
-                  if (Platform.OS === 'web') {
-                    window.open(resAny.checkoutUrl, '_blank');
-                  } else {
+          const payMsg = 'Your wallet balance is insufficient. Redirecting to payment gateway...';
+          if (Platform.OS === 'web') {
+            alert(`Redirecting to Payment\n\n${payMsg}`);
+            window.open(resAny.checkoutUrl, '_blank');
+          } else {
+            Alert.alert(
+              'Redirecting to Payment',
+              payMsg,
+              [
+                {
+                  text: 'Pay Now',
+                  onPress: () => {
                     import('react-native').then(({ Linking }) => {
                       Linking.openURL(resAny.checkoutUrl);
                     });
                   }
                 }
-              }
-            ]
-          );
+              ]
+            );
+          }
         } else {
-          Alert.alert('Subscription Confirmed', `Successfully subscribed to package!`);
+          const okMsg = 'Successfully subscribed to package!';
+          if (Platform.OS === 'web') {
+            alert(`Subscription Confirmed\n\n${okMsg}`);
+          } else {
+            Alert.alert('Subscription Confirmed', okMsg);
+          }
         }
       } catch (err) {
         setCreateError(err instanceof Error ? err.message : 'Failed to subscribe to package');
@@ -805,7 +817,11 @@ export default function ReservationsScreen() {
       const depositTxt = result.depositAmount
         ? `\nDeposit paid: ${fmtVND(result.depositAmount)} (15%)\nRemaining at checkout: ${fmtVND((result.estimatedFee ?? 0) - (result.depositAmount ?? 0))}`
         : '';
-      Alert.alert('Reservation Confirmed', `Your slot is booked.${depositTxt}`);
+      if (Platform.OS === 'web') {
+        alert(`Reservation Confirmed\n\nYour slot is booked.${depositTxt}`);
+      } else {
+        Alert.alert('Reservation Confirmed', `Your slot is booked.${depositTxt}`);
+      }
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
     } finally {
@@ -817,19 +833,43 @@ export default function ReservationsScreen() {
 
   const activePkg = packages.find((p) => p._id === selectedPackageId);
 
-  const filtered = reservations.filter((r) =>
+  const combinedBookings = React.useMemo(() => {
+    const normReservations = reservations.map((r) => ({ ...r, isSubscription: false }));
+    const normSubscriptions = subscriptions.map((s) => ({
+      _id: s._id,
+      code: s.package ? `PKG-${s.package.name.substring(0, 3).toUpperCase()}` : 'PKG',
+      plateNumber: s.plateNumber,
+      building: s.building || s.package?.building || { name: 'Unknown Building' },
+      slot: s.slot || undefined,
+      startTime: s.startDate,
+      endTime: s.endDate,
+      fee: s.package?.price ?? 0,
+      estimatedFee: s.package?.price ?? 0,
+      status: (s.status === 'active' ? 'confirmed' : (s.status === 'pending' ? 'pending' : (s.status === 'cancelled' ? 'cancelled' : 'expired'))) as Reservation['status'],
+      isSubscription: true,
+      rawSubscription: s,
+    }));
+    return [...normReservations, ...normSubscriptions].sort((a, b) => {
+      return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+    });
+  }, [reservations, subscriptions]);
+
+  const filtered = combinedBookings.filter((r) =>
     filter === 'booked' ? !isCancelled(r.status) : isCancelled(r.status),
   );
 
   const finalFiltered = (() => {
-    const end = toDate ?? new Date();
     const startOfDay = new Date(fromDate);
     startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(end);
-    endOfDay.setHours(23, 59, 59, 999);
     return filtered.filter((r) => {
       const d = new Date(r.startTime);
-      return d >= startOfDay && d <= endOfDay;
+      if (d < startOfDay) return false;
+      if (toDate) {
+        const endOfDay = new Date(toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        return d <= endOfDay;
+      }
+      return true;
     });
   })();
 
@@ -1395,11 +1435,11 @@ export default function ReservationsScreen() {
                                   return (
                                     <ScrollView
                                       horizontal
-                                      showsHorizontalScrollIndicator={false}
-                                      contentContainerStyle={styles.scroll2DHorizontal}
+                                      showsHorizontalScrollIndicator={true}
+                                      contentContainerStyle={styles.scroll2DHorizontal} style={{ flex: 1, width: '100%' }}
                                     >
                                       <ScrollView
-                                        showsVerticalScrollIndicator={false}
+                                        showsVerticalScrollIndicator={true}
                                         contentContainerStyle={styles.scroll2DVertical}
                                       >
                                         <View style={styles.basement2DContainer}>
@@ -2297,8 +2337,6 @@ const styles = StyleSheet.create({
   },
   mapModalContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#090d16', // Ultra dark theme inside map canvas
   },
   scroll2DContainer: {
@@ -2604,12 +2642,10 @@ const styles = StyleSheet.create({
 
   // Premium 2D Layout Styles
   scroll2DHorizontal: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   scroll2DVertical: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 20,
   },
   basement2DContainer: {
     paddingVertical: 24,
