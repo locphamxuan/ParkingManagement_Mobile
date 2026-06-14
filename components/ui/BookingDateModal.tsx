@@ -91,12 +91,13 @@ export function BookingDateModal({
       const end = new Date(initialEnd);
 
       setCheckinDate(start);
-      const startHourStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-      setCheckinTime(startHourStr);
       if (isPackage) {
+        setCheckinTime('00:00');
         setMode('daily');
         setCheckoutDate(null);
       } else {
+        const startHourStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+        setCheckinTime(startHourStr);
         const diffHrs = (end.getTime() - start.getTime()) / 3600000;
 
         if (diffHrs <= 24) {
@@ -553,32 +554,47 @@ export function BookingDateModal({
                   * Check-in date is only available within 7 days from today.
                 </Text>
                 <Text style={styles.sectionTitle}>Check in time</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.chipScroll}
-                >
-                  {TIME_SLOTS.map((time) => {
-                    const isSelected = checkinTime === time;
-                    const isPastTime = isTimeSlotPast(time);
-                    return (
-                      <TouchableOpacity
-                        key={time}
-                        style={[
-                          styles.chip,
-                          isSelected && styles.chipActive,
-                          isPastTime && { opacity: 0.35, backgroundColor: Colors.border }
-                        ]}
-                        onPress={() => setCheckinTime(time)}
-                        disabled={isPastTime}
-                      >
-                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                          {time}
+                {isPackage ? (
+                  <View style={{ opacity: 0.65 }}>
+                    <View style={[styles.chipScroll, { flexDirection: 'row' }]}>
+                      <View style={[styles.chip, styles.chipActive, { borderColor: 'rgba(255,255,255,0.08)' }]}>
+                        <Text style={[styles.chipText, styles.chipTextActive, { fontWeight: '800' }]}>
+                          00:00 (Mặc định)
                         </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                      </View>
+                    </View>
+                    <Text style={[styles.noteText, { marginTop: Spacing.sm, color: Colors.primary, fontStyle: 'italic', lineHeight: 16 }]}>
+                      * Gói dài hạn cho phép ra vào 24/7 không giới hạn. Giờ bắt đầu được mặc định là 00:00 ngày nhận xe để bạn tận dụng tối đa ngày đỗ.
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipScroll}
+                  >
+                    {TIME_SLOTS.map((time) => {
+                      const isSelected = checkinTime === time;
+                      const isPastTime = isTimeSlotPast(time);
+                      return (
+                        <TouchableOpacity
+                          key={time}
+                          style={[
+                            styles.chip,
+                            isSelected && styles.chipActive,
+                            isPastTime && { opacity: 0.35, backgroundColor: Colors.border }
+                          ]}
+                          onPress={() => setCheckinTime(time)}
+                          disabled={isPastTime}
+                        >
+                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                            {time}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
 
                 {!isPackage && (
                   <>

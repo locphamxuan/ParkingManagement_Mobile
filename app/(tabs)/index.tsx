@@ -36,10 +36,12 @@ function AnimatedPressable({
   children,
   onPress,
   style,
+  contentStyle,
 }: {
   children: React.ReactNode;
   onPress: () => void;
   style?: any;
+  contentStyle?: any;
 }) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -55,7 +57,7 @@ function AnimatedPressable({
 
   return (
     <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
-      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, contentStyle, animatedStyle]}>
         {children}
       </Animated.View>
     </Pressable>
@@ -108,6 +110,7 @@ export default function HomeScreen() {
   const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
   const [showQR, setShowQR] = useState(false);
+  const [homeVehicleFilter, setHomeVehicleFilter] = useState<'all' | 'car' | 'motorcycle'>('all');
 
   // Animations Shared Values
   const heroOpacity = useSharedValue(0);
@@ -333,54 +336,108 @@ export default function HomeScreen() {
         {/* Package Pricing Carousel */}
         {packages.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Subscription Packages</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.carouselContainer}
-            >
-              {packages.map((pkg) => {
-                const isCar = typeof pkg.vehicleType === 'object' && pkg.vehicleType?.code === 'car' || pkg.vehicleType === 'car';
-                const tagLabel = pkg.durationDays <= 7 ? 'Weekly' : pkg.durationDays <= 30 ? 'Monthly' : 'Yearly';
-                const buildingName = typeof pkg.building === 'object' && pkg.building ? pkg.building.name : 'All Buildings';
-                const buildingId = typeof pkg.building === 'object' && pkg.building ? pkg.building._id : '';
-                const vehicleType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : 'car';
-                return (
-                  <AnimatedPressable
-                    key={pkg._id}
-                    style={styles.packageCard}
-                    onPress={() => {
-                      router.push({
-                        pathname: '/(tabs)/reservations',
-                        params: { buildingId, packageId: pkg._id, vehicleType },
-                      });
-                    }}
+            <View style={styles.packageHeaderRow}>
+              <Text style={styles.sectionTitle}>Subscription Packages</Text>
+              <View style={styles.filterContainer}>
+                {(['all', 'car', 'motorcycle'] as const).map((filter) => (
+                  <TouchableOpacity
+                    key={filter}
+                    style={[
+                      styles.filterTab,
+                      homeVehicleFilter === filter && styles.filterTabActive
+                    ]}
+                    onPress={() => setHomeVehicleFilter(filter)}
                   >
-                    <View style={styles.packageCardHeader}>
-                      <Text style={styles.packageTag}>{tagLabel}</Text>
-                      <Text style={styles.packageName} numberOfLines={1}>{pkg.name}</Text>
-                    </View>
-                    <Text style={styles.packageBuilding} numberOfLines={1}>
-                      {buildingName}
+                    <Text style={[
+                      styles.filterTabText,
+                      homeVehicleFilter === filter && styles.filterTabTextActive
+                    ]}>
+                      {filter === 'all' ? 'All' : filter === 'car' ? 'Car' : 'Motorcycle'}
                     </Text>
-                    <View style={styles.packageMetaRow}>
-                      <View style={styles.packageMetaItem}>
-                        <Ionicons name="car-outline" size={12} color={Colors.primary} />
-                        <Text style={styles.packageMetaText}>{isCar ? 'Car' : 'Motorcycle'}</Text>
-                      </View>
-                      <View style={styles.packageMetaItem}>
-                        <Ionicons name="time-outline" size={12} color={Colors.primary} />
-                        <Text style={styles.packageMetaText}>{pkg.durationDays} Days</Text>
-                      </View>
-                    </View>
-                    <View style={styles.packagePriceRow}>
-                      <Text style={styles.packagePrice}>{(pkg.price).toLocaleString('en-US')} VND</Text>
-                      <Text style={styles.packageActionBtn}>Subscribe</Text>
-                    </View>
-                  </AnimatedPressable>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {(() => {
+              const filteredPackages = packages.filter((pkg) => {
+                if (homeVehicleFilter === 'all') return true;
+                const pkgType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : pkg.vehicleType;
+                return String(pkgType).toLowerCase() === homeVehicleFilter;
+              });
+
+              if (filteredPackages.length === 0) {
+                return (
+                  <View style={styles.emptyPackagesCard}>
+                    <Ionicons name="pricetags-outline" size={24} color={Colors.textDim} />
+                    <Text style={styles.emptyPackagesText}>No packages available for this vehicle type.</Text>
+                  </View>
                 );
-              })}
-            </ScrollView>
+              }
+
+              return (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContainer}
+                >
+                  {filteredPackages.map((pkg) => {
+                    const pkgTypeCode = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : pkg.vehicleType;
+                    const isCar = String(pkgTypeCode).toLowerCase() === 'car';
+                    const tagLabel = pkg.durationDays <= 7 ? 'Weekly' : pkg.durationDays <= 30 ? 'Monthly' : 'Yearly';
+                    const buildingName = typeof pkg.building === 'object' && pkg.building ? pkg.building.name : 'All Buildings';
+                    const buildingId = typeof pkg.building === 'object' && pkg.building ? pkg.building._id : '';
+                    const vehicleType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : 'car';
+                    return (
+                      <AnimatedPressable
+                        key={pkg._id}
+                        style={styles.packageCard}
+                        contentStyle={{ alignItems: 'stretch' }}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/(tabs)/reservations',
+                            params: { buildingId, packageId: pkg._id, vehicleType },
+                          });
+                        }}
+                      >
+                        <View style={styles.packageCardHeader}>
+                          <Text style={styles.packageTag}>{tagLabel}</Text>
+                          <View style={styles.packageVehicleBadge}>
+                            <Ionicons name={isCar ? "car" : "bicycle"} size={10} color={isCar ? Colors.blue : Colors.success} />
+                            <Text style={[styles.packageVehicleText, { color: isCar ? Colors.blue : Colors.success }]}>
+                              {isCar ? 'Car' : 'Motorcycle'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.packageName} numberOfLines={1}>{pkg.name}</Text>
+                        <View style={styles.packageBuildingRow}>
+                          <Ionicons name="business-outline" size={12} color={Colors.textDim} />
+                          <Text style={styles.packageBuilding} numberOfLines={1}>
+                            {buildingName}
+                          </Text>
+                        </View>
+                        <View style={styles.packageMetaRow}>
+                          <View style={styles.packageMetaItem}>
+                            <Ionicons name="time-outline" size={12} color={Colors.textDim} />
+                            <Text style={styles.packageMetaText}>{pkg.durationDays} Days</Text>
+                          </View>
+                        </View>
+                        <View style={styles.packagePriceRow}>
+                          <View>
+                            <Text style={styles.packagePriceLabel}>PRICE</Text>
+                            <Text style={styles.packagePrice}>{(pkg.price).toLocaleString('en-US')} VND</Text>
+                          </View>
+                          <View style={styles.packageActionBtnContainer}>
+                            <Text style={styles.packageActionBtnText}>Subscribe</Text>
+                            <Ionicons name="arrow-forward" size={10} color="#ffffff" />
+                          </View>
+                        </View>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </ScrollView>
+              );
+            })()}
           </View>
         )}
 
@@ -805,75 +862,172 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     letterSpacing: 1,
   },
-  carouselContainer: {
-    gap: Spacing.md,
-    paddingRight: Spacing.lg,
+  packageHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
   },
-  packageCard: {
-    width: 250,
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: Radius.full,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  filterTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  filterTabActive: {
+    backgroundColor: Colors.primary,
+  },
+  filterTabText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  filterTabTextActive: {
+    color: Colors.text,
+    fontWeight: '700',
+  },
+  emptyPackagesCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: 8,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  emptyPackagesText: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  carouselContainer: {
+    gap: Spacing.md,
+    paddingRight: Spacing.lg,
+    paddingVertical: 4,
+  },
+  packageCard: {
+    width: 275,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+    borderColor: 'rgba(249,115,22,0.15)',
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   packageCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
+    width: '100%',
   },
   packageTag: {
-    backgroundColor: 'rgba(249,115,22,0.1)',
+    backgroundColor: 'rgba(249,115,22,0.12)',
     color: Colors.primary,
     fontSize: 9,
-    fontWeight: '800',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: Radius.sm,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  packageVehicleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  packageVehicleText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   packageName: {
-    fontSize: FontSize.sm,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: Colors.text,
-    flex: 1,
+    marginTop: 2,
+  },
+  packageBuildingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -2,
   },
   packageBuilding: {
     fontSize: FontSize.xs,
-    color: Colors.textDim,
+    color: Colors.textMuted,
+    flex: 1,
   },
   packageMetaRow: {
     flexDirection: 'row',
     gap: Spacing.md,
+    marginTop: 2,
   },
   packageMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   packageMetaText: {
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
+    fontSize: 12,
+    color: Colors.textDim,
   },
   packagePriceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 8,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    paddingTop: Spacing.md,
+    marginTop: 4,
+  },
+  packagePriceLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: Colors.textDim,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   packagePrice: {
-    fontSize: FontSize.sm,
-    fontWeight: '900',
-    color: Colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
   },
-  packageActionBtn: {
+  packageActionBtnContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  packageActionBtnText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primary,
+    color: '#ffffff',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
