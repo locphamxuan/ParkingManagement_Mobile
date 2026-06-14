@@ -20,14 +20,14 @@ interface NotificationBellStreamProps {
 }
 
 function formatDateTime(value?: string): string {
-  if (!value) return 'Vừa cập nhật';
+  if (!value) return 'Just updated';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Vừa cập nhật';
-  return date.toLocaleString('vi-VN', {
+  if (Number.isNaN(date.getTime())) return 'Just updated';
+  return date.toLocaleString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     day: '2-digit',
-    month: '2-digit',
+    month: 'short',
   });
 }
 
@@ -36,7 +36,7 @@ function resolveBuildingName(item: FeedbackInboxItem): string {
 }
 
 function resolvePlate(item: FeedbackInboxItem): string {
-  return item.parkingSession?.plateNumber || 'Chưa có biển số';
+  return item.parkingSession?.plateNumber || 'No plate';
 }
 
 function hasManagerReply(item: FeedbackInboxItem): boolean {
@@ -113,7 +113,7 @@ export default function NotificationBellStream({
       setItems(data.filter(hasManagerReply));
     } catch (err) {
       if (!mounted.current) return;
-      setError(err instanceof Error ? err.message : 'Không thể tải hộp thư phản hồi.');
+      setError(err instanceof Error ? err.message : 'Unable to load feedback inbox.');
     } finally {
       if (mounted.current) {
         setLoading(false);
@@ -159,11 +159,7 @@ export default function NotificationBellStream({
         onPress={handleOpenStream}
         activeOpacity={0.75}
       >
-        {unreadCount > 0 ? (
-          <BellRing size={20} color={Colors.primary} strokeWidth={2.2} />
-        ) : (
-          <Bell size={20} color={Colors.textMuted} strokeWidth={2.2} />
-        )}
+        <Inbox size={20} color={unreadCount > 0 ? Colors.primary : Colors.textMuted} strokeWidth={2.2} />
         {unreadCount > 0 ? (
           <View style={styles.countBadge}>
             <Text style={styles.countBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
@@ -182,11 +178,11 @@ export default function NotificationBellStream({
             <View style={styles.headerRow}>
               <View style={styles.headerLeft}>
                 <View style={styles.headerIconWrap}>
-                  <BellRing size={18} color={Colors.primary} strokeWidth={2.2} />
+                  <Inbox size={18} color={Colors.primary} strokeWidth={2.2} />
                 </View>
                 <View>
-                  <Text style={styles.headerTitle}>Hộp thư phản hồi</Text>
-                  <Text style={styles.headerSubtitle}>Phản hồi mới nhất từ quản lý bãi xe</Text>
+                  <Text style={styles.headerTitle}>Feedback Inbox</Text>
+                  <Text style={styles.headerSubtitle}>Latest replies from parking management</Text>
                 </View>
               </View>
 
@@ -197,7 +193,7 @@ export default function NotificationBellStream({
 
             {loading ? (
               <View style={styles.stateBox}>
-                <Text style={styles.stateText}>Đang tải phản hồi...</Text>
+                <Text style={styles.stateText}>Loading replies...</Text>
               </View>
             ) : error ? (
               <View style={styles.errorBox}>
@@ -208,9 +204,9 @@ export default function NotificationBellStream({
                 <View style={styles.emptyIconWrap}>
                   <Inbox size={30} color={Colors.textDim} strokeWidth={2.1} />
                 </View>
-                <Text style={styles.emptyTitle}>Hộp thư trống</Text>
+                <Text style={styles.emptyTitle}>Inbox Empty</Text>
                 <Text style={styles.emptyDescription}>
-                  Bạn chưa có phản hồi nào.
+                  You have no feedback replies yet.
                 </Text>
               </View>
             ) : (
@@ -248,8 +244,8 @@ export default function NotificationBellStream({
                       </View>
 
                       <View style={styles.ratingRow}>
-                        <Text style={styles.ratingLabel}>Đánh giá:</Text>
-                        <Text style={styles.ratingValue}>{item.rating}/5 sao</Text>
+                        <Text style={styles.ratingLabel}>Rating:</Text>
+                        <Text style={styles.ratingValue}>{item.rating}/5 stars</Text>
                       </View>
 
                       {hasAttachments ? (
@@ -257,13 +253,13 @@ export default function NotificationBellStream({
                           {item.portraitImageUrl ? (
                             <View style={styles.attachmentItem}>
                               <Image source={{ uri: item.portraitImageUrl }} style={styles.attachmentThumb} resizeMode="cover" />
-                              <Text style={styles.attachmentLabel}>Chân dung</Text>
+                              <Text style={styles.attachmentLabel}>Portrait</Text>
                             </View>
                           ) : null}
                           {item.plateImageUrl ? (
                             <View style={styles.attachmentItem}>
                               <Image source={{ uri: item.plateImageUrl }} style={styles.attachmentThumb} resizeMode="cover" />
-                              <Text style={styles.attachmentLabel}>Biển số</Text>
+                              <Text style={styles.attachmentLabel}>Plate</Text>
                             </View>
                           ) : null}
                         </View>
@@ -275,10 +271,10 @@ export default function NotificationBellStream({
 
                       <View style={styles.footerRow}>
                         <Text style={styles.repliedByText} numberOfLines={1}>
-                          Phản hồi bởi: {item.repliedBy?.fullName || 'Quản lý bãi xe'}
+                          Replied by: {item.repliedBy?.fullName || 'Parking Manager'}
                         </Text>
                         <Text style={styles.readStateText}>
-                          {isRead ? 'Đã đọc' : 'Mới'}
+                          {isRead ? 'Read' : 'New'}
                         </Text>
                       </View>
                     </TouchableOpacity>

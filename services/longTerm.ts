@@ -59,3 +59,18 @@ export async function cancelSubscription(
   );
   return res?.data;
 }
+
+export async function renewSubscription(
+  token: string,
+  id: string
+): Promise<LongTermSubscription> {
+  const res = await apiRequest<ApiRes<{ subscription?: LongTermSubscription }>>(
+    `/users/long-term/subscriptions/${id}/renew`,
+    {
+      method: 'POST',
+      token,
+    },
+  );
+  if (!res?.data?.subscription) throw new Error('Renew subscription failed');
+  return res.data.subscription;
+}

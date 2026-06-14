@@ -95,6 +95,8 @@ export interface LongTermPackage {
   price: number;
   description?: string;
   allowDedicatedSlot?: boolean;
+  maxHoursPerDay?: number;
+  graceDays?: number;
   vehicleType?: { _id: string; name: string; code: string } | 'car' | 'motorcycle' | 'all' | null;
   isActive?: boolean;
   building?: {
@@ -112,6 +114,30 @@ export interface LongTermSubscription {
   startDate: string;
   endDate: string;
   status: 'active' | 'expired' | 'cancelled' | 'pending';
+  slotReleased?: boolean;
   building?: { _id: string; name: string; code?: string; address?: { fullAddress?: string } } | null;
   slot?: { _id: string; code: string; floor?: { _id: string; name?: string; code?: string } | string } | null;
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+export interface Notification {
+  _id: string;
+  user: string;
+  type:
+    | 'checkin_rejected'
+    | 'checkout_rejected'
+    | 'subscription_expiring'
+    | 'subscription_expired'
+    | 'subscription_slot_released'
+    | 'subscription_overage'
+    | 'reservation_expired'
+    | 'reservation_overstay'
+    | 'feedback_reply'
+    | 'general';
+  title: string;
+  message: string;
+  plateNumber?: string | null;
+  building?: string | null;
+  isRead: boolean;
+  createdAt: string;
 }

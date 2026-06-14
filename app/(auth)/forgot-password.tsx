@@ -26,16 +26,23 @@ export default function ForgotPasswordScreen() {
     setError(null);
     setSuccess(null);
 
-    if (!email.trim()) {
+    const emailValue = email.trim();
+    if (!emailValue) {
       setError("Email is required.");
+      return;
+    }
+
+    const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+    if (!EMAIL_REGEX.test(emailValue)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
     try {
       setLoading(true);
-      await forgotPassword(email.trim().toLowerCase());
+      await forgotPassword(emailValue.toLowerCase());
       setSuccess(
-        "If this email exists, a reset link has been sent. Please check your inbox and spam folder.",
+        "Password reset email sent. Please check your inbox.",
       );
     } catch (err) {
       setError(
@@ -88,6 +95,7 @@ export default function ForgotPasswordScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 error={error ?? undefined}
+                editable={!loading}
                 hint="We'll send a token-based reset link to this email address."
               />
             </View>

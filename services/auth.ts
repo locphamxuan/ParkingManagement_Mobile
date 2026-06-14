@@ -1,5 +1,6 @@
 import { apiRequest } from './api';
 import type { AuthSession, LicensePlate } from '../types';
+import { getMobileFrontendUrl } from '../constants/config';
 
 interface ApiUser {
   _id: string;
@@ -78,7 +79,7 @@ export async function getMe(token: string): Promise<ApiUser> {
 export async function forgotPassword(email: string): Promise<void> {
   await apiRequest('/users/auth/forgot-password', {
     method: 'POST',
-    body: { email, clientType: 'mobile' },
+    body: { email, clientType: 'mobile', frontendUrl: getMobileFrontendUrl() },
   });
 }
 
