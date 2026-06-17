@@ -54,6 +54,20 @@ export const commonStyles = StyleSheet.create({
   },
   errorText: { flex: 1, fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },
 
+  // ── Success banner ───────────────────────────────────────────────────────────
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.successBg,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.successBorder,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  successText: { flex: 1, fontSize: FontSize.sm, color: Colors.success, fontWeight: '600' },
+
   // ── Dividers ─────────────────────────────────────────────────────────────────
   divider: { height: 1, backgroundColor: Colors.border },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
