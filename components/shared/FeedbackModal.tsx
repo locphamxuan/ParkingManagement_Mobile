@@ -1,22 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TextInput,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { commonStyles, Colors } from '../../styles/common';
+import { SheetModal } from './SheetModal';
+import { ErrorBanner } from '../ui/ErrorBanner';
 import { submitParkingFeedback, type SubmitFeedbackPayload } from '../../services/feedback';
 import { ApiError } from '../../services/api';
 import type { ParkingSession } from '../../types';
+import { styles } from './FeedbackModal.styles';
 
 interface FeedbackModalProps {
   visible: boolean;
@@ -130,232 +121,71 @@ export default function FeedbackModal({
   const submitLabel = submitting ? 'SUBMITTING…' : 'SUBMIT REVIEW';
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.backdrop}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
-        </View>
+    <SheetModal visible={visible} onClose={onClose}>
+      <Text style={styles.title}>Rate your parking experience</Text>
+      <Text style={styles.subtitle}>{sessionLabel}</Text>
 
-        <View style={styles.sheetContainer}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
-          >
-            <View style={styles.sheet}>
-              <View style={styles.handleRow}>
-                <View style={styles.handle} />
-              </View>
+      <View style={commonStyles.divider} />
 
-              <Text style={styles.title}>Rate your parking experience</Text>
-              <Text style={styles.subtitle}>{sessionLabel}</Text>
+      <Text style={commonStyles.sectionLabel}>SATISFACTION RATING</Text>
+      <View style={styles.starsRow}>
+        {STAR_VALUES.map((star) => {
+          const filled = star <= rating;
+          return (
+            <TouchableOpacity key={star} onPress={() => handleStarPress(star)} activeOpacity={0.6} style={styles.starBtn}>
+              <Ionicons name={filled ? 'star' : 'star-outline'} size={38} color={filled ? Colors.amber : Colors.textDim} />
+            </TouchableOpacity>
+          );
+        })}
+        <Text style={styles.ratingLabel}>{rating > 0 ? `${rating}/5` : 'Tap to rate'}</Text>
+      </View>
 
-              <View style={styles.divider} />
+      <View style={commonStyles.divider} />
 
-              <Text style={styles.label}>SATISFACTION RATING</Text>
-              <View style={styles.starsRow}>
-                {STAR_VALUES.map((star) => {
-                  const filled = star <= rating;
-                  return (
-                    <TouchableOpacity
-                      key={star}
-                      onPress={() => handleStarPress(star)}
-                      activeOpacity={0.6}
-                      style={styles.starBtn}
-                    >
-                      <Ionicons
-                        name={filled ? 'star' : 'star-outline'}
-                        size={38}
-                        color={filled ? Colors.amber : Colors.textDim}
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-                <Text style={styles.ratingLabel}>{rating > 0 ? `${rating}/5` : 'Tap to rate'}</Text>
-              </View>
+      <Text style={commonStyles.sectionLabel}>YOUR COMMENT</Text>
+      <View style={styles.textareaWrapper}>
+        <TextInput
+          value={comment}
+          onChangeText={(text) => {
+            if (text.length <= 150) {
+              setComment(text);
+              setFieldError(null);
+            }
+          }}
+          placeholder="Share your experience…"
+          placeholderTextColor={Colors.textDim}
+          multiline
+          numberOfLines={4}
+          style={styles.textarea}
+          maxLength={150}
+          autoCorrect={false}
+        />
+        <Text style={[styles.counter, comment.length >= 150 && styles.counterWarn]}>{comment.length}/150</Text>
+      </View>
 
-              <View style={styles.divider} />
+      <ErrorBanner message={fieldError} />
 
-              <Text style={styles.label}>YOUR COMMENT</Text>
-              <View style={styles.textareaWrapper}>
-                <TextInput
-                  value={comment}
-                  onChangeText={(text) => {
-                    if (text.length <= 150) {
-                      setComment(text);
-                      setFieldError(null);
-                    }
-                  }}
-                  placeholder="Share your experience…"
-                  placeholderTextColor={Colors.textDim}
-                  multiline
-                  numberOfLines={4}
-                  style={styles.textarea}
-                  maxLength={150}
-                  autoCorrect={false}
-                />
-                <Text style={[styles.counter, comment.length >= 150 && styles.counterWarn]}>
-                  {comment.length}/150
-                </Text>
-              </View>
+      <View style={styles.actionsRow}>
+        <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={submitting} activeOpacity={0.7}>
+          <Text style={styles.cancelLabel}>LATER</Text>
+        </TouchableOpacity>
 
-              {fieldError ? (
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle" size={16} color={Colors.error} />
-                  <Text style={styles.errorText}>{fieldError}</Text>
-                </View>
-              ) : null}
-
-              <View style={styles.actionsRow}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={onClose}
-                  disabled={submitting}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelLabel}>LATER</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.submitBtn, (submitting || rating === 0) && styles.submitBtnDisabled]}
-                  onPress={handleSubmit}
-                  disabled={submitting || rating === 0}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <View style={styles.submitInline}>
-                      <ActivityIndicator size="small" color="#020617" />
-                      <Text style={styles.submitLabel}>{submitLabel}</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.submitLabel}>{submitLabel}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+        <TouchableOpacity
+          style={[styles.submitBtn, (submitting || rating === 0) && styles.submitBtnDisabled]}
+          onPress={handleSubmit}
+          disabled={submitting || rating === 0}
+          activeOpacity={0.8}
+        >
+          {submitting ? (
+            <View style={styles.submitInline}>
+              <ActivityIndicator size="small" color="#020617" />
+              <Text style={styles.submitLabel}>{submitLabel}</Text>
             </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+          ) : (
+            <Text style={styles.submitLabel}>{submitLabel}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SheetModal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(2,6,23,0.7)' },
-  sheetContainer: { maxHeight: '85%' },
-  scrollContent: { flexGrow: 1 },
-  sheet: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderBottomWidth: 0,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing['3xl'],
-    gap: Spacing.md,
-  },
-  handleRow: { alignItems: 'center', paddingBottom: Spacing.xs },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.textDim,
-    opacity: 0.4,
-  },
-  title: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.text, textAlign: 'center' },
-  subtitle: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
-  divider: { height: 1, backgroundColor: Colors.border },
-  label: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.textDim,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  starsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
-  starBtn: { padding: Spacing.xs },
-  ratingLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.amber,
-    marginLeft: Spacing.sm,
-    minWidth: 40,
-  },
-  textareaWrapper: {
-    backgroundColor: Colors.input,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
-  },
-  textarea: {
-    color: Colors.text,
-    fontSize: FontSize.base,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingVertical: 0,
-  },
-  counter: {
-    textAlign: 'right',
-    fontSize: FontSize.xs,
-    color: Colors.textDim,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  counterWarn: { color: Colors.error },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.errorBorder,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-  },
-  errorText: { flex: 1, fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },
-  actionsRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
-  cancelBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  cancelLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.textMuted,
-    letterSpacing: 1,
-  },
-  submitBtn: {
-    flex: 2,
-    height: 48,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  submitInline: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  submitBtnDisabled: { opacity: 0.5 },
-  submitLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '900',
-    color: '#020617',
-    letterSpacing: 1,
-  },
-});
