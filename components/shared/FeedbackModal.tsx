@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Image,
   TextInput,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
-import {
-  submitParkingFeedback,
-  uploadFeedbackImage,
-  type SubmitFeedbackPayload,
-} from '../../services/feedback';
+import { submitParkingFeedback, type SubmitFeedbackPayload } from '../../services/feedback';
 import { ApiError } from '../../services/api';
 import type { ParkingSession } from '../../types';
 
@@ -34,8 +28,6 @@ interface FeedbackModalProps {
 
 const STAR_VALUES = [1, 2, 3, 4, 5] as const;
 
-type ImageField = 'portrait' | 'plate';
-
 export default function FeedbackModal({
   visible,
   session,
@@ -45,21 +37,15 @@ export default function FeedbackModal({
 }: FeedbackModalProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [portraitImageUri, setPortraitImageUri] = useState('');
-  const [plateImageUri, setPlateImageUri] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [uploadingField, setUploadingField] = useState<ImageField | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setRating(0);
       setComment('');
-      setPortraitImageUri('');
-      setPlateImageUri('');
       setFieldError(null);
       setSubmitting(false);
-      setUploadingField(null);
     }
   }, [visible]);
 
@@ -68,139 +54,68 @@ export default function FeedbackModal({
     setFieldError(null);
   };
 
-  const pickImage = async (type: ImageField) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cho phép ứng dụng truy cập thư viện ảnh để chọn ảnh đính kèm.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-      base64: false,
-    });
-
-    if (result.canceled || !result.assets?.length) {
-      return;
-    }
-
-    const assetUri = result.assets[0]?.uri ?? '';
-    if (!assetUri) {
-      return;
-    }
-
-    if (type === 'portrait') {
-      setPortraitImageUri(assetUri);
-    } else {
-      setPlateImageUri(assetUri);
-    }
-    setFieldError(null);
-  };
-
-  const clearImage = (type: ImageField) => {
-    if (type === 'portrait') {
-      setPortraitImageUri('');
-    } else {
-      setPlateImageUri('');
-    }
-  };
-
   const handleSubmit = async () => {
     setFieldError(null);
 
     if (!session) {
-      setFieldError('Không tìm thấy phiên đỗ xe.');
+      setFieldError('Parking session not found.');
       return;
     }
-
     if (rating === 0) {
-      setFieldError('Vui lòng chọn số sao đánh giá.');
+      setFieldError('Please select a star rating.');
       return;
     }
-
     const trimmedComment = comment.trim();
     if (!trimmedComment) {
-      setFieldError('Vui lòng nhập nội dung đánh giá.');
+      setFieldError('Please enter your feedback.');
       return;
     }
     if (trimmedComment.length > 150) {
-      setFieldError('Nội dung đánh giá không được vượt quá 150 ký tự.');
+      setFieldError('Feedback must not exceed 150 characters.');
       return;
     }
 
     setSubmitting(true);
-
     try {
-      // Upload any locally-picked images first to obtain public URLs.
-      let portraitImageUrl: string | null = null;
-      let plateImageUrl: string | null = null;
-
-      if (portraitImageUri) {
-        setUploadingField('portrait');
-        portraitImageUrl = await uploadFeedbackImage(token, portraitImageUri);
-      }
-      if (plateImageUri) {
-        setUploadingField('plate');
-        plateImageUrl = await uploadFeedbackImage(token, plateImageUri);
-      }
-      setUploadingField(null);
-
       const payload: SubmitFeedbackPayload = {
         parkingSessionId: session._id,
         rating,
         comment: trimmedComment,
-        portraitImageUrl,
-        plateImageUrl,
+        portraitImageUrl: null,
+        plateImageUrl: null,
       };
 
       const result = await submitParkingFeedback(token, payload);
 
       if (result) {
-        Alert.alert('Thành công', 'Đánh giá của bạn đã được ghi nhận. Cảm ơn bạn đã chia sẻ trải nghiệm!');
+        Alert.alert('Thank you', 'Your feedback has been recorded. Thanks for sharing your experience!');
         onSuccess();
         onClose();
       }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         if (err.status === 403 && err.errorCode === 'FEEDBACK_COMPLETED_SESSION_REQUIRED') {
-          setFieldError('Phiên gửi xe chưa hoàn thành hoặc không thuộc quyền sở hữu của bạn.');
+          setFieldError('This parking session is not completed or does not belong to you.');
           return;
         }
-
         if (err.status === 400 && err.errorCode === 'INVALID_FEEDBACK_RATING') {
-          setFieldError('Số sao đánh giá không hợp lệ.');
+          setFieldError('Invalid star rating.');
           return;
         }
-
         if (err.status === 400 && err.errorCode === 'FEEDBACK_COMMENT_REQUIRED') {
-          setFieldError('Vui lòng nhập nội dung đánh giá.');
+          setFieldError('Please enter your feedback.');
           return;
         }
-
-        if (err.status === 400 && err.errorCode === 'INVALID_IMAGE_TYPE') {
-          setFieldError('Định dạng ảnh không hợp lệ. Vui lòng chọn ảnh jpg, png hoặc webp.');
-          return;
-        }
-
-        if (err.status === 400 && err.errorCode === 'LIMIT_FILE_SIZE') {
-          setFieldError('Ảnh quá lớn (tối đa 8MB). Vui lòng chọn ảnh nhỏ hơn.');
-          return;
-        }
-
         if (err.status === 409 && err.errorCode === 'FEEDBACK_ALREADY_EXISTS') {
-          setFieldError('Bạn đã đánh giá phiên đỗ xe này rồi.');
+          setFieldError('You have already reviewed this parking session.');
           return;
         }
-
-        setFieldError(err.message || 'Gửi đánh giá thất bại. Vui lòng thử lại.');
+        setFieldError(err.message || 'Failed to submit feedback. Please try again.');
       } else {
-        setFieldError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.');
+        setFieldError('Unable to reach the server. Please check your connection.');
       }
     } finally {
       setSubmitting(false);
-      setUploadingField(null);
     }
   };
 
@@ -209,14 +124,10 @@ export default function FeedbackModal({
   }
 
   const sessionLabel = session.plateNumber
-    ? `${session.building?.name ?? 'Bãi xe'} - ${session.plateNumber}`
-    : `Phiên đỗ xe #${session._id.slice(-6).toUpperCase()}`;
+    ? `${session.building?.name ?? 'Parking lot'} - ${session.plateNumber}`
+    : `Parking session #${session._id.slice(-6).toUpperCase()}`;
 
-  const submitLabel = uploadingField
-    ? 'ĐANG TẢI ẢNH...'
-    : submitting
-      ? 'ĐANG GỬI...'
-      : 'GỬI ĐÁNH GIÁ';
+  const submitLabel = submitting ? 'SUBMITTING…' : 'SUBMIT REVIEW';
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -240,12 +151,12 @@ export default function FeedbackModal({
                 <View style={styles.handle} />
               </View>
 
-              <Text style={styles.title}>Đánh giá trải nghiệm đỗ xe</Text>
+              <Text style={styles.title}>Rate your parking experience</Text>
               <Text style={styles.subtitle}>{sessionLabel}</Text>
 
               <View style={styles.divider} />
 
-              <Text style={styles.label}>SỐ SAO HÀI LÒNG</Text>
+              <Text style={styles.label}>SATISFACTION RATING</Text>
               <View style={styles.starsRow}>
                 {STAR_VALUES.map((star) => {
                   const filled = star <= rating;
@@ -264,12 +175,12 @@ export default function FeedbackModal({
                     </TouchableOpacity>
                   );
                 })}
-                <Text style={styles.ratingLabel}>{rating > 0 ? `${rating}/5` : 'Chạm để chọn'}</Text>
+                <Text style={styles.ratingLabel}>{rating > 0 ? `${rating}/5` : 'Tap to rate'}</Text>
               </View>
 
               <View style={styles.divider} />
 
-              <Text style={styles.label}>NHẬN XÉT CỦA BẠN</Text>
+              <Text style={styles.label}>YOUR COMMENT</Text>
               <View style={styles.textareaWrapper}>
                 <TextInput
                   value={comment}
@@ -279,7 +190,7 @@ export default function FeedbackModal({
                       setFieldError(null);
                     }
                   }}
-                  placeholder="Chia sẻ trải nghiệm của bạn..."
+                  placeholder="Share your experience…"
                   placeholderTextColor={Colors.textDim}
                   multiline
                   numberOfLines={4}
@@ -290,77 +201,6 @@ export default function FeedbackModal({
                 <Text style={[styles.counter, comment.length >= 150 && styles.counterWarn]}>
                   {comment.length}/150
                 </Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <Text style={styles.label}>ĐÍNH KÈM ẢNH (KHÔNG BẮT BUỘC)</Text>
-              <View style={styles.imagePickerSection}>
-                <View style={styles.imagePickerCard}>
-                  <View style={styles.imagePickerHeader}>
-                    <View style={styles.imagePickerCopy}>
-                      <Text style={styles.imagePickerTitle}>Ảnh chân dung</Text>
-                      <Text style={styles.imagePickerSubtitle}>
-                        Chọn ảnh từ thư viện để đính kèm.
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.pickButton, submitting && styles.pickButtonDisabled]}
-                      onPress={() => void pickImage('portrait')}
-                      activeOpacity={0.8}
-                      disabled={submitting}
-                    >
-                      <Ionicons name="images-outline" size={16} color="#020617" />
-                      <Text style={styles.pickButtonText}>Chọn ảnh</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {portraitImageUri ? (
-                    <View style={styles.previewRow}>
-                      <Image source={{ uri: portraitImageUri }} style={styles.previewThumb} resizeMode="cover" />
-                      <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => clearImage('portrait')}
-                        disabled={submitting}
-                      >
-                        <Ionicons name="close-circle" size={18} color={Colors.error} />
-                        <Text style={styles.removeButtonText}>Bỏ ảnh</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.imagePickerCard}>
-                  <View style={styles.imagePickerHeader}>
-                    <View style={styles.imagePickerCopy}>
-                      <Text style={styles.imagePickerTitle}>Ảnh biển số</Text>
-                      <Text style={styles.imagePickerSubtitle}>
-                        Chọn ảnh rõ biển số để phản ánh chính xác hơn.
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.pickButton, submitting && styles.pickButtonDisabled]}
-                      onPress={() => void pickImage('plate')}
-                      activeOpacity={0.8}
-                      disabled={submitting}
-                    >
-                      <Ionicons name="camera-outline" size={16} color="#020617" />
-                      <Text style={styles.pickButtonText}>Chọn ảnh</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {plateImageUri ? (
-                    <View style={styles.previewRow}>
-                      <Image source={{ uri: plateImageUri }} style={styles.previewThumb} resizeMode="cover" />
-                      <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => clearImage('plate')}
-                        disabled={submitting}
-                      >
-                        <Ionicons name="close-circle" size={18} color={Colors.error} />
-                        <Text style={styles.removeButtonText}>Bỏ ảnh</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
-                </View>
               </View>
 
               {fieldError ? (
@@ -377,7 +217,7 @@ export default function FeedbackModal({
                   disabled={submitting}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.cancelLabel}>ĐỂ SAU</Text>
+                  <Text style={styles.cancelLabel}>LATER</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -472,57 +312,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   counterWarn: { color: Colors.error },
-  imagePickerSection: { gap: Spacing.md },
-  imagePickerCard: {
-    backgroundColor: Colors.cardAlt,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  imagePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
-  },
-  imagePickerCopy: { flex: 1 },
-  imagePickerTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
-  imagePickerSubtitle: {
-    marginTop: 2,
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  pickButton: {
-    minHeight: 38,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
-    gap: 6,
-  },
-  pickButtonDisabled: { opacity: 0.5 },
-  pickButtonText: {
-    color: '#020617',
-    fontSize: FontSize.xs,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  previewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  previewThumb: {
-    width: 88,
-    height: 88,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  removeButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  removeButtonText: { color: Colors.error, fontSize: FontSize.xs, fontWeight: '800' },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
