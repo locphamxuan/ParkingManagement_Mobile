@@ -338,7 +338,7 @@ export default function ReservationsScreen() {
     return () => setTabBarHidden(false);
   }, [showWizard, showBookingModal, showMapModal, setTabBarHidden]);
 
-  const params = useLocalSearchParams<{ buildingId?: string; packageId?: string; vehicleType?: string; mode?: string }>();
+  const params = useLocalSearchParams<{ buildingId?: string; packageId?: string; vehicleType?: string; mode?: string; plateNumber?: string }>();
 
   // Custom package states
   const [bookingType, setBookingType] = useState<'hourly' | 'package'>(() => {
@@ -606,7 +606,7 @@ export default function ReservationsScreen() {
     }
   };
 
-  const openWizardWithParams = async (bldId: string, pkgId: string, vtCodeVal: string) => {
+  const openWizardWithParams = async (bldId: string, pkgId: string, vtCodeVal: string, pltNum?: string) => {
     setStep(1);
     setCreateError(null);
     setShowWizard(true);
@@ -614,7 +614,7 @@ export default function ReservationsScreen() {
     setWizard((prev) => ({
       ...prev,
       buildingId: bldId,
-      plateNumber: plates[0]?.plateNumber ?? '',
+      plateNumber: pltNum || (plates[0]?.plateNumber ?? ''),
     }));
 
     setFetchingBuildings(true);
@@ -642,7 +642,7 @@ export default function ReservationsScreen() {
           setWizard((p) => ({
             ...p,
             vehicleTypeId: matchedVt!._id,
-            plateNumber: matchPlate?.plateNumber ?? '',
+            plateNumber: pltNum || (matchPlate?.plateNumber ?? ''),
           }));
         }
       } catch {
@@ -671,10 +671,10 @@ export default function ReservationsScreen() {
   };
 
   useEffect(() => {
-    if ((params.buildingId || params.packageId) && token) {
-      openWizardWithParams(params.buildingId ?? '', params.packageId ?? '', params.vehicleType ?? '');
+    if ((params.buildingId || params.packageId || params.plateNumber) && token) {
+      openWizardWithParams(params.buildingId ?? '', params.packageId ?? '', params.vehicleType ?? '', params.plateNumber ?? '');
     }
-  }, [params.buildingId, params.packageId, params.vehicleType, token]);
+  }, [params.buildingId, params.packageId, params.vehicleType, params.plateNumber, token]);
 
   // Auto-clear selected package if the selected vehicle type changes
   useEffect(() => {

@@ -606,7 +606,12 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/reservations')}
             />
             <QuickLink
-              icon="add-circle-outline"
+              icon="business-outline"
+              label="Buildings"
+              onPress={() => router.push('/buildings')}
+            />
+            <QuickLink
+              icon="wallet-outline"
               label="Top Up"
               onPress={() => router.push('/(tabs)/wallet')}
             />
@@ -614,6 +619,11 @@ export default function HomeScreen() {
               icon="time-outline"
               label="History"
               onPress={() => router.push('/(tabs)/history')}
+            />
+            <QuickLink
+              icon="cube-outline"
+              label="Packages"
+              onPress={() => router.push('/(tabs)/packages')}
             />
             <QuickLink
               icon="person-outline"
