@@ -13,6 +13,7 @@ import {
   TextInput,
   ActivityIndicator,
   Pressable,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -253,6 +254,7 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('booked');
+  const [qrReservation, setQrReservation] = useState<any | null>(null);
 
   // Custom Alert / Confirm Dialog State
   const [dialog, setDialog] = useState<{
@@ -1160,6 +1162,14 @@ export default function ReservationsScreen() {
                     variant="danger"
                     size="sm"
                     loading={cancellingId === r._id}
+                    style={{ alignSelf: 'flex-start' }}
+                  />
+                )}
+                {r.code && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'checked_in') && (
+                  <Button
+                    label="View QR"
+                    onPress={() => setQrReservation(r)}
+                    size="sm"
                     style={{ alignSelf: 'flex-start' }}
                   />
                 )}
@@ -2141,6 +2151,53 @@ export default function ReservationsScreen() {
         isPackage={bookingType === 'package'}
         packageDuration={activePkg?.durationDays}
       />
+
+      {/* ── Reservation QR Code Modal ── */}
+      <Modal visible={!!qrReservation} transparent animationType="fade" onRequestClose={() => setQrReservation(null)}>
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContainer, { padding: Spacing.xl, alignItems: 'center' }]}>
+            <Text style={[styles.dialogTitle, { marginBottom: Spacing.sm }]}>Mã QR Đặt Chỗ</Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginBottom: Spacing.md, lineHeight: 16 }}>
+              Đưa mã này cho bảo vệ quét tại cổng để xác nhận xe vào/ra bãi.
+            </Text>
+            
+            {qrReservation?.code ? (
+              <View style={{ backgroundColor: '#ffffff', padding: Spacing.md, borderRadius: Radius.lg, marginBottom: Spacing.md }}>
+                <Image
+                  source={{
+                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrReservation.code)}`,
+                  }}
+                  style={{ width: 200, height: 200 }}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 40 }} />
+            )}
+            
+            <Text style={{ color: Colors.primary, fontWeight: '800', fontSize: 14, letterSpacing: 1.2, marginBottom: Spacing.lg }}>
+              MÃ: {qrReservation?.code || 'ĐANG TẠO...'}
+            </Text>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: Colors.cardAlt,
+                borderRadius: Radius.md,
+                paddingHorizontal: Spacing.xl,
+                paddingVertical: Spacing.md,
+                alignSelf: 'stretch',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: Colors.border,
+              }}
+              onPress={() => setQrReservation(null)}
+            >
+              <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 13 }}>ĐÓNG</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Custom Dialog Modal ────────────────────────────────────────────────── */}
       <Modal visible={dialog.visible} transparent animationType="fade" onRequestClose={() => setDialog(d => ({ ...d, visible: false }))}>
         <View style={styles.dialogOverlay}>
