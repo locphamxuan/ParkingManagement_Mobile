@@ -16,7 +16,7 @@ import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { listPackages, listSubscriptions } from '../../services/longTerm';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
-import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../../types';
+import type { LongTermPackage, LongTermSubscription } from '../../types';
 
 function AnimatedPressable({
   children,

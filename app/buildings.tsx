@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,10 +26,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
-function isBuildingOpen(building: BuildingOption): boolean {
-  // Assuming active buildings are open
-  return true; 
-}
+
 
 function addressText(building: BuildingOption): string {
   if (!building.address) return 'Chưa cập nhật địa chỉ';
