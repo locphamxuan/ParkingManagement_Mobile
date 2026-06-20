@@ -1154,7 +1154,7 @@ export default function ReservationsScreen() {
                 </View>
               ) : null}
 
-              <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xs }}>
                 {(r.status === 'pending' || r.status === 'confirmed') && (
                   <Button
                     label={cancellingId === r._id ? 'Cancelling...' : ((r as any).isSubscription ? 'Cancel Subscription' : 'Cancel Reservation')}
@@ -2265,7 +2265,7 @@ const styles = StyleSheet.create({
   metaBox: { gap: 6, backgroundColor: Colors.cardAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: FontSize.sm, color: Colors.textMuted, flex: 1 },
-  metaStrong: { fontWeight: '800', color: Colors.text, fontFamily: 'monospace' },
+  metaStrong: { fontWeight: '800', color: Colors.text },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing['2xl'], paddingBottom: 36, gap: Spacing.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border, maxHeight: '90%' },
   modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: Spacing.xs },

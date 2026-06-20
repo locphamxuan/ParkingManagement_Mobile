@@ -6,7 +6,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  Modal,
   TextInput,
   Pressable,
 } from 'react-native';
@@ -15,9 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { listPackages, subscribe, listSubscriptions } from '../../services/longTerm';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import { listPackages, listSubscriptions } from '../../services/longTerm';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../../types';
 
@@ -91,16 +88,6 @@ function fmtDateOnly(s: string) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function vtLabel(vt: LongTermPackage['vehicleType']): string {
-  if (!vt) return 'All vehicles';
-  if (typeof vt === 'string') {
-    if (vt === 'car') return 'Car';
-    if (vt === 'motorcycle') return 'Motorcycle';
-    if (vt === 'all') return 'All vehicles';
-    return vt;
-  }
-  return vt.name ?? 'All vehicles';
-}
 
 function vtCode(vt: LongTermPackage['vehicleType']): string | null {
   if (!vt || typeof vt === 'string') return null;
@@ -125,7 +112,6 @@ function groupByBuilding(packages: LongTermPackage[]) {
 export default function PackagesScreen() {
   const { session } = useAuthStore();
   const token = session?.token ?? '';
-  const plates: LicensePlate[] = session?.licensePlates ?? [];
 
   const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -811,29 +797,3 @@ const styles = StyleSheet.create({
   subPriceVal: { fontSize: FontSize.base, fontWeight: '900', color: Colors.primary, },
 });
 
-// ─── Subscribe sheet styles ───────────────────────────────────────────────────
-const sheet = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bg, },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, },
-  title: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, },
-  content: { padding: Spacing.xl, gap: Spacing.md, },
-  pkgCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, marginBottom: Spacing.xs, },
-  pkgName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginBottom: 4, },
-  pkgBuilding: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '700', marginBottom: Spacing.sm, },
-  pkgMeta: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.sm, },
-  pkgMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4, },
-  pkgMetaText: { fontSize: FontSize.xs, color: Colors.textDim, },
-  pkgPrice: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary, marginBottom: 4, },
-  pkgDesc: { fontSize: FontSize.xs, color: Colors.textDim, lineHeight: 17, },
-  sectionLabel: { fontSize: FontSize.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, color: Colors.textMuted, marginTop: Spacing.xs, },
-  emptyPlate: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, },
-  emptyText: { fontSize: FontSize.sm, color: Colors.textDim, textAlign: 'center', lineHeight: 18, },
-  plateRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.xs, },
-  plateRowActive: { borderColor: Colors.primary, backgroundColor: 'rgba(249,115,22,0.06)', },
-  plateCheck: { width: 24, alignItems: 'center' },
-  plateNum: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text, fontFamily: 'monospace', },
-  plateSub: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2, },
-  errorBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: Colors.errorBg, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md, },
-  errorText: { flex: 1, fontSize: FontSize.sm, color: Colors.error, },
-  submitBtn: { marginTop: Spacing.sm, },
-});

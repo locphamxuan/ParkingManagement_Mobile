@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   txDesc: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, textTransform: 'capitalize' },
   txDate: { fontSize: FontSize.xs, color: Colors.textDim },
   txRight: { alignItems: 'flex-end', gap: 6 },
-  txAmount: { fontSize: FontSize.sm, fontWeight: '800', fontFamily: 'monospace' },
+  txAmount: { fontSize: FontSize.sm, fontWeight: '800' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing['2xl'], paddingBottom: 36, gap: Spacing.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border },
   modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: Spacing.xs },

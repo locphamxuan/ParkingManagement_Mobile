@@ -29,8 +29,7 @@ import { listParkingHistory } from '../../services/history';
 import { listPackages } from '../../services/longTerm';
 import { 
   listNotifications, 
-  markNotificationRead, 
-  markAllNotificationsRead 
+  markNotificationRead
 } from '../../services/notifications';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import NotificationBellStream from '../../components/shared/NotificationBellStream';
@@ -283,18 +282,6 @@ export default function HomeScreen() {
       });
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    if (!session?.token) return;
-    try {
-      await markAllNotificationsRead(session.token);
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
-      setBellAlertActive(false);
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
     }
   };
 
