@@ -26,13 +26,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font",
-      [
-        "expo-status-bar",
-        {
-          "style": "light"
-        }
-      ]
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
