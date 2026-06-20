@@ -45,6 +45,7 @@ import type { Reservation } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { BookingDateModal } from '../../components/ui/BookingDateModal';
 import { useUIStore } from '../../store/uiStore';
+import { guessVehicleCategory } from '../../utils/vehicleUtils';
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,13 +78,7 @@ function fmtVND(amount: number) {
   return amount.toLocaleString('en-US') + ' VND';
 }
 
-// Infer car/motorcycle from vehicle type name since the model has no category field
-function guessVehicleCategory(name: string): 'car' | 'motorcycle' | null {
-  const lower = name.toLowerCase();
-  if (lower.includes('motor') || lower.includes('moto') || lower.includes('xe máy') || lower.includes('xe may') || lower.includes('bike')) return 'motorcycle';
-  if (lower.includes('car') || lower.includes('ô tô') || lower.includes('o to') || lower.includes('auto') || lower.includes('truck') || lower.includes('van') || lower.includes('suv')) return 'car';
-  return null;
-}
+// guessVehicleCategory imported from utils/vehicleUtils
 
 interface Particle {
   id: number;
@@ -1545,15 +1540,15 @@ export default function ReservationsScreen() {
                                 <View style={styles.legendRow2D}>
                                   <View style={styles.legendItem2D}>
                                     <View style={[styles.legendDot2D, { borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} />
-                                    <Text style={styles.legendText2D}>Trống</Text>
+                                    <Text style={styles.legendText2D}>Available</Text>
                                   </View>
                                   <View style={styles.legendItem2D}>
                                     <View style={[styles.legendDot2D, { borderColor: '#475569', backgroundColor: 'rgba(71, 85, 105, 0.1)' }]} />
-                                    <Text style={styles.legendText2D}>Đã giữ</Text>
+                                    <Text style={styles.legendText2D}>Reserved</Text>
                                   </View>
                                   <View style={styles.legendItem2D}>
                                     <View style={[styles.legendDot2D, { borderColor: 'rgba(255,255,255,0.25)', borderStyle: 'dashed', backgroundColor: 'transparent' }]} />
-                                    <Text style={styles.legendText2D}>Không khả dụng</Text>
+                                    <Text style={styles.legendText2D}>Unavailable</Text>
                                   </View>
                                 </View>
 
@@ -1613,9 +1608,9 @@ export default function ReservationsScreen() {
                                             style={{ flex: 1, width: '100%' }}
                                           >
                                             <View style={styles.basement2DContainer}>
-                                              {/* DÃY T (TOP ROW) */}
+                                              {/* ROW T (TOP) */}
                                               <View style={styles.rowHeaderRow2D}>
-                                                <Text style={styles.rowHeader2D}>DÃY T (TOP ROW)</Text>
+                                                <Text style={styles.rowHeader2D}>ROW T (TOP)</Text>
                                               </View>
                                               <View style={styles.parkingLane2D}>
                                                 {topRowSlots.map((slot) => {
@@ -1665,16 +1660,16 @@ export default function ReservationsScreen() {
 
                                               {/* LÀN ĐƯỜNG XE CHẠY Ở GIỮA */}
                                               <View style={styles.drivewayLine2D}>
-                                                <Text style={styles.drivewayArrow2D}>◀── LỐI VÀO (IN)</Text>
+                                                <Text style={styles.drivewayArrow2D}>◀── ENTRY (IN)</Text>
                                                 <View style={styles.dashedDivider2D} />
-                                                <Text style={styles.drivewayText2D}>ĐƯỜNG DI CHUYỂN</Text>
+                                                <Text style={styles.drivewayText2D}>DRIVEWAY</Text>
                                                 <View style={styles.dashedDivider2D} />
-                                                <Text style={styles.drivewayArrow2D}>LỐI RA (OUT) ──▶</Text>
+                                                <Text style={styles.drivewayArrow2D}>EXIT (OUT) ──▶</Text>
                                               </View>
 
-                                              {/* DÃY T (BOTTOM ROW) */}
+                                              {/* ROW T (BOTTOM) */}
                                               <View style={styles.rowHeaderRow2D}>
-                                                <Text style={styles.rowHeader2D}>DÃY T (BOTTOM ROW)</Text>
+                                                <Text style={styles.rowHeader2D}>ROW T (BOTTOM)</Text>
                                               </View>
                                               <View style={styles.parkingLane2D}>
                                                 {bottomRowSlots.map((slot) => {
@@ -2156,9 +2151,9 @@ export default function ReservationsScreen() {
       <Modal visible={!!qrReservation} transparent animationType="fade" onRequestClose={() => setQrReservation(null)}>
         <View style={styles.dialogOverlay}>
           <View style={[styles.dialogContainer, { padding: Spacing.xl, alignItems: 'center' }]}>
-            <Text style={[styles.dialogTitle, { marginBottom: Spacing.sm }]}>Mã QR Đặt Chỗ</Text>
+            <Text style={[styles.dialogTitle, { marginBottom: Spacing.sm }]}>Reservation QR</Text>
             <Text style={{ color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginBottom: Spacing.md, lineHeight: 16 }}>
-              Đưa mã này cho bảo vệ quét tại cổng để xác nhận xe vào/ra bãi.
+              Show this code to the gate attendant to scan for check-in/check-out.
             </Text>
             
             {qrReservation?.code ? (
@@ -2176,7 +2171,7 @@ export default function ReservationsScreen() {
             )}
             
             <Text style={{ color: Colors.primary, fontWeight: '800', fontSize: 14, letterSpacing: 1.2, marginBottom: Spacing.lg }}>
-              MÃ: {qrReservation?.code || 'ĐANG TẠO...'}
+              CODE: {qrReservation?.code || 'GENERATING...'}
             </Text>
 
             <TouchableOpacity
@@ -2192,7 +2187,7 @@ export default function ReservationsScreen() {
               }}
               onPress={() => setQrReservation(null)}
             >
-              <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 13 }}>ĐÓNG</Text>
+              <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 13 }}>CLOSE</Text>
             </TouchableOpacity>
           </View>
         </View>

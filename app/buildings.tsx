@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { listBuildings, getBuildingVehicleTypes, type BuildingOption, type VehicleTypeOption } from '../services/reservations';
+import { guessVehicleCategory } from '../utils/vehicleUtils';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import type { LicensePlate } from '../types';
@@ -32,24 +33,19 @@ function isBuildingOpen(building: BuildingOption): boolean {
 }
 
 function addressText(building: BuildingOption): string {
-  if (!building.address) return 'Chưa cập nhật địa chỉ';
+  if (!building.address) return 'Address not updated';
   if (typeof building.address === 'string') return building.address;
-  return building.address.fullAddress || 'Chưa cập nhật địa chỉ';
+  return building.address.fullAddress || 'Address not updated';
 }
 
-function guessVehicleCategory(name: string): 'car' | 'motorcycle' {
-  const n = (name || '').toLowerCase();
-  if (/motor|xe|máy|bike|moto/i.test(n)) return 'motorcycle';
-  return 'car';
-}
 
 function plateMatchesVehicleTypes(plate: LicensePlate, vtypes: VehicleTypeOption[]): boolean {
   if (vtypes.length === 0) return true;
   const t = plate.vehicleType?.toLowerCase() ?? '';
   return vtypes.some((vt) => {
     const c = (vt.code || vt.name || '').toLowerCase();
-    if (t === 'motorcycle' || t === 'bike') return /motor|xe|máy|bike|moto/i.test(c);
-    return /car|oto|ô t|auto/i.test(c);
+    if (t === 'motorcycle' || t === 'bike') return /motor|bike|moto/i.test(c);
+    return /car|oto|auto/i.test(c);
   });
 }
 
@@ -195,7 +191,7 @@ export default function BuildingsScreen() {
       setFloorSlots((prev) => ({ ...prev, [floorId]: slotsData }));
     } catch (err) {
       console.error('Failed to get slots for floor:', floorId, err);
-      Alert.alert('Lỗi', 'Không thể tải sơ đồ ô đỗ.');
+      Alert.alert('Error', 'Failed to load parking slot layout.');
     } finally {
       setSlotsLoading((prev) => ({ ...prev, [floorId]: false }));
     }
@@ -239,7 +235,7 @@ export default function BuildingsScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {selectedBuilding ? selectedBuilding.name : 'Bãi Đỗ Xe'}
+          {selectedBuilding ? selectedBuilding.name : 'Parking'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -254,7 +250,7 @@ export default function BuildingsScreen() {
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Tìm theo tên hoặc địa chỉ..."
+              placeholder="Search by name or address..."
               placeholderTextColor={Colors.textDim}
             />
             {searchQuery ? (
@@ -267,12 +263,12 @@ export default function BuildingsScreen() {
           {isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>Đang tải danh sách tòa nhà...</Text>
+              <Text style={styles.loadingText}>Loading buildings...</Text>
             </View>
           ) : filteredBuildings.length === 0 ? (
             <View style={styles.centered}>
               <Ionicons name="business" size={48} color={Colors.textDim} />
-              <Text style={styles.emptyText}>Không tìm thấy tòa nhà nào</Text>
+              <Text style={styles.emptyText}>No buildings found</Text>
             </View>
           ) : (
             <FlatList
@@ -293,7 +289,7 @@ export default function BuildingsScreen() {
                       </View>
                       <View style={styles.statusBadge}>
                         <View style={styles.statusDot} />
-                        <Text style={styles.statusText}>Hoạt động</Text>
+                        <Text style={styles.statusText}>Active</Text>
                       </View>
                     </View>
                     <View style={styles.cardFooter}>
@@ -314,7 +310,7 @@ export default function BuildingsScreen() {
           {detailLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>Đang tải chi tiết tòa nhà...</Text>
+              <Text style={styles.loadingText}>Loading building details...</Text>
             </View>
           ) : (
             <View style={{ flex: 1 }}>
@@ -327,11 +323,11 @@ export default function BuildingsScreen() {
                   </View>
                   <View style={[styles.detailRow, { marginTop: Spacing.sm }]}>
                     <Ionicons name="time-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.detailText}>Mở cửa: 24/7</Text>
+                    <Text style={styles.detailText}>Open: 24/7</Text>
                   </View>
                   <View style={[styles.detailRow, { marginTop: Spacing.sm }]}>
                     <Ionicons name="call-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.detailText}>Hotline hỗ trợ: 1900 636 447</Text>
+                    <Text style={styles.detailText}>Hotline: 1900 636 447</Text>
                   </View>
                 </View>
 
@@ -339,24 +335,24 @@ export default function BuildingsScreen() {
                 <View style={styles.statsGrid}>
                   <View style={styles.statBox}>
                     <Ionicons name="layers" size={20} color={Colors.blue} />
-                    <Text style={styles.statLabel}>Số Tầng</Text>
+                    <Text style={styles.statLabel}>Floors</Text>
                     <Text style={styles.statValue}>{floors.length}</Text>
                   </View>
                   <View style={[styles.statBox, { borderColor: Colors.successBorder }]}>
                     <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-                    <Text style={styles.statLabel}>Chỗ Trống</Text>
+                    <Text style={styles.statLabel}>Available</Text>
                     <Text style={[styles.statValue, { color: Colors.success }]}>{availableSlots}</Text>
                   </View>
                   <View style={styles.statBox}>
                     <Ionicons name="grid" size={20} color={Colors.primary} />
-                    <Text style={styles.statLabel}>Tổng Ô Đỗ</Text>
+                    <Text style={styles.statLabel}>Total Slots</Text>
                     <Text style={styles.statValue}>{totalSlots}</Text>
                   </View>
                 </View>
 
                 {/* Supported Vehicle Types */}
                 <View style={styles.sectionContainer}>
-                  <Text style={styles.sectionTitle}>Loại xe hỗ trợ</Text>
+                  <Text style={styles.sectionTitle}>Supported vehicle types</Text>
                   <View style={styles.vehicleTypeRow}>
                     {vehicleTypes.length > 0 ? (
                       vehicleTypes.map((vt) => {
@@ -385,14 +381,14 @@ export default function BuildingsScreen() {
                         );
                       })
                     ) : (
-                      <Text style={styles.emptyDetailText}>Đang cập nhật</Text>
+                      <Text style={styles.emptyDetailText}>Updating</Text>
                     )}
                   </View>
                 </View>
 
                 {/* Vehicle Plate Selection */}
                 <View style={styles.sectionContainer}>
-                  <Text style={styles.sectionTitle}>Chọn xe của bạn</Text>
+                  <Text style={styles.sectionTitle}>Select your vehicle</Text>
                   <TouchableOpacity
                     style={styles.plateDropdown}
                     onPress={() => setShowPlateModal(true)}
@@ -413,13 +409,13 @@ export default function BuildingsScreen() {
                       </View>
                       <View>
                         <Text style={styles.plateNumberText}>
-                          {selectedPlate || 'Chọn biển số xe của bạn'}
+                          {selectedPlate || 'Select your license plate'}
                         </Text>
                         {selectedPlate ? (
                           <Text style={styles.plateTypeText}>
                             {compatiblePlates.find((p) => p.plateNumber === selectedPlate)?.vehicleType === 'motorcycle'
-                              ? 'Xe máy'
-                              : 'Ô tô'}
+                              ? 'Motorcycle'
+                              : 'Car'}
                           </Text>
                         ) : null}
                       </View>
@@ -430,7 +426,7 @@ export default function BuildingsScreen() {
 
                 {/* Floors Capacity & Layout */}
                 <View style={styles.sectionContainer}>
-                  <Text style={styles.sectionTitle}>Trạng thái các tầng</Text>
+                  <Text style={styles.sectionTitle}>Floor status</Text>
                   {floors.map((floor) => {
                     const isExpanded = expandedFloorId === floor._id;
                     const occupied = floor.totalSlots - floor.availableSlots;
@@ -455,12 +451,12 @@ export default function BuildingsScreen() {
                           <View style={{ flex: 1 }}>
                             <Text style={styles.floorName}>{floor.name || floor.code}</Text>
                             <Text style={styles.floorSlotsInfo}>
-                              Trống: {floor.availableSlots} / {floor.totalSlots} ô
+                              Available: {floor.availableSlots} / {floor.totalSlots} slots
                             </Text>
                           </View>
                           <View style={styles.floorPercentBox}>
                             <Text style={[styles.floorPercentText, { color: barColor }]}>
-                              Đầy {percentText}
+                              Full {percentText}
                             </Text>
                             <Ionicons
                               name={isExpanded ? 'chevron-up' : 'chevron-down'}
@@ -487,7 +483,7 @@ export default function BuildingsScreen() {
                             {slotsLoading[floor._id] ? (
                               <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: Spacing.md }} />
                             ) : !floorSlots[floor._id] || floorSlots[floor._id].length === 0 ? (
-                              <Text style={styles.emptyDetailText}>Không có ô đỗ nào</Text>
+                              <Text style={styles.emptyDetailText}>No parking slots</Text>
                             ) : (
                               <View style={styles.slotsGrid}>
                                 {floorSlots[floor._id].map((slot) => {
@@ -527,12 +523,12 @@ export default function BuildingsScreen() {
                                       </Text>
                                       <Text style={[styles.slotStatusText, { color: textCol }]}>
                                         {slot.status === 'available'
-                                          ? 'Trống'
+                                          ? 'Available'
                                           : slot.status === 'occupied'
-                                          ? 'Đang đỗ'
+                                          ? 'Parked'
                                           : slot.status === 'reserved'
-                                          ? 'Đã đặt'
-                                          : 'Bảo trì'}
+                                          ? 'Reserved'
+                                          : 'Maintenance'}
                                       </Text>
                                     </View>
                                   );
@@ -556,7 +552,7 @@ export default function BuildingsScreen() {
                   activeOpacity={0.8}
                 >
                   <Ionicons name="calendar" size={20} color="#000" style={{ marginRight: 8 }} />
-                  <Text style={styles.bookingButtonText}>Đặt Chỗ Ngay</Text>
+                  <Text style={styles.bookingButtonText}>Book Now</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -569,7 +565,7 @@ export default function BuildingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn xe của bạn</Text>
+              <Text style={styles.modalTitle}>Select your vehicle</Text>
               <TouchableOpacity onPress={() => setShowPlateModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
@@ -578,7 +574,7 @@ export default function BuildingsScreen() {
             {compatiblePlates.length === 0 ? (
               <View style={styles.modalEmpty}>
                 <Text style={styles.modalEmptyText}>
-                  Bạn chưa đăng ký biển số xe nào phù hợp với loại xe được hỗ trợ tại tòa nhà này.
+                  No license plates registered matching the vehicle types supported at this building.
                 </Text>
               </View>
             ) : (
@@ -606,7 +602,7 @@ export default function BuildingsScreen() {
                           {item.plateNumber}
                         </Text>
                         <Text style={styles.plateItemType}>
-                          {item.vehicleType === 'motorcycle' ? 'Xe máy' : 'Ô tô'}
+                          {item.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Car'}
                         </Text>
                       </View>
                       {isSelected ? (

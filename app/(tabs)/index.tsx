@@ -655,7 +655,7 @@ export default function HomeScreen() {
               <View style={styles.qrContainer}>
                 <Image
                   source={{
-                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=http://192.168.0.103:8081/profile?userId=${session?.userId}`,
+                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${session?.userId}`,
                   }}
                   style={styles.qrModalImage}
                   resizeMode="contain"
