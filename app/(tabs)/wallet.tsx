@@ -9,9 +9,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Linking,
   Image,
-  Pressable,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -35,35 +33,7 @@ import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { useUIStore } from '../../store/uiStore';
 
-function AnimatedPressable({
-  children,
-  onPress,
-  style,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
-  const handlePressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
-  };
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 150 });
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
-      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
 
 function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
   const opacity = useSharedValue(0);
@@ -143,7 +113,6 @@ export default function WalletScreen() {
   const [topupError, setTopupError] = useState<string | null>(null);
 
   // Payment link modal
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [orderCode, setOrderCode] = useState<number | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -187,31 +156,7 @@ export default function WalletScreen() {
     });
   }, []);
 
-  const showCustomConfirm = useCallback((
-    title: string,
-    message: string,
-    onConfirm: () => void,
-    onCancel?: () => void,
-    confirmText = 'Yes, Process',
-    cancelText = 'Cancel'
-  ) => {
-    setDialog({
-      visible: true,
-      title,
-      message,
-      type: 'confirm',
-      onConfirm: () => {
-        setDialog((d) => ({ ...d, visible: false }));
-        onConfirm();
-      },
-      onCancel: () => {
-        setDialog((d) => ({ ...d, visible: false }));
-        onCancel?.();
-      },
-      confirmText,
-      cancelText,
-    });
-  }, []);
+
 
   // Glow animation for balance card
   const glowScale = useSharedValue(1);
@@ -295,7 +240,6 @@ export default function WalletScreen() {
       setShowTopup(false);
       setTopupAmount('');
       setTopupResult(result);
-      setPaymentUrl(result.checkoutUrl);
       setOrderCode(result.orderCode);
       setShowPaymentInfo(true);
     } catch (err) {
@@ -313,7 +257,6 @@ export default function WalletScreen() {
       const res = await verifyTopup(token, orderCode);
       if (res.status === 'success') {
         setShowPaymentInfo(false);
-        setPaymentUrl(null);
         setOrderCode(null);
         setTopupResult(null);
         await load();
@@ -341,7 +284,6 @@ export default function WalletScreen() {
       try { await verifyTopup(token, orderCode); } catch { /* ignore — manual verify still available */ }
     }
     setShowPaymentInfo(false);
-    setPaymentUrl(null);
     setOrderCode(null);
     setTopupResult(null);
     await load();
