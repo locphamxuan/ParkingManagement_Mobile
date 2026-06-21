@@ -249,7 +249,6 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('booked');
-  const [qrReservation, setQrReservation] = useState<any | null>(null);
 
   // Custom Alert / Confirm Dialog State
   const [dialog, setDialog] = useState<{
@@ -1160,14 +1159,6 @@ export default function ReservationsScreen() {
                     style={{ alignSelf: 'flex-start' }}
                   />
                 )}
-                {r.code && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'checked_in') && (
-                  <Button
-                    label="View QR"
-                    onPress={() => setQrReservation(r)}
-                    size="sm"
-                    style={{ alignSelf: 'flex-start' }}
-                  />
-                )}
                 {(r as any).isSubscription && (r.status === 'confirmed' || r.status === 'expired') && !(r as any).rawSubscription?.slotReleased && (
                   <Button
                     label={renewingId === r._id ? 'Renewing...' : 'Renew'}
@@ -1658,7 +1649,7 @@ export default function ReservationsScreen() {
                                                 })}
                                               </View>
 
-                                              {/* LÀN ĐƯỜNG XE CHẠY Ở GIỮA */}
+                                              {/* DRIVEWAY (CENTER LANE) */}
                                               <View style={styles.drivewayLine2D}>
                                                 <Text style={styles.drivewayArrow2D}>◀── ENTRY (IN)</Text>
                                                 <View style={styles.dashedDivider2D} />
@@ -1743,14 +1734,14 @@ export default function ReservationsScreen() {
                                                   ]
                                                 }
                                               ]}>
-                                                {/* Cột bê tông hầm xe */}
+                                                {/* Basement pillars */}
                                                 <View style={[styles.basementColumn, { top: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
                                                 <View style={[styles.basementColumn, { bottom: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
 
-                                                {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
+                                                {/* Two symmetric parking rows flanking the driveway */}
                                                 <View style={styles.basementLanesRow}>
 
-                                                  {/* DÃY BÊN TRÁI (Left Parking Lane - Bottom Row) */}
+                                                  {/* Left Parking Lane (Bottom Row) */}
                                                   <View style={styles.parkingLane3D}>
                                                     {bottomRowSlots.map((slot) => {
                                                       const isCompatible = !vtCategory || (
@@ -1785,12 +1776,12 @@ export default function ReservationsScreen() {
                                                     })}
                                                   </View>
 
-                                                  {/* ĐƯỜNG XE CHẠY Ở GIỮA (Driveway Space) */}
+                                                  {/* Driveway Space */}
                                                   <View style={styles.drivewayLine3D}>
                                                     <View style={styles.dashedDivider} />
                                                   </View>
 
-                                                  {/* DÃY BÊN PHẢI (Right Parking Lane - Top Row) */}
+                                                  {/* Right Parking Lane (Top Row) */}
                                                   <View style={styles.parkingLane3D}>
                                                     {topRowSlots.map((slot) => {
                                                       const isCompatible = !vtCategory || (
@@ -2146,52 +2137,6 @@ export default function ReservationsScreen() {
         isPackage={bookingType === 'package'}
         packageDuration={activePkg?.durationDays}
       />
-
-      {/* ── Reservation QR Code Modal ── */}
-      <Modal visible={!!qrReservation} transparent animationType="fade" onRequestClose={() => setQrReservation(null)}>
-        <View style={styles.dialogOverlay}>
-          <View style={[styles.dialogContainer, { padding: Spacing.xl, alignItems: 'center' }]}>
-            <Text style={[styles.dialogTitle, { marginBottom: Spacing.sm }]}>Reservation QR</Text>
-            <Text style={{ color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginBottom: Spacing.md, lineHeight: 16 }}>
-              Show this code to the gate attendant to scan for check-in/check-out.
-            </Text>
-            
-            {qrReservation?.code ? (
-              <View style={{ backgroundColor: '#ffffff', padding: Spacing.md, borderRadius: Radius.lg, marginBottom: Spacing.md }}>
-                <Image
-                  source={{
-                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrReservation.code)}`,
-                  }}
-                  style={{ width: 200, height: 200 }}
-                  resizeMode="contain"
-                />
-              </View>
-            ) : (
-              <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 40 }} />
-            )}
-            
-            <Text style={{ color: Colors.primary, fontWeight: '800', fontSize: 14, letterSpacing: 1.2, marginBottom: Spacing.lg }}>
-              CODE: {qrReservation?.code || 'GENERATING...'}
-            </Text>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: Colors.cardAlt,
-                borderRadius: Radius.md,
-                paddingHorizontal: Spacing.xl,
-                paddingVertical: Spacing.md,
-                alignSelf: 'stretch',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: Colors.border,
-              }}
-              onPress={() => setQrReservation(null)}
-            >
-              <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 13 }}>CLOSE</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── Custom Dialog Modal ────────────────────────────────────────────────── */}
       <Modal visible={dialog.visible} transparent animationType="fade" onRequestClose={() => setDialog(d => ({ ...d, visible: false }))}>

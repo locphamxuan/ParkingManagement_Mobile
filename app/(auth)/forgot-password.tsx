@@ -4,8 +4,10 @@ import {
   Text,
   ScrollView,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   TouchableOpacity,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +17,9 @@ import { SuccessBanner } from "../../components/ui/SuccessBanner";
 import { commonStyles } from "../../styles/common";
 import { styles } from "../../styles/screens/authForm";
 import { forgotPassword } from "../../services/auth";
+import { Colors, Spacing, Radius, FontSize } from "../../constants/theme";
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -22,8 +27,9 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setError(null);
     setSuccess(null);
 
@@ -32,19 +38,23 @@ export default function ForgotPasswordScreen() {
       setError("Email is required.");
       return;
     }
-
-    const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
     if (!EMAIL_REGEX.test(emailValue)) {
       setError("Please enter a valid email address.");
       return;
     }
 
+    setPendingEmail(emailValue.toLowerCase());
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingEmail) return;
+    const emailToSend = pendingEmail;
+    setPendingEmail(null);
+
     try {
       setLoading(true);
-      await forgotPassword(emailValue.toLowerCase());
-      setSuccess(
-        "Password reset email sent. Please check your inbox.",
-      );
+      await forgotPassword(emailToSend);
+      setSuccess(`Reset link sent to ${emailToSend}. Check your inbox and spam folder.`);
     } catch (err) {
       setError(
         err instanceof Error
@@ -124,6 +134,103 @@ export default function ForgotPasswordScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Confirmation modal */}
+      <Modal
+        visible={!!pendingEmail}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingEmail(null)}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.container}>
+            <Text style={modalStyles.title}>Send reset link?</Text>
+            <Text style={modalStyles.body}>
+              We'll send a password reset link to{"\n"}
+              <Text style={modalStyles.emailHighlight}>{pendingEmail}</Text>
+              {"\n"}Make sure this email is correct.
+            </Text>
+            <View style={modalStyles.actions}>
+              <TouchableOpacity
+                style={[modalStyles.btn, modalStyles.btnCancel]}
+                onPress={() => setPendingEmail(null)}
+              >
+                <Text style={modalStyles.btnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[modalStyles.btn, modalStyles.btnConfirm]}
+                onPress={handleConfirm}
+              >
+                <Text style={modalStyles.btnConfirmText}>Confirm & Send</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing["2xl"],
+  },
+  container: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    padding: Spacing["2xl"],
+    width: "100%",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  title: {
+    fontSize: FontSize.md,
+    fontWeight: "800",
+    color: Colors.text,
+    marginBottom: Spacing.md,
+    textAlign: "center",
+  },
+  body: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: Spacing["2xl"],
+  },
+  emailHighlight: {
+    color: Colors.primary,
+    fontWeight: "700",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    alignItems: "center",
+  },
+  btnCancel: {
+    backgroundColor: Colors.cardAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  btnCancelText: {
+    color: Colors.text,
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+  },
+  btnConfirm: {
+    backgroundColor: Colors.primary,
+  },
+  btnConfirmText: {
+    color: "#ffffff",
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+  },
+});
