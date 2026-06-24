@@ -27,6 +27,7 @@ import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/profile';
 import type { LicensePlate } from '../../types';
 import { useUIStore } from '../../store/uiStore';
+import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
 
 function AnimatedPressable({
   children,
@@ -80,11 +81,6 @@ function AnimatedCard({ children, index, style }: { children: React.ReactNode; i
 }
 
 const MAX_PLATES = 3;
-const PLATE_REGEX = /^\d{2}[A-Z]{1,2}\d?-\d{3,5}$/;
-
-function normalizePlate(raw: string): string {
-  return raw.trim().toUpperCase().replace(/\s+/g, '-').replace(/[.]/g, '-');
-}
 
 type Tab = 'info' | 'plates' | 'password';
 
@@ -189,7 +185,7 @@ export default function ProfileScreen() {
     }
     const normalized = normalizePlate(plateInput);
     if (!PLATE_REGEX.test(normalized)) {
-      setPlateError('Invalid format. Example: 29A-12345, 30AB-1234');
+      setPlateError('Invalid format. Examples: 51F-970.22 · 51F1-2345 · 29AB-226.58');
       return;
     }
     if (plates.some((p) => p.plateNumber.toUpperCase() === normalized)) {

@@ -31,6 +31,7 @@ import {
   type FeeEstimate,
 } from '../../services/reservations';
 import type { BuildingOption, VehicleTypeOption } from '../../services/reservations';
+import { ApiError } from '../../services/api';
 import {
   getBuildingFloors,
   getFloorSlots,
@@ -45,7 +46,7 @@ import type { Reservation } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { BookingDateModal } from '../../components/ui/BookingDateModal';
 import { useUIStore } from '../../store/uiStore';
-import { guessVehicleCategory } from '../../utils/vehicleUtils';
+import { guessVehicleCategory } from '../../utils/vehicle';
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,8 +78,6 @@ function statusLabel(status: Reservation['status']) {
 function fmtVND(amount: number) {
   return amount.toLocaleString('en-US') + ' VND';
 }
-
-// guessVehicleCategory imported from utils/vehicleUtils
 
 interface Particle {
   id: number;
@@ -946,7 +945,13 @@ export default function ReservationsScreen() {
         'success'
       );
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
+      if (err instanceof ApiError && err.errorCode === 'PLATE_RECENTLY_CANCELLED') {
+        setCreateError(
+          'Biển số này đã hủy đặt chỗ tại tòa nhà trong vòng 24 giờ qua. Vui lòng thử lại sau.'
+        );
+      } else {
+        setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
+      }
     } finally {
       setCreating(false);
     }
@@ -2176,4 +2181,3 @@ export default function ReservationsScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────

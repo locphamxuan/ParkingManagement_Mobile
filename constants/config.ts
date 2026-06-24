@@ -28,12 +28,3 @@ export function getMobileFrontendUrl(): string {
   return `http://${resolveDevHost()}:5173`;
 }
 
-export function getApiBaseUrl(): string {
-  if (!__DEV__) {
-    return process.env.EXPO_PUBLIC_API_URL ?? 'https://your-production-api.com';
-  }
-  if (Platform.OS === 'web') {
-    return `http://${resolveDevHost()}:8081`;
-  }
-  return `http://${resolveDevHost()}:8081`;
-}

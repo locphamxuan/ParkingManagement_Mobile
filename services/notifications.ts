@@ -1,9 +1,5 @@
-import { apiRequest } from './api';
+import { apiRequest, type ApiRes } from './api';
 import type { Notification } from '../types';
-
-interface ApiRes<T> {
-  data?: T;
-}
 
 export async function listNotifications(
   token: string

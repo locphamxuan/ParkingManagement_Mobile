@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { listBuildings, getBuildingVehicleTypes, type BuildingOption, type VehicleTypeOption } from '../services/reservations';
-import { guessVehicleCategory } from '../utils/vehicleUtils';
+import { guessVehicleCategory } from '../utils/vehicle';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import type { LicensePlate } from '../types';
