@@ -2,18 +2,24 @@ import { useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   TouchableOpacity,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { Colors, FontSize, Radius, Spacing } from "../../constants/theme";
+import { SuccessBanner } from "../../components/ui/SuccessBanner";
+import { commonStyles } from "../../styles/common";
+import { styles } from "../../styles/screens/authForm";
 import { forgotPassword } from "../../services/auth";
+import { Colors, Spacing, Radius, FontSize } from "../../constants/theme";
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -21,8 +27,9 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setError(null);
     setSuccess(null);
 
@@ -31,19 +38,23 @@ export default function ForgotPasswordScreen() {
       setError("Email is required.");
       return;
     }
-
-    const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
     if (!EMAIL_REGEX.test(emailValue)) {
       setError("Please enter a valid email address.");
       return;
     }
 
+    setPendingEmail(emailValue.toLowerCase());
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingEmail) return;
+    const emailToSend = pendingEmail;
+    setPendingEmail(null);
+
     try {
       setLoading(true);
-      await forgotPassword(emailValue.toLowerCase());
-      setSuccess(
-        "Password reset email sent. Please check your inbox.",
-      );
+      await forgotPassword(emailToSend);
+      setSuccess(`Reset link sent to ${emailToSend}. Check your inbox and spam folder.`);
     } catch (err) {
       setError(
         err instanceof Error
@@ -56,7 +67,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={commonStyles.screen}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -80,7 +91,7 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.brandLabel}>PBMS</Text>
           </View>
 
-          <View style={styles.card}>
+          <View style={commonStyles.card}>
             <Text style={styles.cardTitle}>Forgot password</Text>
             <Text style={styles.cardSub}>
               Enter your email to receive a reset link
@@ -100,11 +111,7 @@ export default function ForgotPasswordScreen() {
               />
             </View>
 
-            {success ? (
-              <View style={styles.successBox}>
-                <Text style={styles.successText}>{success}</Text>
-              </View>
-            ) : null}
+            <SuccessBanner message={success} />
 
             <Button
               label="Send reset link"
@@ -127,75 +134,103 @@ export default function ForgotPasswordScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Confirmation modal */}
+      <Modal
+        visible={!!pendingEmail}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingEmail(null)}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.container}>
+            <Text style={modalStyles.title}>Send reset link?</Text>
+            <Text style={modalStyles.body}>
+              We'll send a password reset link to{"\n"}
+              <Text style={modalStyles.emailHighlight}>{pendingEmail}</Text>
+              {"\n"}Make sure this email is correct.
+            </Text>
+            <View style={modalStyles.actions}>
+              <TouchableOpacity
+                style={[modalStyles.btn, modalStyles.btnCancel]}
+                onPress={() => setPendingEmail(null)}
+              >
+                <Text style={modalStyles.btnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[modalStyles.btn, modalStyles.btnConfirm]}
+                onPress={handleConfirm}
+              >
+                <Text style={modalStyles.btnConfirmText}>Confirm & Send</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing["2xl"],
-    gap: Spacing.xl,
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing["2xl"],
   },
-  backBtn: { alignSelf: "flex-start" },
-  backText: {
+  container: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    padding: Spacing["2xl"],
+    width: "100%",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  title: {
+    fontSize: FontSize.md,
+    fontWeight: "800",
+    color: Colors.text,
+    marginBottom: Spacing.md,
+    textAlign: "center",
+  },
+  body: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: Spacing["2xl"],
+  },
+  emailHighlight: {
     color: Colors.primary,
+    fontWeight: "700",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    alignItems: "center",
+  },
+  btnCancel: {
+    backgroundColor: Colors.cardAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  btnCancelText: {
+    color: Colors.text,
     fontSize: FontSize.sm,
     fontWeight: "700",
   },
-  brand: { alignItems: "center", gap: Spacing.sm },
-  logoBox: {
-    width: 60,
-    height: 60,
-    borderRadius: Radius.lg,
-    backgroundColor: "rgba(249,115,22,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(249,115,22,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
+  btnConfirm: {
+    backgroundColor: Colors.primary,
   },
-  logoEmoji: { fontSize: 30 },
-  brandLabel: {
-    fontSize: FontSize.xl,
-    fontWeight: "900",
-    color: Colors.text,
-    letterSpacing: 4,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing["2xl"],
-    gap: Spacing.lg,
-  },
-  cardTitle: {
-    fontSize: FontSize.xl,
-    fontWeight: "900",
-    color: Colors.text,
-  },
-  cardSub: {
+  btnConfirmText: {
+    color: "#ffffff",
     fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    marginTop: -Spacing.sm,
+    fontWeight: "700",
   },
-  fields: { gap: Spacing.md },
-  successBox: {
-    backgroundColor: Colors.successBg,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.successBorder,
-    padding: Spacing.md,
-  },
-  successText: {
-    color: Colors.success,
-    fontSize: FontSize.sm,
-    fontWeight: "600",
-  },
-  submitBtn: { marginTop: Spacing.xs },
-  link: { alignItems: "center" },
-  linkText: { color: Colors.textMuted, fontSize: FontSize.sm },
-  linkHighlight: { color: Colors.primary, fontWeight: "700" },
 });

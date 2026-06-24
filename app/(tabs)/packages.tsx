@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Modal,
   TextInput,
   Pressable,
 } from 'react-native';
@@ -14,8 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { listPackages, listSubscriptions } from '../../services/longTerm';
+import { listPackages, subscribe, listSubscriptions } from '../../services/longTerm';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { styles } from '../../styles/screens/packages';
+import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../../types';
 import type { LongTermPackage, LongTermSubscription } from '../../types';
 
 function AnimatedPressable({
@@ -88,6 +93,16 @@ function fmtDateOnly(s: string) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+function vtLabel(vt: LongTermPackage['vehicleType']): string {
+  if (!vt) return 'All vehicles';
+  if (typeof vt === 'string') {
+    if (vt === 'car') return 'Car';
+    if (vt === 'motorcycle') return 'Motorcycle';
+    if (vt === 'all') return 'All vehicles';
+    return vt;
+  }
+  return vt.name ?? 'All vehicles';
+}
 
 function vtCode(vt: LongTermPackage['vehicleType']): string | null {
   if (!vt || typeof vt === 'string') return null;
@@ -112,6 +127,7 @@ function groupByBuilding(packages: LongTermPackage[]) {
 export default function PackagesScreen() {
   const { session } = useAuthStore();
   const token = session?.token ?? '';
+  const plates: LicensePlate[] = session?.licensePlates ?? [];
 
   const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -717,83 +733,4 @@ export default function PackagesScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  container: { flex: 1, backgroundColor: Colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.md, },
-  headerLabel: { fontSize: FontSize.xs, fontWeight: '800', letterSpacing: 1.8, textTransform: 'uppercase', color: Colors.primary, },
-  headerTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text, marginTop: 2, },
-  refreshBtn: { width: 38, height: 38, borderRadius: Radius.md, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: Spacing['2xl'], },
-  dimText: { color: Colors.textDim, fontSize: FontSize.sm, textAlign: 'center' },
-  errorText: { color: Colors.error, fontSize: FontSize.sm, textAlign: 'center' },
-  retryBtn: { marginTop: 4, backgroundColor: Colors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: Radius.full, },
-  retryText: { color: Colors.card, fontWeight: '700', fontSize: FontSize.sm },
-  scrollContent: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing['3xl'] },
-  buildingGroup: { marginBottom: Spacing['2xl'], },
-  buildingHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border, },
-  buildingName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, },
-  buildingCode: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, marginTop: 1, },
-  buildingAddr: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2, },
-  countBadge: { backgroundColor: Colors.cardAlt, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 3, borderWidth: 1, borderColor: Colors.border, },
-  countText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted, },
-  pkgCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.06)', padding: Spacing.lg, marginBottom: Spacing.md, gap: Spacing.md, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3, },
-  pkgCardGlowOrb: { position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: 70, },
-  pkgHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', },
-  pkgTagBadge: { fontSize: 9, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.sm, textTransform: 'uppercase', letterSpacing: 0.5, },
-  pkgVehicleBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full, },
-  pkgVehicleText: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, },
-  pkgName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginTop: -2, },
-  pkgDesc: { fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18, marginTop: -4, },
-  pkgMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: -2, },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', },
-  tagText: { fontSize: 11, color: Colors.textDim, fontWeight: '600', },
-  pkgBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: Spacing.md, marginTop: 2, },
-  pkgPriceLabel: { fontSize: 8, fontWeight: '700', color: Colors.textDim, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2, },
-  pkgPriceText: { fontSize: 15, fontWeight: '700', color: Colors.text, },
-  pkgActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: Radius.full, paddingHorizontal: 16, paddingVertical: 8, },
-  pkgActionBtnText: { color: '#ffffff', fontWeight: '800', fontSize: FontSize.xs, textTransform: 'uppercase', letterSpacing: 0.5, },
-  seeMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm, backgroundColor: Colors.cardAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, marginTop: Spacing.xs, marginBottom: Spacing.sm, },
-  seeMoreText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.xs, },
-  filterSection: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.sm, gap: Spacing.sm, },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, height: 40, paddingHorizontal: Spacing.md, },
-  searchIcon: { marginRight: Spacing.xs, },
-  searchInput: { flex: 1, color: Colors.text, fontSize: FontSize.sm, paddingVertical: 0, },
-  clearSearchBtn: { padding: 2, },
-  filterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, },
-  filterLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDim, width: 60, },
-  chipScroll: { gap: Spacing.xs, paddingRight: Spacing.xl, },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, },
-  filterChipActive: { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: Colors.primary, },
-  filterChipText: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', },
-  filterChipTextActive: { color: Colors.primary, fontWeight: '700', },
-  tabSection: { flexDirection: 'row', paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.md, gap: Spacing.md, },
-  topTab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderBottomWidth: 2, borderColor: 'transparent', },
-  topTabActive: { borderColor: Colors.primary, },
-  topTabText: { color: Colors.textMuted, fontWeight: '600', fontSize: FontSize.sm, },
-  topTabTextActive: { color: Colors.primary, fontWeight: '800', },
-  collapsibleFiltersRow: { flexDirection: 'row', gap: Spacing.sm, },
-  dropdownHeader: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 10, height: 34, },
-  dropdownHeaderExpanded: { borderColor: Colors.primary, },
-  dropdownHeaderActive: { borderColor: 'rgba(249,115,22,0.4)', backgroundColor: 'rgba(249,115,22,0.06)', },
-  dropdownHeaderText: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', },
-  dropdownHeaderTextActive: { color: Colors.primary, fontWeight: '700', },
-  expandedOptionsPanel: { backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm, marginTop: -2, },
-  subCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, marginBottom: Spacing.md, },
-  subCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', },
-  subPkgName: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text, },
-  subBldName: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2, },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full, },
-  statusBadgeText: { fontSize: 10, fontWeight: '800', },
-  subCardDivider: { height: 1, backgroundColor: Colors.border, marginVertical: Spacing.md, },
-  subDetailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, },
-  subDetailItem: { minWidth: '45%', gap: 3, },
-  subDetailLabel: { fontSize: 9, fontWeight: '800', color: Colors.textDim, letterSpacing: 0.5, },
-  subDetailVal: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted, },
-  subCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', },
-  subPriceLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDim, },
-  subPriceVal: { fontSize: FontSize.base, fontWeight: '900', color: Colors.primary, },
-});
 

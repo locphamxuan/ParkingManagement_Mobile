@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -32,6 +31,7 @@ import {
   type FeeEstimate,
 } from '../../services/reservations';
 import type { BuildingOption, VehicleTypeOption } from '../../services/reservations';
+import { ApiError } from '../../services/api';
 import {
   getBuildingFloors,
   getFloorSlots,
@@ -41,10 +41,12 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { styles } from '../../styles/screens/reservations';
 import type { Reservation } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { BookingDateModal } from '../../components/ui/BookingDateModal';
 import { useUIStore } from '../../store/uiStore';
+import { guessVehicleCategory } from '../../utils/vehicle';
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,14 +77,6 @@ function statusLabel(status: Reservation['status']) {
 
 function fmtVND(amount: number) {
   return amount.toLocaleString('en-US') + ' VND';
-}
-
-// Infer car/motorcycle from vehicle type name since the model has no category field
-function guessVehicleCategory(name: string): 'car' | 'motorcycle' | null {
-  const lower = name.toLowerCase();
-  if (lower.includes('motor') || lower.includes('moto') || lower.includes('xe máy') || lower.includes('xe may') || lower.includes('bike')) return 'motorcycle';
-  if (lower.includes('car') || lower.includes('ô tô') || lower.includes('o to') || lower.includes('auto') || lower.includes('truck') || lower.includes('van') || lower.includes('suv')) return 'car';
-  return null;
 }
 
 interface Particle {
@@ -254,7 +248,6 @@ export default function ReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('booked');
-  const [qrReservation, setQrReservation] = useState<any | null>(null);
 
   // Custom Alert / Confirm Dialog State
   const [dialog, setDialog] = useState<{
@@ -952,7 +945,13 @@ export default function ReservationsScreen() {
         'success'
       );
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
+      if (err instanceof ApiError && err.errorCode === 'PLATE_RECENTLY_CANCELLED') {
+        setCreateError(
+          'Biển số này đã hủy đặt chỗ tại tòa nhà trong vòng 24 giờ qua. Vui lòng thử lại sau.'
+        );
+      } else {
+        setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
+      }
     } finally {
       setCreating(false);
     }
@@ -1154,7 +1153,7 @@ export default function ReservationsScreen() {
                 </View>
               ) : null}
 
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xs }}>
+              <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs }}>
                 {(r.status === 'pending' || r.status === 'confirmed') && (
                   <Button
                     label={cancellingId === r._id ? 'Cancelling...' : ((r as any).isSubscription ? 'Cancel Subscription' : 'Cancel Reservation')}
@@ -1162,14 +1161,6 @@ export default function ReservationsScreen() {
                     variant="danger"
                     size="sm"
                     loading={cancellingId === r._id}
-                    style={{ alignSelf: 'flex-start' }}
-                  />
-                )}
-                {r.code && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'checked_in') && (
-                  <Button
-                    label="View QR"
-                    onPress={() => setQrReservation(r)}
-                    size="sm"
                     style={{ alignSelf: 'flex-start' }}
                   />
                 )}
@@ -1545,15 +1536,15 @@ export default function ReservationsScreen() {
                                 <View style={styles.legendRow2D}>
                                   <View style={styles.legendItem2D}>
                                     <View style={[styles.legendDot2D, { borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} />
-                                    <Text style={styles.legendText2D}>Trống</Text>
+                                    <Text style={styles.legendText2D}>Available</Text>
                                   </View>
                                   <View style={styles.legendItem2D}>
                                     <View style={[styles.legendDot2D, { borderColor: '#475569', backgroundColor: 'rgba(71, 85, 105, 0.1)' }]} />
-                                    <Text style={styles.legendText2D}>Đã giữ</Text>
+                                    <Text style={styles.legendText2D}>Reserved</Text>
                                   </View>
                                   <View style={styles.legendItem2D}>
                                     <View style={[styles.legendDot2D, { borderColor: 'rgba(255,255,255,0.25)', borderStyle: 'dashed', backgroundColor: 'transparent' }]} />
-                                    <Text style={styles.legendText2D}>Không khả dụng</Text>
+                                    <Text style={styles.legendText2D}>Unavailable</Text>
                                   </View>
                                 </View>
 
@@ -1613,9 +1604,9 @@ export default function ReservationsScreen() {
                                             style={{ flex: 1, width: '100%' }}
                                           >
                                             <View style={styles.basement2DContainer}>
-                                              {/* DÃY T (TOP ROW) */}
+                                              {/* ROW T (TOP) */}
                                               <View style={styles.rowHeaderRow2D}>
-                                                <Text style={styles.rowHeader2D}>DÃY T (TOP ROW)</Text>
+                                                <Text style={styles.rowHeader2D}>ROW T (TOP)</Text>
                                               </View>
                                               <View style={styles.parkingLane2D}>
                                                 {topRowSlots.map((slot) => {
@@ -1663,18 +1654,18 @@ export default function ReservationsScreen() {
                                                 })}
                                               </View>
 
-                                              {/* LÀN ĐƯỜNG XE CHẠY Ở GIỮA */}
+                                              {/* DRIVEWAY (CENTER LANE) */}
                                               <View style={styles.drivewayLine2D}>
-                                                <Text style={styles.drivewayArrow2D}>◀── LỐI VÀO (IN)</Text>
+                                                <Text style={styles.drivewayArrow2D}>◀── ENTRY (IN)</Text>
                                                 <View style={styles.dashedDivider2D} />
-                                                <Text style={styles.drivewayText2D}>ĐƯỜNG DI CHUYỂN</Text>
+                                                <Text style={styles.drivewayText2D}>DRIVEWAY</Text>
                                                 <View style={styles.dashedDivider2D} />
-                                                <Text style={styles.drivewayArrow2D}>LỐI RA (OUT) ──▶</Text>
+                                                <Text style={styles.drivewayArrow2D}>EXIT (OUT) ──▶</Text>
                                               </View>
 
-                                              {/* DÃY T (BOTTOM ROW) */}
+                                              {/* ROW T (BOTTOM) */}
                                               <View style={styles.rowHeaderRow2D}>
-                                                <Text style={styles.rowHeader2D}>DÃY T (BOTTOM ROW)</Text>
+                                                <Text style={styles.rowHeader2D}>ROW T (BOTTOM)</Text>
                                               </View>
                                               <View style={styles.parkingLane2D}>
                                                 {bottomRowSlots.map((slot) => {
@@ -1748,14 +1739,14 @@ export default function ReservationsScreen() {
                                                   ]
                                                 }
                                               ]}>
-                                                {/* Cột bê tông hầm xe */}
+                                                {/* Basement pillars */}
                                                 <View style={[styles.basementColumn, { top: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
                                                 <View style={[styles.basementColumn, { bottom: 6, left: '50%', marginLeft: -7, opacity: 0.9 }]} />
 
-                                                {/* Bố cục 2 dãy đỗ đối xứng hai bên đường */}
+                                                {/* Two symmetric parking rows flanking the driveway */}
                                                 <View style={styles.basementLanesRow}>
 
-                                                  {/* DÃY BÊN TRÁI (Left Parking Lane - Bottom Row) */}
+                                                  {/* Left Parking Lane (Bottom Row) */}
                                                   <View style={styles.parkingLane3D}>
                                                     {bottomRowSlots.map((slot) => {
                                                       const isCompatible = !vtCategory || (
@@ -1790,12 +1781,12 @@ export default function ReservationsScreen() {
                                                     })}
                                                   </View>
 
-                                                  {/* ĐƯỜNG XE CHẠY Ở GIỮA (Driveway Space) */}
+                                                  {/* Driveway Space */}
                                                   <View style={styles.drivewayLine3D}>
                                                     <View style={styles.dashedDivider} />
                                                   </View>
 
-                                                  {/* DÃY BÊN PHẢI (Right Parking Lane - Top Row) */}
+                                                  {/* Right Parking Lane (Top Row) */}
                                                   <View style={styles.parkingLane3D}>
                                                     {topRowSlots.map((slot) => {
                                                       const isCompatible = !vtCategory || (
@@ -2152,52 +2143,6 @@ export default function ReservationsScreen() {
         packageDuration={activePkg?.durationDays}
       />
 
-      {/* ── Reservation QR Code Modal ── */}
-      <Modal visible={!!qrReservation} transparent animationType="fade" onRequestClose={() => setQrReservation(null)}>
-        <View style={styles.dialogOverlay}>
-          <View style={[styles.dialogContainer, { padding: Spacing.xl, alignItems: 'center' }]}>
-            <Text style={[styles.dialogTitle, { marginBottom: Spacing.sm }]}>Mã QR Đặt Chỗ</Text>
-            <Text style={{ color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginBottom: Spacing.md, lineHeight: 16 }}>
-              Đưa mã này cho bảo vệ quét tại cổng để xác nhận xe vào/ra bãi.
-            </Text>
-            
-            {qrReservation?.code ? (
-              <View style={{ backgroundColor: '#ffffff', padding: Spacing.md, borderRadius: Radius.lg, marginBottom: Spacing.md }}>
-                <Image
-                  source={{
-                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrReservation.code)}`,
-                  }}
-                  style={{ width: 200, height: 200 }}
-                  resizeMode="contain"
-                />
-              </View>
-            ) : (
-              <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 40 }} />
-            )}
-            
-            <Text style={{ color: Colors.primary, fontWeight: '800', fontSize: 14, letterSpacing: 1.2, marginBottom: Spacing.lg }}>
-              MÃ: {qrReservation?.code || 'ĐANG TẠO...'}
-            </Text>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: Colors.cardAlt,
-                borderRadius: Radius.md,
-                paddingHorizontal: Spacing.xl,
-                paddingVertical: Spacing.md,
-                alignSelf: 'stretch',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: Colors.border,
-              }}
-              onPress={() => setQrReservation(null)}
-            >
-              <Text style={{ color: Colors.text, fontWeight: '800', fontSize: 13 }}>ĐÓNG</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* ── Custom Dialog Modal ────────────────────────────────────────────────── */}
       <Modal visible={dialog.visible} transparent animationType="fade" onRequestClose={() => setDialog(d => ({ ...d, visible: false }))}>
         <View style={styles.dialogOverlay}>
@@ -2236,211 +2181,3 @@ export default function ReservationsScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.lg },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  pageTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
-  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
-  errorText: { color: Colors.error, fontSize: FontSize.sm, fontWeight: '600', flex: 1 },
-  filterRow: { flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.cardAlt, borderRadius: Radius.full, padding: 4, borderWidth: 1, borderColor: Colors.border },
-  filterBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  filterBtnFlex: { flex: 1 },
-  filterBtnActive: { backgroundColor: Colors.primary },
-  filterText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted },
-  filterTextActive: { color: '#fff' },
-  emptyCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.sm },
-  emptyText: { color: Colors.textDim, fontSize: FontSize.sm },
-  card: { backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  plateTxt: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text, fontFamily: 'monospace' },
-  buildingTxt: { fontSize: FontSize.sm, color: Colors.textMuted },
-  slotTxt: { fontSize: FontSize.sm, color: Colors.textDim },
-  divider: { height: 1, backgroundColor: Colors.border },
-  timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  timeLabel: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
-  timeValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-  metaBox: { gap: 6, backgroundColor: Colors.cardAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { fontSize: FontSize.sm, color: Colors.textMuted, flex: 1 },
-  metaStrong: { fontWeight: '800', color: Colors.text },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing['2xl'], paddingBottom: 36, gap: Spacing.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border, maxHeight: '90%' },
-  modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: Spacing.xs },
-  modalTitle: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.text },
-  stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: -Spacing.sm },
-  stepDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  stepDotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  stepDotText: { fontSize: 11, fontWeight: '800', color: Colors.textDim },
-  stepDotTextActive: { color: '#fff' },
-  stepLine: { height: 2, width: 32, backgroundColor: Colors.border, marginHorizontal: -1 },
-  stepLineActive: { backgroundColor: Colors.primary },
-  fieldLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
-  hintText: { fontSize: FontSize.xs, color: Colors.textDim, fontStyle: 'italic' },
-  buildingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm },
-  buildingCardActive: { borderColor: 'rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.08)' },
-  buildingName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
-  buildingAddr: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2 },
-  buildingCode: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, fontFamily: 'monospace', backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border },
-  chipActive: { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.4)' },
-  chipText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted, fontFamily: 'monospace' },
-  chipTextActive: { color: Colors.primary },
-  textInput: { backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 14, height: 48, color: Colors.text, fontSize: FontSize.base },
-  floorCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm },
-  floorCardActive: { borderColor: 'rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.08)' },
-  floorName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
-  floorSub: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2 },
-  availBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
-  availBadgeOpen: { backgroundColor: 'rgba(22,163,74,0.12)' },
-  availBadgeFull: { backgroundColor: 'rgba(239,68,68,0.12)' },
-  availBadgeText: { fontSize: 11, fontWeight: '800' },
-  slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  slotCell: { width: 64, height: 52, borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(249,115,22,0.45)', backgroundColor: 'rgba(249,115,22,0.10)', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  slotCellSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(249,115,22,0.25)' },
-  slotCellDisabled: { borderColor: Colors.border, backgroundColor: Colors.cardAlt, opacity: 0.5 },
-  slotCode: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary, fontFamily: 'monospace' },
-  slotCodeSelected: { color: Colors.primary },
-  slotCodeDisabled: { color: Colors.textDim },
-  slotTakenLabel: { fontSize: 9, fontWeight: '700', color: Colors.textDim, textTransform: 'uppercase' },
-  summaryCard: { backgroundColor: Colors.cardAlt, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: 4 },
-  summaryTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
-  summaryRow: { fontSize: FontSize.sm, color: Colors.text },
-  summaryKey: { fontWeight: '700', color: Colors.textMuted },
-  feeHintBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(249,115,22,0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)', padding: Spacing.sm },
-  feeHintText: { fontSize: FontSize.xs, color: Colors.primary, flex: 1 },
-  modalBtns: { flexDirection: 'row', gap: Spacing.sm },
-  openMapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingVertical: 14, gap: 8, borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.4)', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
-  openMapBtnText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
-  selectedSlotConfirmBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(22, 163, 74, 0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(22, 163, 74, 0.2)', padding: Spacing.md },
-  selectedSlotConfirmText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: '600' },
-  selectSlotPrompt: { color: Colors.textDim, fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center', marginVertical: 4 },
-  mapModalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end' },
-  mapModalSheet: { backgroundColor: Colors.bg, borderTopLeftRadius: 32, borderTopRightRadius: 32, height: '85%', borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border, overflow: 'hidden' },
-  mapModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  mapModalTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text },
-  mapModalSubtitle: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '700', marginTop: 2 },
-  mapToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.cardAlt, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  mapSelectHint: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDim },
-  mapModalContent: { flex: 1, backgroundColor: '#090d16' },
-  scroll2DContainer: { padding: Spacing.xl, alignItems: 'center', justifyContent: 'center' },
-  mapModalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
-  footerInfoCol: { gap: 4 },
-  footerSelectedTitle: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 0.8 },
-  footerSelectedValue: { fontSize: FontSize.base, fontWeight: '900', color: Colors.primary },
-  confirmSelectionBtn: { backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  confirmSelectionBtnDisabled: { backgroundColor: Colors.border, opacity: 0.5 },
-  confirmSelectionBtnText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
-  columnBase: { position: 'absolute', width: 20, height: 20, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 15 },
-  pillarLeftFace: { position: 'absolute', left: 0, top: -24, width: 10, height: 24, backgroundColor: '#fbbf24', overflow: 'hidden', borderTopLeftRadius: 1, borderBottomLeftRadius: 1, zIndex: 16 },
-  pillarRightFace: { position: 'absolute', left: 10, top: -24, width: 10, height: 24, backgroundColor: '#d97706', overflow: 'hidden', borderTopRightRadius: 1, borderBottomRightRadius: 1, zIndex: 16 },
-  pillarTopFace: { position: 'absolute', top: -29, left: 5, width: 20, height: 20, backgroundColor: '#475569', borderWidth: 1, borderColor: '#94a3b8', zIndex: 17 },
-  viewModeContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
-  toggleBtnGroup: { flexDirection: 'row', backgroundColor: Colors.cardAlt, borderRadius: Radius.md, padding: 3, borderWidth: 1, borderColor: Colors.border },
-  toggleBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.sm, gap: 4 },
-  toggleBtnActive: { backgroundColor: Colors.primary },
-  toggleBtnText: { fontSize: 10, fontWeight: '700', color: Colors.textMuted },
-  scroll3DHorizontal: { paddingHorizontal: 20, alignItems: 'center' },
-  scroll3DVertical: { paddingVertical: 20, alignItems: 'center' },
-  basement3DContainer: { alignItems: 'center', justifyContent: 'center', width: 380, height: 720, paddingHorizontal: 20, paddingVertical: 40 },
-  basementColumn: { position: 'absolute', width: 14, height: 40, backgroundColor: '#334155', borderLeftWidth: 3, borderLeftColor: '#fbbf24', borderRightWidth: 3, borderRightColor: '#fbbf24', borderRadius: 2, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
-  basementLanesRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  isometricCanvas: { transform: [{ perspective: 900 }, { rotateX: '58deg' }, { rotateZ: '-38deg' }], width: 320, padding: 20, backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)' },
-  slots3DLayout: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  parkingLane3D: { flexDirection: 'column', gap: 20 },
-  slot3DBoxContainer: { position: 'relative', backgroundColor: 'rgba(0, 0, 0, 0.3)', borderRadius: 4 },
-  faceTop3D: { position: 'absolute', borderRadius: 4, borderWidth: 1.5, backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 3, shadowColor: '#22c55e', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, width: '100%', height: '100%' },
-  faceTopSelected3D: { backgroundColor: 'rgba(249, 115, 22, 0.35)', borderColor: '#f97316', shadowColor: '#f97316', shadowOpacity: 0.4, shadowRadius: 8 },
-  faceTopDisabled3D: { backgroundColor: 'rgba(71, 85, 105, 0.1)', borderColor: '#475569', shadowOpacity: 0 },
-  faceLeft3D: { position: 'absolute', left: 0, top: 0, backgroundColor: 'rgba(34, 197, 94, 0.4)', borderTopLeftRadius: 4, borderBottomLeftRadius: 4, zIndex: 2, height: '100%' },
-  faceLeftSelected3D: { backgroundColor: 'rgba(249, 115, 22, 0.7)' },
-  faceLeftDisabled3D: { backgroundColor: 'rgba(71, 85, 105, 0.3)' },
-  faceRight3D: { position: 'absolute', left: 0, top: 0, backgroundColor: 'rgba(34, 197, 94, 0.25)', borderTopLeftRadius: 4, borderTopRightRadius: 4, zIndex: 1, width: '100%' },
-  faceRightSelected3D: { backgroundColor: 'rgba(249, 115, 22, 0.5)' },
-  faceRightDisabled3D: { backgroundColor: 'rgba(71, 85, 105, 0.2)' },
-  codeText3D: { fontSize: 10, fontWeight: '900', color: '#fff', fontFamily: 'monospace', textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
-  carSymbol3D: { fontSize: 14, marginTop: 2 },
-  drivewayLine3D: { width: 24, alignItems: 'center', justifyContent: 'center' },
-  dashedDivider: { height: '100%', width: 2, borderStyle: 'dashed', borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.25)' },
-  horizontalScrollPadding: { paddingRight: 20 },
-  pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-  pickerSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, overflow: 'hidden' },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  scroll2DHorizontal: { paddingHorizontal: 20 },
-  scroll2DVertical: { paddingVertical: 20 },
-  basement2DContainer: { paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center' },
-  rowHeaderRow2D: { width: '100%', alignItems: 'flex-start', marginBottom: 6, paddingLeft: 4 },
-  rowHeader2D: { fontSize: 9, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1.2 },
-  parkingLane2D: { flexDirection: 'row', gap: 10, paddingVertical: 8 },
-  slotCell2D: { borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)', alignItems: 'center', justifyContent: 'center', shadowColor: '#10b981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 1 },
-  slotCell2DSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(249, 115, 22, 0.15)', shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 6 },
-  slotCell2DDisabled: { borderColor: '#475569', backgroundColor: 'rgba(71, 85, 105, 0.1)', shadowOpacity: 0 },
-  slotCode2D: { fontSize: 11, fontWeight: '900', color: '#10b981', fontFamily: 'monospace' },
-  slotCode2DSelected: { color: Colors.primary },
-  slotCode2DDisabledTop: { fontSize: 8, fontWeight: '800', color: Colors.textDim, fontFamily: 'monospace', position: 'absolute', top: 4 },
-  slotVehicleEmoji2D: { fontSize: 14, marginTop: 10 },
-  slotOccupiedContainer2D: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
-  drivewayLine2D: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginVertical: 14, paddingVertical: 8, paddingHorizontal: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: 8 },
-  drivewayArrow2D: { fontSize: 8, fontWeight: '900', color: Colors.primary, fontFamily: 'monospace', letterSpacing: 0.8 },
-  drivewayText2D: { fontSize: 9, fontWeight: '900', color: Colors.textMuted, letterSpacing: 1.5 },
-  dashedDivider2D: { width: 1, height: 10, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  legendRow2D: { flexDirection: 'row', justifyContent: 'center', gap: 20, paddingVertical: 12, backgroundColor: Colors.cardAlt, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  legendItem2D: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot2D: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5 },
-  legendText2D: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-  newSummaryCard: { backgroundColor: Colors.cardAlt, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md },
-  summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  newSummaryTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
-  summaryGrid: { gap: Spacing.md },
-  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  summaryIconBox: { width: 32, height: 32, borderRadius: Radius.md, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  summaryItemLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
-  summaryItemValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, marginTop: 1 },
-  billingCard: { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md, marginTop: Spacing.xs },
-  billingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  billingTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
-  billingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.md },
-  billingLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
-  billingValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-  billingDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 2 },
-  depositRow: { backgroundColor: 'rgba(245,158,11,0.04)', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(245,158,11,0.1)' },
-  wizardScrollView: { maxHeight: 380, flexShrink: 1 },
-  timeTriggerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(249,115,22,0.06)', borderRadius: Radius.xl, borderWidth: 1.5, borderColor: 'rgba(249,115,22,0.35)', paddingVertical: 14, paddingHorizontal: 16 },
-  timeTriggerLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 },
-  timeTriggerValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-  timePreviewCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, padding: Spacing.md, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border },
-  timePreviewColumn: { flex: 1, gap: 4 },
-  timePreviewLabel: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase' },
-  timePreviewValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
-  timePreviewDivider: { width: 1, height: 24, backgroundColor: Colors.border, marginHorizontal: Spacing.md },
-  pkgSelectCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, marginBottom: Spacing.xs },
-  pkgSelectCardActive: { borderColor: Colors.primary, backgroundColor: 'rgba(249,115,22,0.04)' },
-  pkgSelectName: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
-  pkgSelectDuration: { fontSize: FontSize.xs, color: Colors.textDim },
-  pkgSelectPrice: { fontSize: FontSize.sm, fontWeight: '900', color: Colors.primary },
-  bottomSummarySheet: { backgroundColor: Colors.cardAlt, borderTopWidth: 1, borderTopColor: Colors.border, paddingHorizontal: 16, paddingVertical: 10, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg },
-  bottomSummarySheetExpanded: { backgroundColor: Colors.card },
-  summarySheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
-  summarySheetTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text, textTransform: 'uppercase', letterSpacing: 0.5 },
-  summarySheetDetails: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 6 },
-  summarySheetRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  summarySheetLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-  summarySheetValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
-  checkboxContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.cardAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, marginTop: 4 },
-  checkboxLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted, flex: 1 },
-  dialogOverlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.75)', justifyContent: 'center', alignItems: 'center', padding: Spacing['2xl'] },
-  dialogContainer: { width: '100%', maxWidth: 320, backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1.5, borderColor: Colors.borderAlt, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 15, elevation: 10 },
-  dialogIconContainer: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.cardAlt, borderWidth: 1.5, borderColor: Colors.borderAlt, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.xs },
-  dialogTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text, textAlign: 'center', lineHeight: 24 },
-  dialogMessage: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
-  dialogActions: { flexDirection: 'column', width: '100%', gap: Spacing.sm, marginTop: Spacing.md },
-  dialogBtn: { width: '100%', height: 44, borderRadius: Radius.md, justifyContent: 'center', alignItems: 'center' },
-  dialogBtnCancel: { borderWidth: 1.5, borderColor: Colors.borderAlt, backgroundColor: Colors.cardAlt },
-  dialogBtnCancelText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: '800' },
-  dialogBtnConfirmPrimary: { backgroundColor: Colors.primary },
-  dialogBtnConfirmDanger: { backgroundColor: Colors.error },
-  dialogBtnConfirmText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
-});;

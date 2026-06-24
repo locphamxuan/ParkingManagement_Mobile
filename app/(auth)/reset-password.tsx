@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +11,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { Colors, FontSize, Radius, Spacing } from "../../constants/theme";
+import { SuccessBanner } from "../../components/ui/SuccessBanner";
+import { commonStyles } from "../../styles/common";
+import { styles } from "../../styles/screens/authForm";
 import { resetPassword } from "../../services/auth";
 
 function getTokenValue(tokenParam: string | string[] | undefined): string {
@@ -75,7 +76,7 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={commonStyles.screen}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -99,17 +100,13 @@ export default function ResetPasswordScreen() {
             <Text style={styles.brandLabel}>PBMS</Text>
           </View>
 
-          <View style={styles.card}>
+          <View style={commonStyles.card}>
             <Text style={styles.cardTitle}>Reset password</Text>
             <Text style={styles.cardSub}>
               Create a new password for your account
             </Text>
 
-            {success ? (
-              <View style={styles.successBox}>
-                <Text style={styles.successText}>{success}</Text>
-              </View>
-            ) : null}
+            <SuccessBanner message={success} />
 
             <View style={styles.fields}>
               <Input
@@ -147,74 +144,3 @@ export default function ResetPasswordScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing["2xl"],
-    gap: Spacing.xl,
-  },
-  backBtn: { alignSelf: "flex-start" },
-  backText: {
-    color: Colors.primary,
-    fontSize: FontSize.sm,
-    fontWeight: "700",
-  },
-  brand: { alignItems: "center", gap: Spacing.sm },
-  logoBox: {
-    width: 60,
-    height: 60,
-    borderRadius: Radius.lg,
-    backgroundColor: "rgba(249,115,22,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(249,115,22,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoEmoji: { fontSize: 30 },
-  brandLabel: {
-    fontSize: FontSize.xl,
-    fontWeight: "900",
-    color: Colors.text,
-    letterSpacing: 4,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing["2xl"],
-    gap: Spacing.lg,
-  },
-  cardTitle: {
-    fontSize: FontSize.xl,
-    fontWeight: "900",
-    color: Colors.text,
-  },
-  cardSub: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    marginTop: -Spacing.sm,
-  },
-  successBox: {
-    backgroundColor: Colors.successBg,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.successBorder,
-    padding: Spacing.md,
-  },
-  successText: {
-    color: Colors.success,
-    fontSize: FontSize.sm,
-    fontWeight: "600",
-  },
-  fields: { gap: Spacing.md },
-  submitBtn: { marginTop: Spacing.xs },
-  note: {
-    color: Colors.textDim,
-    fontSize: FontSize.xs,
-    textAlign: "center",
-  },
-});

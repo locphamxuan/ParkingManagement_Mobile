@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { Colors, FontSize, Radius, Spacing } from "../../constants/theme";
+import { ErrorBanner } from "../../components/ui/ErrorBanner";
+import { commonStyles } from "../../styles/common";
+import { styles } from "../../styles/screens/login";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={commonStyles.screen}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -72,7 +73,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Card */}
-          <View style={styles.card}>
+          <View style={commonStyles.card}>
             <Text style={styles.cardTitle}>Welcome back</Text>
             <Text style={styles.cardSub}>Sign in to your account</Text>
 
@@ -101,11 +102,7 @@ export default function LoginScreen() {
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+            <ErrorBanner message={error} hideIcon />
 
             <Button
               label="Sign In"
@@ -116,10 +113,10 @@ export default function LoginScreen() {
               style={styles.submitBtn}
             />
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+            <View style={commonStyles.dividerRow}>
+              <View style={commonStyles.dividerLine} />
+              <Text style={commonStyles.dividerText}>or</Text>
+              <View style={commonStyles.dividerLine} />
             </View>
 
             <TouchableOpacity
@@ -137,95 +134,3 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing["3xl"],
-    gap: Spacing["2xl"],
-  },
-  glow: {
-    position: "absolute",
-    top: -120,
-    left: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: "rgba(249,115,22,0.06)",
-  },
-  brand: { alignItems: "center", gap: Spacing.sm },
-  logoBox: {
-    width: 72,
-    height: 72,
-    borderRadius: Radius.xl,
-    backgroundColor: "rgba(249,115,22,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(249,115,22,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoEmoji: { fontSize: 36 },
-  brandLabel: {
-    fontSize: FontSize["2xl"],
-    fontWeight: "900",
-    color: Colors.text,
-    letterSpacing: 4,
-  },
-  tagline: {
-    fontSize: FontSize.xs,
-    color: Colors.textDim,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing["2xl"],
-    gap: Spacing.lg,
-  },
-  cardTitle: {
-    fontSize: FontSize.xl,
-    fontWeight: "900",
-    color: Colors.text,
-  },
-  cardSub: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    marginTop: -Spacing.sm,
-  },
-  fields: { gap: Spacing.md },
-  forgotLink: { alignSelf: "flex-end", marginTop: -Spacing.xs },
-  forgotText: {
-    color: Colors.primary,
-    fontSize: FontSize.xs,
-    fontWeight: "700",
-  },
-  errorBox: {
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.errorBorder,
-    padding: Spacing.md,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: FontSize.sm,
-    fontWeight: "600",
-  },
-  submitBtn: { marginTop: Spacing.xs },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.textDim, fontSize: FontSize.xs },
-  link: { alignItems: "center" },
-  linkText: { color: Colors.textMuted, fontSize: FontSize.sm },
-  linkHighlight: { color: Colors.primary, fontWeight: "700" },
-});

@@ -1,9 +1,5 @@
-import { apiRequest } from './api';
+import { apiRequest, type ApiRes } from './api';
 import type { Reservation } from '../types';
-
-interface ApiRes<T> {
-  data?: T;
-}
 
 export interface BuildingOption {
   _id: string;

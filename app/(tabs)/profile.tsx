@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -25,8 +24,10 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { styles } from '../../styles/screens/profile';
 import type { LicensePlate } from '../../types';
 import { useUIStore } from '../../store/uiStore';
+import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
 
 function AnimatedPressable({
   children,
@@ -80,11 +81,6 @@ function AnimatedCard({ children, index, style }: { children: React.ReactNode; i
 }
 
 const MAX_PLATES = 3;
-const PLATE_REGEX = /^\d{2}[A-Z]{1,2}\d?-\d{3,5}$/;
-
-function normalizePlate(raw: string): string {
-  return raw.trim().toUpperCase().replace(/\s+/g, '-').replace(/[.]/g, '-');
-}
 
 type Tab = 'info' | 'plates' | 'password';
 
@@ -189,7 +185,7 @@ export default function ProfileScreen() {
     }
     const normalized = normalizePlate(plateInput);
     if (!PLATE_REGEX.test(normalized)) {
-      setPlateError('Invalid format. Example: 29A-12345, 30AB-1234');
+      setPlateError('Invalid format. Examples: 51F-970.22 · 51F1-2345 · 29AB-226.58');
       return;
     }
     if (plates.some((p) => p.plateNumber.toUpperCase() === normalized)) {
@@ -397,7 +393,7 @@ export default function ProfileScreen() {
                   <View style={styles.qrCodeContainer}>
                     <Image
                       source={{
-                        uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=http://192.168.0.103:8081/profile?userId=${session.userId}`,
+                        uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${session.userId}`,
                       }}
                       style={styles.qrImage}
                       resizeMode="contain"
@@ -691,80 +687,3 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.lg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(249,115,22,0.15)', borderWidth: 2, borderColor: 'rgba(249,115,22,0.3)', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.primary },
-  name: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.text },
-  email: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 6 },
-  tabRow: { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: 4, gap: 4 },
-  tabBtn: { flex: 1, paddingVertical: 8, borderRadius: Radius.md, alignItems: 'center' },
-  tabBtnActive: { backgroundColor: 'rgba(249,115,22,0.15)' },
-  tabBtnText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-  tabBtnTextActive: { color: Colors.primary },
-  card: { backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.xl, gap: Spacing.md },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text },
-  editBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: 'rgba(249,115,22,0.12)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)' },
-  editBtnText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
-  formFields: { gap: Spacing.md },
-  btnRow: { flexDirection: 'row', gap: Spacing.sm },
-  infoList: { gap: Spacing.md },
-  infoRow: { backgroundColor: Colors.cardAlt, borderRadius: Radius.md, padding: Spacing.md, gap: 4, borderWidth: 1, borderColor: Colors.border },
-  infoLabel: { fontSize: 10, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
-  infoValue: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
-  errorBox: { backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
-  errorText: { color: Colors.error, fontSize: FontSize.sm, fontWeight: '600' },
-  successBox: { backgroundColor: Colors.successBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.successBorder, padding: Spacing.md },
-  successText: { color: Colors.success, fontSize: FontSize.sm, fontWeight: '600' },
-  plateCount: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.textDim },
-  capacityRow: { flexDirection: 'row', gap: 6 },
-  capacityBar: { flex: 1, height: 5, borderRadius: 3, backgroundColor: Colors.cardAlt },
-  capacityBarFilled: { backgroundColor: Colors.primary },
-  plateList: { gap: Spacing.sm },
-  emptyText: { color: Colors.textDim, fontSize: FontSize.sm, fontStyle: 'italic' },
-  plateItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardAlt, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: Spacing.sm },
-  plateItemDefault: { borderColor: 'rgba(245,158,11,0.3)', backgroundColor: 'rgba(245,158,11,0.05)' },
-  plateBtns: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  plateNumber: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text, fontFamily: 'monospace' },
-  plateType: { fontSize: FontSize.xs, color: Colors.textDim, marginTop: 2 },
-  plateAction: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.sm, backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.2)' },
-  plateActionText: { fontSize: 10, color: Colors.amber, fontWeight: '700' },
-  plateActionDelete: { backgroundColor: Colors.errorBg, borderColor: Colors.errorBorder },
-  plateActionDeleteText: { fontSize: 10, color: Colors.error, fontWeight: '800' },
-  confirmOverlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.75)', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
-  confirmDialog: { width: '100%', maxWidth: 340, backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1.5, borderColor: Colors.borderAlt, padding: Spacing.xl, gap: Spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 15, elevation: 10 },
-  qrDialog: { width: '100%', maxWidth: 320, backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1.5, borderColor: Colors.borderAlt, padding: Spacing.xl, gap: Spacing.md, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 15, elevation: 10 },
-  qrPlateText: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.primary, fontFamily: 'monospace' },
-  plateQrImageWrap: { backgroundColor: '#ffffff', padding: Spacing.md, borderRadius: Radius.lg },
-  plateQrImage: { width: 240, height: 240 },
-  qrHintText: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center' },
-  confirmTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text, textAlign: 'center' },
-  confirmMessage: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
-  confirmActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
-  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  confirmBtnCancel: { backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border },
-  confirmBtnCancelText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted },
-  confirmBtnConfirm: { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder },
-  confirmBtnConfirmText: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.error },
-  addPlateForm: { gap: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border },
-  addPlateTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
-  typeToggle: { flexDirection: 'row', backgroundColor: Colors.cardAlt, borderRadius: Radius.md, padding: 4, gap: 4, borderWidth: 1, borderColor: Colors.border },
-  typeBtn: { flex: 1, paddingVertical: 8, borderRadius: Radius.sm, alignItems: 'center' },
-  typeBtnActive: { backgroundColor: 'rgba(59,130,246,0.2)' },
-  typeBtnActivePurple: { backgroundColor: 'rgba(168,85,247,0.2)' },
-  typeBtnText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-  typeBtnTextActive: { color: Colors.blue },
-  typeBtnTextPurple: { color: Colors.purple },
-  qrCard: { backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)', padding: Spacing.xl, gap: Spacing.md, alignItems: 'center' },
-  qrCardHeader: { alignItems: 'center', gap: 4, marginBottom: Spacing.xs },
-  qrCardTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 1.5 },
-  qrCardSubtitle: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', lineHeight: 18, paddingHorizontal: Spacing.sm },
-  qrCodeContainer: { backgroundColor: '#ffffff', padding: Spacing.md, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5 },
-  qrImage: { width: 180, height: 180 },
-  qrInfoTag: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.sm, backgroundColor: 'rgba(249,115,22,0.1)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)', marginTop: Spacing.xs },
-  qrIdText: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '800', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 1 },
-});;
