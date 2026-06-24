@@ -13,10 +13,6 @@ import { Colors } from '../../constants/theme';
 import { styles } from './NotificationBellStream.styles';
 import { useNotificationStream } from '../../hooks/useNotificationStream';
 import type { FeedbackInboxItem } from '../../services/feedback';
-import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
-import { listMyFeedbackInbox, type FeedbackInboxItem } from '../../services/feedbackInbox';
 
 interface NotificationBellStreamProps {
   token: string;

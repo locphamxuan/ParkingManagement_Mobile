@@ -21,7 +21,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/packages';
 import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../../types';
-import type { LongTermPackage, LongTermSubscription } from '../../types';
 
 function AnimatedPressable({
   children,

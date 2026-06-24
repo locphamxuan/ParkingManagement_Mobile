@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
-import { useEffect, useState } from 'react';
 import {
   View,
   Text,
