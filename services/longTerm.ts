@@ -1,9 +1,5 @@
-import { apiRequest } from './api';
+import { apiRequest, type ApiRes } from './api';
 import type { LongTermPackage, LongTermSubscription } from '../types';
-
-interface ApiRes<T> {
-  data?: T;
-}
 
 /** List long-term packages. If buildingId is omitted, returns all active packages across all buildings. */
 export async function listPackages(token: string, buildingId?: string): Promise<LongTermPackage[]> {

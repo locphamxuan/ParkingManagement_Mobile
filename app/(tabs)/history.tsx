@@ -2,7 +2,6 @@ import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -14,7 +13,9 @@ import { useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { listParkingHistory } from '../../services/history';
 import { Badge } from '../../components/ui/Badge';
-import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { ErrorBanner } from '../../components/ui/ErrorBanner';
+import { commonStyles, Colors } from '../../styles/common';
+import { styles } from '../../styles/screens/history';
 import type { ParkingSession } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import FeedbackModal from '../../components/shared/FeedbackModal';
@@ -112,7 +113,7 @@ export default function HistoryScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={commonStyles.screen} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
@@ -122,11 +123,7 @@ export default function HistoryScreen() {
       >
         <Text style={styles.pageTitle}>Parking History</Text>
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
+        <ErrorBanner message={error} />
 
         <DateRangePicker
           fromDate={fromDate}
@@ -159,7 +156,7 @@ export default function HistoryScreen() {
                 />
               </View>
 
-              <View style={styles.divider} />
+              <View style={commonStyles.divider} />
 
               <View style={styles.infoGrid}>
                 <View style={styles.infoCell}>
@@ -212,24 +209,3 @@ export default function HistoryScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.lg },
-  pageTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
-  errorBox: { backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
-  errorText: { color: Colors.error, fontSize: FontSize.sm, fontWeight: '600' },
-  emptyCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.sm },
-  emptyText: { color: Colors.textDim, fontSize: FontSize.sm },
-  card: { backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg, gap: Spacing.md },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  plateTxt: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text, fontFamily: 'monospace' },
-  subTxt: { fontSize: FontSize.xs, color: Colors.textMuted },
-  divider: { height: 1, backgroundColor: Colors.border },
-  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
-  infoCell: { minWidth: '40%', gap: 3 },
-  infoLabel: { fontSize: 9, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1 },
-  infoValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-  feedbackBtn: { marginTop: Spacing.xs, height: 44, borderRadius: Radius.full, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
-  feedbackBtnText: { color: '#020617', fontSize: FontSize.xs, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.6 },
-});

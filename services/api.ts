@@ -55,6 +55,11 @@ export async function setToken(token: string | null): Promise<void> {
   }
 }
 
+/** Generic API response wrapper — all endpoints return `{ data: T }`. */
+export interface ApiRes<T> {
+  data?: T;
+}
+
 export class ApiError extends Error {
   status: number;
   errorCode?: string;

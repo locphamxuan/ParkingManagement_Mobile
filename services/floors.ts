@@ -1,8 +1,4 @@
-import { apiRequest } from './api';
-
-interface ApiRes<T> {
-  data?: T;
-}
+import { apiRequest, type ApiRes } from './api';
 
 export interface FloorWithAvailability {
   _id: string;

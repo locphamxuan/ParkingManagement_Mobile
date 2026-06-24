@@ -2,7 +2,6 @@ import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -10,9 +9,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Linking,
   Image,
-  Pressable,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -31,39 +28,12 @@ import { getWallet, topup, listTransactions, verifyTopup } from '../../services/
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { styles } from '../../styles/screens/wallet';
 import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { useUIStore } from '../../store/uiStore';
 
-function AnimatedPressable({
-  children,
-  onPress,
-  style,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
-  const handlePressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
-  };
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 150 });
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
-      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
 
 function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
   const opacity = useSharedValue(0);
@@ -143,7 +113,6 @@ export default function WalletScreen() {
   const [topupError, setTopupError] = useState<string | null>(null);
 
   // Payment link modal
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [orderCode, setOrderCode] = useState<number | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -187,31 +156,7 @@ export default function WalletScreen() {
     });
   }, []);
 
-  const showCustomConfirm = useCallback((
-    title: string,
-    message: string,
-    onConfirm: () => void,
-    onCancel?: () => void,
-    confirmText = 'Yes, Process',
-    cancelText = 'Cancel'
-  ) => {
-    setDialog({
-      visible: true,
-      title,
-      message,
-      type: 'confirm',
-      onConfirm: () => {
-        setDialog((d) => ({ ...d, visible: false }));
-        onConfirm();
-      },
-      onCancel: () => {
-        setDialog((d) => ({ ...d, visible: false }));
-        onCancel?.();
-      },
-      confirmText,
-      cancelText,
-    });
-  }, []);
+
 
   // Glow animation for balance card
   const glowScale = useSharedValue(1);
@@ -295,7 +240,6 @@ export default function WalletScreen() {
       setShowTopup(false);
       setTopupAmount('');
       setTopupResult(result);
-      setPaymentUrl(result.checkoutUrl);
       setOrderCode(result.orderCode);
       setShowPaymentInfo(true);
     } catch (err) {
@@ -313,7 +257,6 @@ export default function WalletScreen() {
       const res = await verifyTopup(token, orderCode);
       if (res.status === 'success') {
         setShowPaymentInfo(false);
-        setPaymentUrl(null);
         setOrderCode(null);
         setTopupResult(null);
         await load();
@@ -341,7 +284,6 @@ export default function WalletScreen() {
       try { await verifyTopup(token, orderCode); } catch { /* ignore — manual verify still available */ }
     }
     setShowPaymentInfo(false);
-    setPaymentUrl(null);
     setOrderCode(null);
     setTopupResult(null);
     await load();
@@ -686,75 +628,3 @@ export default function WalletScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.xl },
-  pageTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
-  errorBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
-  errorText: { flex: 1, color: Colors.error, fontSize: FontSize.sm, fontWeight: '600' },
-  balanceCard: { backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)', padding: Spacing['2xl'], overflow: 'hidden', gap: Spacing.sm },
-  balanceGlow: { position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(249,115,22,0.07)' },
-  balanceLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, letterSpacing: 2, textTransform: 'uppercase' },
-  balanceValue: { fontSize: FontSize['2xl'], fontWeight: '900', color: Colors.text },
-  topupBtn: { alignSelf: 'flex-start', marginTop: Spacing.xs },
-  section: { gap: Spacing.md },
-  sectionTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1.5 },
-  emptyCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.sm },
-  emptyText: { color: Colors.textDim, fontSize: FontSize.sm },
-  txRow: { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  txLeft: { flex: 1, gap: 4 },
-  txDesc: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, textTransform: 'capitalize' },
-  txDate: { fontSize: FontSize.xs, color: Colors.textDim },
-  txRight: { alignItems: 'flex-end', gap: 6 },
-  txAmount: { fontSize: FontSize.sm, fontWeight: '800', fontFamily: 'monospace' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing['2xl'], paddingBottom: 36, gap: Spacing.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: Colors.border },
-  modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: Spacing.xs },
-  modalTitle: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.text },
-  presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  presetBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border },
-  presetBtnActive: { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.4)' },
-  presetText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
-  presetTextActive: { color: Colors.primary },
-  amountLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
-  amountInputWrap: { gap: 4 },
-  amountInput: { backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 14, height: 48, color: Colors.text, fontSize: FontSize.base },
-  payosNote: { fontSize: FontSize.xs, color: Colors.textDim, textAlign: 'center', fontStyle: 'italic' },
-  modalBtns: { flexDirection: 'row', gap: Spacing.sm },
-  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalSubTitle: { fontSize: 10, fontWeight: '800', color: Colors.primary, letterSpacing: 1.5, marginBottom: 2 },
-  closeBtn: { padding: Spacing.xs },
-  paymentInstructions: { fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18 },
-  paymentContentRow: { flexDirection: 'row', gap: Spacing.lg },
-  qrColumn: { alignItems: 'center', justifyContent: 'flex-start', width: 140, gap: Spacing.xs },
-  qrImageContainer: { backgroundColor: '#ffffff', borderRadius: Radius.md, padding: Spacing.xs },
-  payQrImage: { width: 128, height: 128 },
-  waitingStatusText: { fontSize: 9, fontWeight: '800', color: Colors.textMuted, textAlign: 'center', marginTop: Spacing.xs },
-  detailsColumn: { flex: 1, gap: 8 },
-  detailItem: { gap: 2 },
-  detailLabel: { fontSize: 9, fontWeight: '800', color: Colors.textDim, letterSpacing: 0.5 },
-  detailValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-  detailValueMonospace: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', flex: 1 },
-  copyValueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 4 },
-  copyBtn: { padding: 2 },
-  cautionBox: { flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.warningBg, borderWidth: 1, borderColor: Colors.warningBorder, borderRadius: Radius.md, padding: Spacing.md },
-  cautionText: { flex: 1, fontSize: 10, color: Colors.warning, lineHeight: 15, fontWeight: '500' },
-  actionButtonsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xs },
-  globeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)', borderRadius: Radius.full, paddingHorizontal: Spacing.md, height: 44 },
-  globeBtnText: { fontSize: 9, fontWeight: '800', color: Colors.blue },
-  confirmPayBtn: { flex: 1, height: 44 },
-  cancelPayBtn: { flex: 0.5, height: 44 },
-  dialogOverlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.75)', justifyContent: 'center', alignItems: 'center', padding: Spacing['2xl'] },
-  dialogContainer: { width: '100%', maxWidth: 320, backgroundColor: Colors.card, borderRadius: Radius.xl, borderWidth: 1.5, borderColor: Colors.borderAlt, padding: Spacing['2xl'], alignItems: 'center', gap: Spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 15, elevation: 10 },
-  dialogIconContainer: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.cardAlt, borderWidth: 1.5, borderColor: Colors.borderAlt, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.xs },
-  dialogTitle: { fontSize: FontSize.md, fontWeight: '900', color: Colors.text, textAlign: 'center', lineHeight: 24 },
-  dialogMessage: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
-  dialogActions: { flexDirection: 'column', width: '100%', gap: Spacing.sm, marginTop: Spacing.md },
-  dialogBtn: { width: '100%', height: 44, borderRadius: Radius.md, justifyContent: 'center', alignItems: 'center' },
-  dialogBtnCancel: { borderWidth: 1.5, borderColor: Colors.borderAlt, backgroundColor: Colors.cardAlt },
-  dialogBtnCancelText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: '800' },
-  dialogBtnConfirmPrimary: { backgroundColor: Colors.primary },
-  dialogBtnConfirmDanger: { backgroundColor: Colors.error },
-  dialogBtnConfirmText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '800' },
-});;
