@@ -415,7 +415,7 @@ export function BookingDateModal({
               <View style={styles.tabs}>
                 {(['hourly', 'daily'] as BookingMode[]).map((tab) => {
                   const isActive = mode === tab;
-                  const label = tab === 'hourly' ? 'Theo giờ' : 'Theo ngày';
+                  const label = tab === 'hourly' ? 'Hourly' : 'Daily';
                   return (
                     <TouchableOpacity
                       key={tab}
@@ -558,12 +558,12 @@ export function BookingDateModal({
                     <View style={[styles.chipScroll, { flexDirection: 'row' }]}>
                       <View style={[styles.chip, styles.chipActive, { borderColor: 'rgba(255,255,255,0.08)' }]}>
                         <Text style={[styles.chipText, styles.chipTextActive, { fontWeight: '800' }]}>
-                          00:00 (Mặc định)
+                          00:00 (Default)
                         </Text>
                       </View>
                     </View>
                     <Text style={[styles.noteText, { marginTop: Spacing.sm, color: Colors.primary, fontStyle: 'italic', lineHeight: 16 }]}>
-                      * Gói dài hạn cho phép ra vào 24/7 không giới hạn. Giờ bắt đầu được mặc định là 00:00 ngày nhận xe để bạn tận dụng tối đa ngày đỗ.
+                      * Long-term subscription packages allow unlimited 24/7 entry and exit. The start time is set by default to 00:00 on the active date to help you maximize your parking day.
                     </Text>
                   </View>
                 ) : (

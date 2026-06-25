@@ -27,10 +27,7 @@ import { getWallet } from '../../services/wallet';
 import { listReservations } from '../../services/reservations';
 import { listParkingHistory } from '../../services/history';
 import { listPackages } from '../../services/longTerm';
-import { 
-  listNotifications, 
-  markNotificationRead
-} from '../../services/notifications';
+import {listNotifications,markNotificationRead} from '../../services/notifications';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/index';
 import NotificationBellStream from '../../components/shared/NotificationBellStream';
@@ -78,23 +75,6 @@ function AnimatedPressable({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <View style={[styles.statCard, { borderColor: `${color}30` }]}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 function QuickLink({
   icon,
   label,
@@ -124,7 +104,6 @@ export default function HomeScreen() {
   const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
   const [showQR, setShowQR] = useState(false);
-  const [homeVehicleFilter, setHomeVehicleFilter] = useState<'all' | 'car' | 'motorcycle'>('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -140,8 +119,6 @@ export default function HomeScreen() {
   // Animations Shared Values
   const heroOpacity = useSharedValue(0);
   const heroTranslateY = useSharedValue(15);
-  const statsScale = useSharedValue(0.95);
-  const statsOpacity = useSharedValue(0);
 
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.8);
@@ -153,10 +130,6 @@ export default function HomeScreen() {
     // Hero balance fade and slide entrance
     heroOpacity.value = withTiming(1, { duration: 600 });
     heroTranslateY.value = withTiming(0, { duration: 600 });
-
-    // Stats card staggered spring scale
-    statsScale.value = withDelay(150, withTiming(1, { duration: 500 }));
-    statsOpacity.value = withDelay(150, withTiming(1, { duration: 500 }));
 
     // Loop active check-in pulse dot
     pulseScale.value = withRepeat(
@@ -216,10 +189,6 @@ export default function HomeScreen() {
     transform: [{ translateY: heroTranslateY.value }],
   }));
 
-  const statsStyle = useAnimatedStyle(() => ({
-    opacity: statsOpacity.value,
-    transform: [{ scale: statsScale.value }],
-  }));
 
   const pulseDotStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -331,8 +300,8 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={styles.bellBtn} 
+            <TouchableOpacity
+              style={styles.bellBtn}
               onPress={handleBellPress}
             >
               <Animated.View style={bellAnimatedStyle}>
@@ -364,6 +333,15 @@ export default function HomeScreen() {
               : '—'}
           </Text>
           <Text style={styles.heroSub}>{session?.email}</Text>
+          {/* Active reservations badge */}
+          {activeReservations > 0 && (
+            <View style={styles.heroReservationBadge}>
+              <Ionicons name="calendar" size={12} color={Colors.primary} />
+              <Text style={styles.heroReservationText}>
+                {activeReservations} active reservation{activeReservations !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* Active Parking Session Card */}
@@ -417,29 +395,10 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Stats row */}
-        <Animated.View style={[styles.statsRow, statsStyle]}>
-          <StatCard
-            label="Active Reservations"
-            value={String(activeReservations)}
-            color={Colors.primary}
-          />
-          <StatCard
-            label="Linked Plates"
-            value={`${plateCount}/3`}
-            color={Colors.blue}
-          />
-          <StatCard
-            label="Account"
-            value="Active"
-            color={Colors.success}
-          />
-        </Animated.View>
-
         {/* Quick QR Check-in Entry */}
         {session?.role?.toLowerCase() === 'user' && session?.userId ? (
-          <AnimatedPressable 
-            style={styles.qrShortcutCard} 
+          <AnimatedPressable
+            style={styles.qrShortcutCard}
             onPress={() => setShowQR(true)}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -457,137 +416,10 @@ export default function HomeScreen() {
           </AnimatedPressable>
         ) : null}
 
-        {/* Package Pricing Carousel */}
-        {packages.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.packageHeaderRow}>
-              <Text style={styles.sectionTitle}>Subscription Packages</Text>
-              <View style={styles.filterContainer}>
-                {(['all', 'car', 'motorcycle'] as const).map((filter) => (
-                  <TouchableOpacity
-                    key={filter}
-                    style={[
-                      styles.filterTab,
-                      homeVehicleFilter === filter && styles.filterTabActive
-                    ]}
-                    onPress={() => setHomeVehicleFilter(filter)}
-                  >
-                    <Text style={[
-                      styles.filterTabText,
-                      homeVehicleFilter === filter && styles.filterTabTextActive
-                    ]}>
-                      {filter === 'all' ? 'All' : filter === 'car' ? 'Car' : 'Motorcycle'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {(() => {
-              const filteredPackages = packages.filter((pkg) => {
-                if (homeVehicleFilter === 'all') return true;
-                const pkgType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : pkg.vehicleType;
-                return String(pkgType).toLowerCase() === homeVehicleFilter;
-              });
-
-              if (filteredPackages.length === 0) {
-                return (
-                  <View style={styles.emptyPackagesCard}>
-                    <Ionicons name="pricetags-outline" size={24} color={Colors.textDim} />
-                    <Text style={styles.emptyPackagesText}>No packages available for this vehicle type.</Text>
-                  </View>
-                );
-              }
-
-              return (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.carouselContainer}
-                >
-                  {filteredPackages.map((pkg) => {
-                    const pkgTypeCode = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : pkg.vehicleType;
-                    const isCar = String(pkgTypeCode).toLowerCase() === 'car';
-                    const tagLabel = pkg.durationDays <= 7 ? 'Weekly' : pkg.durationDays <= 30 ? 'Monthly' : 'Yearly';
-                    const buildingName = typeof pkg.building === 'object' && pkg.building ? pkg.building.name : 'All Buildings';
-                    const buildingId = typeof pkg.building === 'object' && pkg.building ? pkg.building._id : '';
-                    const vehicleType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : 'car';
-
-                    const isWeekly = pkg.durationDays <= 7;
-                    const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
-                    const themeColor = isWeekly ? Colors.primary : isMonthly ? Colors.blue : Colors.purple;
-                    const themeBg = isWeekly ? 'rgba(249,115,22,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
-                    const borderThemeColor = isWeekly ? 'rgba(249,115,22,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
-                    const glowOrbColor = isWeekly ? 'rgba(249,115,22,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
-
-                    return (
-                      <AnimatedPressable
-                        key={pkg._id}
-                        style={[styles.packageCard, { borderColor: borderThemeColor, shadowColor: themeColor }]}
-                        contentStyle={{ alignItems: 'stretch' }}
-                        onPress={() => {
-                          router.push({
-                            pathname: '/(tabs)/reservations',
-                            params: { buildingId, packageId: pkg._id, vehicleType },
-                          });
-                        }}
-                      >
-                        <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.lg - 1, overflow: 'hidden', pointerEvents: 'none' }]}>
-                          <View style={[styles.packageCardGlowOrb, { backgroundColor: glowOrbColor }]} />
-                        </View>
-                        <View style={styles.packageCardHeader}>
-                          <Text style={[styles.packageTag, { backgroundColor: themeBg, color: themeColor }]}>
-                            {tagLabel}
-                          </Text>
-                          <View style={[
-                            styles.packageVehicleBadge,
-                            { 
-                              borderColor: isCar ? 'rgba(59,130,246,0.12)' : 'rgba(16,185,129,0.12)',
-                              backgroundColor: isCar ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)'
-                            }
-                          ]}>
-                            <Ionicons name={isCar ? "car" : "bicycle"} size={10} color={isCar ? Colors.blue : Colors.success} />
-                            <Text style={[styles.packageVehicleText, { color: isCar ? Colors.blue : Colors.success }]}>
-                              {isCar ? 'Car' : 'Motorcycle'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.packageName} numberOfLines={1}>{pkg.name}</Text>
-                        <View style={styles.packageBuildingRow}>
-                          <Ionicons name="business-outline" size={12} color={Colors.textDim} />
-                          <Text style={styles.packageBuilding} numberOfLines={1}>
-                            {buildingName}
-                          </Text>
-                        </View>
-                        <View style={styles.packageMetaRow}>
-                          <View style={styles.packageMetaItem}>
-                            <Ionicons name="time-outline" size={12} color={Colors.textDim} />
-                            <Text style={styles.packageMetaText}>{pkg.durationDays} Days</Text>
-                          </View>
-                        </View>
-                        <View style={styles.packagePriceRow}>
-                          <View>
-                            <Text style={styles.packagePriceLabel}>PRICE</Text>
-                            <Text style={styles.packagePrice}>{(pkg.price).toLocaleString('en-US')} VND</Text>
-                          </View>
-                          <View style={[styles.packageActionBtnContainer, { backgroundColor: themeColor }]}>
-                            <Text style={styles.packageActionBtnText}>Subscribe</Text>
-                            <Ionicons name="arrow-forward" size={10} color="#ffffff" />
-                          </View>
-                        </View>
-                      </AnimatedPressable>
-                    );
-                  })}
-                </ScrollView>
-              );
-            })()}
-          </View>
-        )}
-
-        {/* Quick actions */}
+        {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickGrid}>
+          <View style={styles.quickRow}>
             <QuickLink
               icon="calendar-outline"
               label="Reserve"
@@ -604,22 +436,126 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/wallet')}
             />
             <QuickLink
-              icon="time-outline"
-              label="History"
-              onPress={() => router.push('/(tabs)/history')}
-            />
-            <QuickLink
               icon="cube-outline"
               label="Packages"
               onPress={() => router.push('/(tabs)/packages')}
             />
-            <QuickLink
-              icon="person-outline"
-              label="Profile"
-              onPress={() => router.push('/(tabs)/profile')}
-            />
           </View>
         </View>
+
+        {/* Subscription Packages */}
+        {packages.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Subscription Packages</Text>
+
+            {/* Vertical list — first 4 packages, sorted by price ascending, styled with detailed cards */}
+            {packages
+              .slice()
+              .sort((a, b) => a.price - b.price)
+              .slice(0, 4)
+              .map((pkg) => {
+                const pkgTypeCode = typeof pkg.vehicleType === 'object' && pkg.vehicleType
+                  ? pkg.vehicleType.code : pkg.vehicleType;
+                const isCar = String(pkgTypeCode).toLowerCase() === 'car';
+                const tagLabel = pkg.durationDays <= 7 ? 'Weekly'
+                  : pkg.durationDays <= 30 ? 'Monthly' : 'Yearly';
+                const buildingName = typeof pkg.building === 'object' && pkg.building
+                  ? pkg.building.name : 'All Buildings';
+                const buildingId = typeof pkg.building === 'object' && pkg.building ? pkg.building._id : '';
+                const vehicleType = typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType.code : 'car';
+
+                const isWeekly = pkg.durationDays <= 7;
+                const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
+                const themeColor = isWeekly ? Colors.primary : isMonthly ? Colors.blue : Colors.purple;
+                const themeBg = isWeekly ? 'rgba(249,115,22,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
+                const borderThemeColor = isWeekly ? 'rgba(249,115,22,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
+                const glowOrbColor = isWeekly ? 'rgba(249,115,22,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
+
+                return (
+                  <AnimatedPressable
+                    key={pkg._id}
+                    style={[styles.packageCard, { borderColor: borderThemeColor, shadowColor: themeColor }]}
+                    contentStyle={{ alignItems: 'stretch' }}
+                    onPress={() => {
+                      router.push({
+                        pathname: '/(tabs)/reservations',
+                        params: { buildingId, packageId: pkg._id, vehicleType },
+                      });
+                    }}
+                  >
+                    <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.lg - 1, overflow: 'hidden', pointerEvents: 'none' }]}>
+                      <View style={[styles.packageCardGlowOrb, { backgroundColor: glowOrbColor }]} />
+                    </View>
+                    
+                    {/* Row 1: Tag + Vehicle (Left), Price (Right) */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.packageTag, { backgroundColor: themeBg, color: themeColor }]}>
+                          {tagLabel}
+                        </Text>
+                        <View style={[
+                          styles.packageVehicleBadge,
+                          {
+                            borderColor: isCar ? 'rgba(59,130,246,0.12)' : 'rgba(16,185,129,0.12)',
+                            backgroundColor: isCar ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)'
+                          }
+                        ]}>
+                          <Ionicons name={isCar ? "car" : "bicycle"} size={10} color={isCar ? Colors.blue : Colors.success} />
+                          <Text style={[styles.packageVehicleText, { color: isCar ? Colors.blue : Colors.success }]}>
+                            {isCar ? 'Car' : 'Motorcycle'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.packagePrice}>
+                        {pkg.price.toLocaleString('en-US')} VND
+                      </Text>
+                    </View>
+
+                    {/* Row 2: Name (Left), Chevron (Right) */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                      <Text style={[styles.packageName, { flex: 1, marginRight: 8 }]} numberOfLines={1}>
+                        {pkg.name} Package
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={Colors.textDim} />
+                    </View>
+
+                    {/* Row 3: Building & Duration (Left), Subscribe button (Right) */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="business-outline" size={12} color={Colors.textDim} />
+                          <Text style={styles.packageBuildingName} numberOfLines={1}>
+                            {buildingName}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="time-outline" size={12} color={Colors.textDim} />
+                          <Text style={styles.packageBuilding} numberOfLines={1}>
+                            {pkg.durationDays} Days
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={[styles.packageActionBtnContainer, { backgroundColor: themeColor, paddingHorizontal: 10, paddingVertical: 4 }]}>
+                        <Text style={[styles.packageActionBtnText, { fontSize: 9 }]}>Subscribe</Text>
+                        <Ionicons name="arrow-forward" size={9} color="#ffffff" />
+                      </View>
+                    </View>
+                  </AnimatedPressable>
+                );
+              })}
+
+            {/* View All button */}
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => router.push('/(tabs)/packages')}
+            >
+              <Text style={styles.viewAllButtonText}>
+                View All Packages ({packages.length}) →
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* QR Code Bottom Sheet Modal */}
         <Modal
@@ -676,7 +612,7 @@ export default function HomeScreen() {
 
 
 
-              <ScrollView 
+              <ScrollView
                 style={styles.notifList}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ gap: 10, paddingBottom: 10 }}

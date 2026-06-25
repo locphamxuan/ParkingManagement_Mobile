@@ -188,7 +188,7 @@ export default function WalletScreen() {
 
   const getBankName = (bin?: string) => {
     if (!bin) return '—';
-    if (bin === '970422') return 'MB Bank (TMCP Quân Đội)';
+    if (bin === '970422') return 'MB Bank (Military Bank)';
     return `Bank (BIN: ${bin})`;
   };
 

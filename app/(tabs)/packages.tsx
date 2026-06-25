@@ -561,7 +561,7 @@ export default function PackagesScreen() {
                           <Text style={[styles.pkgTagBadge, { backgroundColor: themeBg, color: themeColor }]}>{tagLabel}</Text>
                           <View style={[
                             styles.pkgVehicleBadge,
-                            { 
+                            {
                               borderColor: isCar ? 'rgba(59,130,246,0.12)' : 'rgba(16,185,129,0.12)',
                               backgroundColor: isCar ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)'
                             }
@@ -706,7 +706,7 @@ export default function PackagesScreen() {
                       <Text style={styles.subDetailLabel}>END DATE</Text>
                       <Text style={styles.subDetailVal}>{fmtDateOnly(sub.endDate)}</Text>
                     </View>
-                    
+
                     {hasDedicatedSlot && (
                       <View style={[styles.subDetailItem, { minWidth: '100%', marginTop: 4 }]}>
                         <Text style={styles.subDetailLabel}>DEDICATED SLOT</Text>
