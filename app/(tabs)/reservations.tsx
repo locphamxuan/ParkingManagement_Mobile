@@ -52,7 +52,7 @@ import { guessVehicleCategory } from '../../utils/vehicle';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(s: string) {
-  return new Date(s).toLocaleString('en-US', {
+  return new Date(s).toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -947,7 +947,7 @@ export default function ReservationsScreen() {
     } catch (err) {
       if (err instanceof ApiError && err.errorCode === 'PLATE_RECENTLY_CANCELLED') {
         setCreateError(
-          'Biển số này đã hủy đặt chỗ tại tòa nhà trong vòng 24 giờ qua. Vui lòng thử lại sau.'
+          'This license plate has cancelled a reservation at this building within the last 24 hours. Please try again later.'
         );
       } else {
         setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');

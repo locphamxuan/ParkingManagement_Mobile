@@ -66,7 +66,7 @@ function fmtMoney(n: number) {
 }
 
 function fmtDate(s: string) {
-  return new Date(s).toLocaleString('en-US', {
+  return new Date(s).toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -188,7 +188,7 @@ export default function WalletScreen() {
 
   const getBankName = (bin?: string) => {
     if (!bin) return '—';
-    if (bin === '970422') return 'MB Bank (TMCP Quân Đội)';
+    if (bin === '970422') return 'MB Bank (Military Bank)';
     return `Bank (BIN: ${bin})`;
   };
 

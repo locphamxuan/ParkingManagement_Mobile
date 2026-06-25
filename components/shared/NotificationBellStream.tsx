@@ -11,14 +11,10 @@ import {
 import { Inbox, MessageCircleReply, X } from 'lucide-react-native';
 import { styles } from './NotificationBellStream.styles';
 import { useNotificationStream } from '../../hooks/useNotificationStream';
-<<<<<<< HEAD
-import type { FeedbackInboxItem } from '../../services/feedback';
-=======
 import { listMyFeedbackInbox, type FeedbackInboxItem } from '../../services/feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 
->>>>>>> a368b41bd572dc8eb750d890c7a57b3e71ba4826
 
 interface NotificationBellStreamProps {
   token: string;
@@ -29,7 +25,7 @@ function formatDateTime(value?: string): string {
   if (!value) return 'Just updated';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Just updated';
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
     day: '2-digit',
