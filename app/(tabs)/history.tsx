@@ -22,7 +22,7 @@ import FeedbackModal from '../../components/shared/FeedbackModal';
 
 function fmtDate(s?: string) {
   if (!s) return '—';
-  return new Date(s).toLocaleString('en-US', {
+  return new Date(s).toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
