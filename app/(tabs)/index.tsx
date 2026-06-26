@@ -27,7 +27,7 @@ import { getWallet } from '../../services/wallet';
 import { listReservations } from '../../services/reservations';
 import { listParkingHistory } from '../../services/history';
 import { listPackages } from '../../services/longTerm';
-import {listNotifications,markNotificationRead} from '../../services/notifications';
+import { listNotifications, markNotificationRead } from '../../services/notifications';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/index';
 import NotificationBellStream from '../../components/shared/NotificationBellStream';
@@ -119,6 +119,7 @@ export default function HomeScreen() {
   // Animations Shared Values
   const heroOpacity = useSharedValue(0);
   const heroTranslateY = useSharedValue(15);
+  const floatValue = useSharedValue(0);
 
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.8);
@@ -130,6 +131,16 @@ export default function HomeScreen() {
     // Hero balance fade and slide entrance
     heroOpacity.value = withTiming(1, { duration: 600 });
     heroTranslateY.value = withTiming(0, { duration: 600 });
+
+    // Floating animation loop for Wallet card
+    floatValue.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2500 }),
+        withTiming(0, { duration: 2500 })
+      ),
+      -1,
+      true
+    );
 
     // Loop active check-in pulse dot
     pulseScale.value = withRepeat(
@@ -184,10 +195,18 @@ export default function HomeScreen() {
     }
   }, [bellAlertActive]);
 
-  const heroStyle = useAnimatedStyle(() => ({
-    opacity: heroOpacity.value,
-    transform: [{ translateY: heroTranslateY.value }],
-  }));
+  const heroStyle = useAnimatedStyle(() => {
+    const floatY = -5 * floatValue.value;
+    return {
+      opacity: heroOpacity.value,
+      transform: [
+        { perspective: 1000 },
+        { translateY: heroTranslateY.value + floatY },
+        { rotateX: `${1.2 * floatValue.value}deg` },
+        { rotateY: `${-1.2 * floatValue.value}deg` }
+      ],
+    };
+  });
 
 
   const pulseDotStyle = useAnimatedStyle(() => ({
@@ -325,17 +344,31 @@ export default function HomeScreen() {
 
         {/* Hero card */}
         <Animated.View style={[styles.heroCard, heroStyle]}>
-          <View style={[styles.heroBg, { pointerEvents: 'none' }]} />
-          <Text style={styles.heroLabel}>WALLET BALANCE</Text>
-          <Text style={styles.heroValue}>
-            {wallet !== null
-              ? `${wallet.balance.toLocaleString('en-US')} VND`
-              : '—'}
-          </Text>
-          <Text style={styles.heroSub}>{session?.email}</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.heroLabel}>WALLET BALANCE</Text>
+            <Text style={styles.heroValue}>
+              {wallet !== null
+                ? `${wallet.balance.toLocaleString('en-US')} VND`
+                : '—'}
+            </Text>
+          </View>
+
+          <View style={styles.cardFooterRow}>
+            <View>
+              <Text style={styles.cardHolderLabel}>CARDHOLDER</Text>
+              <Text style={styles.cardHolderName} numberOfLines={1}>
+                {session?.displayName ? session.displayName.toUpperCase() : (session?.email ? session.email.split('@')[0].toUpperCase() : 'PBMS MEMBER')}
+              </Text>
+            </View>
+            <View style={styles.brandBadge}>
+              <Text style={styles.brandText}>PBMS</Text>
+              <Text style={styles.brandSubText}>PAYMENT</Text>
+            </View>
+          </View>
+
           {/* Active reservations badge */}
           {activeReservations > 0 && (
-            <View style={styles.heroReservationBadge}>
+            <View style={[styles.heroReservationBadge, { marginTop: Spacing.sm }]}>
               <Ionicons name="calendar" size={12} color={Colors.primary} />
               <Text style={styles.heroReservationText}>
                 {activeReservations} active reservation{activeReservations !== 1 ? 's' : ''}
@@ -474,7 +507,14 @@ export default function HomeScreen() {
                 return (
                   <AnimatedPressable
                     key={pkg._id}
-                    style={[styles.packageCard, { borderColor: borderThemeColor, shadowColor: themeColor }]}
+                    style={[
+                      styles.packageCard,
+                      {
+                        borderColor: borderThemeColor,
+                        borderLeftColor: themeColor,
+                        shadowColor: themeColor,
+                      }
+                    ]}
                     contentStyle={{ alignItems: 'stretch' }}
                     onPress={() => {
                       router.push({
@@ -483,10 +523,6 @@ export default function HomeScreen() {
                       });
                     }}
                   >
-                    <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.lg - 1, overflow: 'hidden', pointerEvents: 'none' }]}>
-                      <View style={[styles.packageCardGlowOrb, { backgroundColor: glowOrbColor }]} />
-                    </View>
-                    
                     {/* Row 1: Tag + Vehicle (Left), Price (Right) */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

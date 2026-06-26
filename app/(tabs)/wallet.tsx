@@ -158,33 +158,30 @@ export default function WalletScreen() {
 
 
 
-  // Glow animation for balance card
-  const glowScale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.7);
-
+  // Floating animation for wallet card
+  const walletFloat = useSharedValue(0);
   useEffect(() => {
-    glowScale.value = withRepeat(
+    walletFloat.value = withRepeat(
       withSequence(
-        withTiming(1.15, { duration: 3000 }),
-        withTiming(1.0, { duration: 3000 })
-      ),
-      -1,
-      true
-    );
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.85, { duration: 3000 }),
-        withTiming(0.55, { duration: 3000 })
+        withTiming(1, { duration: 2200 }),
+        withTiming(0, { duration: 2200 })
       ),
       -1,
       true
     );
   }, []);
 
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: glowScale.value }],
-    opacity: glowOpacity.value,
-  }));
+  const cardAnimatedStyle = useAnimatedStyle(() => {
+    const floatY = -5 * walletFloat.value;
+    return {
+      transform: [
+        { perspective: 1000 },
+        { translateY: floatY },
+        { rotateX: `${1.2 * walletFloat.value}deg` },
+        { rotateY: `${-1.2 * walletFloat.value}deg` }
+      ],
+    };
+  });
 
   const getBankName = (bin?: string) => {
     if (!bin) return '—';
@@ -308,23 +305,33 @@ export default function WalletScreen() {
         ) : null}
 
         {/* Balance card */}
-        <View style={styles.balanceCard}>
-          <Animated.View style={[styles.balanceGlow, glowStyle]} pointerEvents="none" />
-          <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
-          <Text style={styles.balanceValue}>
-            {wallet !== null ? fmtMoney(wallet.balance) : '—'}
-          </Text>
-          <Button
-            label="Top Up"
-            onPress={() => {
-              setTopupAmount('');
-              setTopupError(null);
-              setShowTopup(true);
-            }}
-            size="md"
-            style={styles.topupBtn}
-          />
-        </View>
+        <Animated.View style={[styles.balanceCard, cardAnimatedStyle]}>
+          <View style={styles.cardBody}>
+            <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
+            <Text style={styles.balanceValue}>
+              {wallet !== null ? fmtMoney(wallet.balance) : '—'}
+            </Text>
+          </View>
+
+          <View style={styles.cardFooterRow}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={styles.cardHolderLabel}>CARDHOLDER</Text>
+              <Text style={styles.cardHolderName} numberOfLines={1}>
+                {session?.displayName ? session.displayName.toUpperCase() : (session?.email ? session.email.split('@')[0].toUpperCase() : 'PBMS MEMBER')}
+              </Text>
+            </View>
+            <Button
+              label="Top Up"
+              onPress={() => {
+                setTopupAmount('');
+                setTopupError(null);
+                setShowTopup(true);
+              }}
+              size="md"
+              style={[styles.topupBtn, { minHeight: 34, height: 34, paddingHorizontal: 16 }]}
+            />
+          </View>
+        </Animated.View>
 
         {/* Transactions */}
         <View style={styles.section}>

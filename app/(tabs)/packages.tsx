@@ -553,10 +553,18 @@ export default function PackagesScreen() {
                     const glowOrbColor = isWeekly ? 'rgba(249,115,22,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
 
                     return (
-                      <AnimatedCard key={pkg._id} index={idx} style={[styles.pkgCard, { borderColor: borderThemeColor, shadowColor: themeColor }]}>
-                        <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.lg - 1, overflow: 'hidden', pointerEvents: 'none' }]}>
-                          <View style={[styles.pkgCardGlowOrb, { backgroundColor: glowOrbColor }]} />
-                        </View>
+                      <AnimatedCard
+                        key={pkg._id}
+                        index={idx}
+                        style={[
+                          styles.pkgCard,
+                          {
+                            borderColor: borderThemeColor,
+                            borderLeftColor: themeColor,
+                            shadowColor: themeColor,
+                          }
+                        ]}
+                      >
                         <View style={styles.pkgHeaderRow}>
                           <Text style={[styles.pkgTagBadge, { backgroundColor: themeBg, color: themeColor }]}>{tagLabel}</Text>
                           <View style={[
@@ -671,7 +679,17 @@ export default function PackagesScreen() {
               const config = statusColors[sub.status] || { bg: 'rgba(100,116,139,0.12)', text: '#64748b', label: sub.status };
 
               return (
-                <AnimatedCard key={sub._id} index={idx} style={styles.subCard}>
+                <AnimatedCard
+                  key={sub._id}
+                  index={idx}
+                  style={[
+                    styles.subCard,
+                    {
+                      borderColor: config.bg,
+                      borderLeftColor: config.text,
+                    }
+                  ]}
+                >
                   <View style={styles.subCardTop}>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={styles.subPkgName}>{pkg?.name ?? 'Subscription Package'}</Text>
