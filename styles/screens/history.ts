@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   feedbackBtnText: {
-    color: '#020617',
+    color: '#ffffff',
     fontSize: FontSize.xs,
     fontWeight: '900',
     textTransform: 'uppercase',

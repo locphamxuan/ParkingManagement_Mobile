@@ -9,7 +9,7 @@ const variantMap: Record<BadgeVariant, { bg: string; border: string; text: strin
   warning: { bg: Colors.warningBg, border: Colors.warningBorder, text: Colors.warning },
   info: { bg: Colors.blueBg, border: 'rgba(59,130,246,0.25)', text: Colors.blue },
   default: { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.25)', text: Colors.textMuted },
-  orange: { bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)', text: Colors.primary },
+  orange: { bg: 'rgba(14,165,233,0.12)', border: 'rgba(14,165,233,0.25)', text: Colors.primary },
   purple: { bg: Colors.purpleBg, border: 'rgba(168,85,247,0.25)', text: Colors.purple },
 };
 

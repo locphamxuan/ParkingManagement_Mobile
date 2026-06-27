@@ -1095,7 +1095,7 @@ export default function ReservationsScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={styles.plateTxt}>{r.plateNumber}</Text>
                     {(r as any).isSubscription && (
-                      <View style={{ backgroundColor: 'rgba(249,115,22,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <View style={{ backgroundColor: 'rgba(14,165,233,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                         <Text style={{ color: Colors.primary, fontSize: 9, fontWeight: '800' }}>LONG-TERM</Text>
                       </View>
                     )}

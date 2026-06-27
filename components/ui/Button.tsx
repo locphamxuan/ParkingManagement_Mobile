@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   type ViewStyle,
   type TextStyle,
+  type StyleProp,
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Colors, Radius, FontSize } from '../../constants/theme';
@@ -19,13 +20,13 @@ interface ButtonProps {
   size?: Size;
   loading?: boolean;
   disabled?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   fullWidth?: boolean;
 }
 
 const variantStyle: Record<Variant, { bg: string; border: string; text: string }> = {
-  primary: { bg: Colors.primary, border: 'transparent', text: '#020617' },
+  primary: { bg: Colors.primary, border: 'transparent', text: '#ffffff' },
   secondary: { bg: Colors.cardAlt, border: Colors.border, text: Colors.text },
   ghost: { bg: 'transparent', border: Colors.border, text: Colors.textMuted },
   danger: { bg: Colors.errorBg, border: Colors.errorBorder, text: Colors.error },

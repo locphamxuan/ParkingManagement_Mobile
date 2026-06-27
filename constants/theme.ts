@@ -1,41 +1,41 @@
-// ─── Design tokens matching ParkingManagement_FE style ───────────────────────
+// ─── Design tokens matching Image 2 style ───────────────────────
 export const Colors = {
   // Backgrounds
-  bg: '#020617',        // slate-950
-  card: '#0f172a',      // slate-900
-  cardAlt: '#1e293b',   // slate-800
-  input: '#020617',     // dark input bg
-  border: 'rgba(255,255,255,0.07)',
-  borderAlt: 'rgba(255,255,255,0.12)',
+  bg: '#f8fafc',        // slate-50 (clean light background)
+  card: '#ffffff',      // pure white cards
+  cardAlt: '#f1f5f9',   // slate-100 (light gray for alternate background/borders)
+  input: '#f1f5f9',     // slate-100 (light input background matching image 2)
+  border: '#e2e8f0',     // slate-200 (light border)
+  borderAlt: '#cbd5e1',  // slate-300
 
-  // Brand / Primary
-  primary: '#f97316',   // orange-500
-  primaryGlow: 'rgba(249,115,22,0.25)',
-  amber: '#f59e0b',
+  // Brand / Primary (Cyan / Sky-blue matching Image 2)
+  primary: '#0ea5e9',   // sky-500 (premium cyan-blue)
+  primaryGlow: 'rgba(14,165,233,0.15)',
+  amber: '#d97706',     // amber-600 for contrast in light theme
 
   // Text
-  text: '#f8fafc',       // slate-50
-  textMuted: '#94a3b8',  // slate-400
+  text: '#0f172a',       // slate-900 (dark charcoal text)
+  textMuted: '#475569',  // slate-600
   textDim: '#64748b',    // slate-500
 
-  // Status
-  success: '#10b981',    // emerald-500
-  successBg: 'rgba(16,185,129,0.12)',
-  successBorder: 'rgba(16,185,129,0.25)',
+  // Status (emerald green, rose red, amber yellow with light theme variables)
+  success: '#059669',    // emerald-600
+  successBg: 'rgba(5,150,105,0.08)',
+  successBorder: 'rgba(5,150,105,0.2)',
 
-  error: '#f43f5e',      // rose-500
-  errorBg: 'rgba(244,63,94,0.10)',
-  errorBorder: 'rgba(244,63,94,0.25)',
+  error: '#e11d48',      // rose-600
+  errorBg: 'rgba(225,29,72,0.08)',
+  errorBorder: 'rgba(225,29,72,0.2)',
 
-  warning: '#f59e0b',    // amber-500
-  warningBg: 'rgba(245,158,11,0.08)',
-  warningBorder: 'rgba(245,158,11,0.25)',
+  warning: '#d97706',    // amber-600
+  warningBg: 'rgba(217,119,6,0.08)',
+  warningBorder: 'rgba(217,119,6,0.2)',
 
   // Accent
-  blue: '#3b82f6',
-  blueBg: 'rgba(59,130,246,0.12)',
-  purple: '#a855f7',
-  purpleBg: 'rgba(168,85,247,0.12)',
+  blue: '#2563eb',       // blue-600
+  blueBg: 'rgba(37,99,237,0.08)',
+  purple: '#7c3aed',     // purple-600
+  purpleBg: 'rgba(124,58,237,0.08)',
 };
 
 export const FontSize = {

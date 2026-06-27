@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.card, // slate-900 matching general dashboard theme
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.25)', // subtle orange glow border
+    borderColor: 'rgba(14,165,233,0.25)', // subtle sky blue glow border
     padding: Spacing.xl,
     position: 'relative',
     shadowColor: Colors.primary,
@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: 'rgba(0,0,0,0.06)',
     paddingTop: Spacing.sm,
   },
   cardHolderLabel: {
@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
   modalTitle: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.text },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   presetBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.cardAlt, borderWidth: 1, borderColor: Colors.border },
-  presetBtnActive: { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.4)' },
+  presetBtnActive: { backgroundColor: 'rgba(14,165,233,0.15)', borderColor: 'rgba(14,165,233,0.4)' },
   presetText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
   presetTextActive: { color: Colors.primary },
   amountLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },

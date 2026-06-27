@@ -500,9 +500,9 @@ export default function HomeScreen() {
                 const isWeekly = pkg.durationDays <= 7;
                 const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
                 const themeColor = isWeekly ? Colors.primary : isMonthly ? Colors.blue : Colors.purple;
-                const themeBg = isWeekly ? 'rgba(249,115,22,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
-                const borderThemeColor = isWeekly ? 'rgba(249,115,22,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
-                const glowOrbColor = isWeekly ? 'rgba(249,115,22,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
+                const themeBg = isWeekly ? 'rgba(14,165,233,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
+                const borderThemeColor = isWeekly ? 'rgba(14,165,233,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
+                const glowOrbColor = isWeekly ? 'rgba(14,165,233,0.06)' : isMonthly ? 'rgba(59,130,246,0.06)' : 'rgba(168,85,247,0.06)';
 
                 return (
                   <AnimatedPressable
