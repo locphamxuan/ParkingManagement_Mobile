@@ -3,7 +3,7 @@ import { Colors, FontSize, Radius, Spacing } from '../common';
 
 export const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 32, gap: Spacing.xl },
+  scroll: { paddingBottom: 32, gap: Spacing.xl },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   greeting: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '600' },
