@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
   errorText: { flex: 1, color: Colors.error, fontSize: FontSize.sm, fontWeight: '600' },
   balanceCard: {
-    backgroundColor: Colors.card, // slate-900 matching general dashboard theme
+    backgroundColor: '#e0f2fe', // light sky-blue to stand out
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(14,165,233,0.25)', // subtle sky blue glow border

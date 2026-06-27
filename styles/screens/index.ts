@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
   logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder },
   logoutText: { color: Colors.error, fontSize: FontSize.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   heroCard: {
-    backgroundColor: Colors.card, // slate-900 matching general dashboard theme
+    backgroundColor: '#e0f2fe', // light sky-blue to stand out
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(14,165,233,0.25)', // subtle sky blue glow border
