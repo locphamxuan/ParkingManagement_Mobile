@@ -79,15 +79,19 @@ function QuickLink({
   icon,
   label,
   onPress,
+  color = Colors.primary,
+  bgColor = 'rgba(14,165,233,0.1)',
 }: {
   icon: IoniconName;
   label: string;
   onPress: () => void;
+  color?: string;
+  bgColor?: string;
 }) {
   return (
     <AnimatedPressable style={styles.quickLink} onPress={onPress}>
-      <View style={styles.quickLinkIcon}>
-        <Ionicons name={icon} size={24} color={Colors.primary} />
+      <View style={[styles.quickLinkIcon, { backgroundColor: bgColor }]}>
+        <Ionicons name={icon} size={24} color={color} />
       </View>
       <Text style={styles.quickLinkLabel}>{label}</Text>
     </AnimatedPressable>
@@ -457,21 +461,29 @@ export default function HomeScreen() {
               icon="calendar-outline"
               label="Reserve"
               onPress={() => router.push('/(tabs)/reservations')}
+              color="#f97316" // Orange/Coral
+              bgColor="rgba(249,115,22,0.12)"
             />
             <QuickLink
               icon="business-outline"
               label="Buildings"
               onPress={() => router.push('/buildings')}
+              color="#10b981" // Emerald Green
+              bgColor="rgba(16,185,129,0.12)"
             />
             <QuickLink
               icon="wallet-outline"
               label="Top Up"
               onPress={() => router.push('/(tabs)/wallet')}
+              color="#3b82f6" // Royal Blue
+              bgColor="rgba(59,130,246,0.12)"
             />
             <QuickLink
               icon="cube-outline"
               label="Packages"
               onPress={() => router.push('/(tabs)/packages')}
+              color="#8b5cf6" // Purple/Violet
+              bgColor="rgba(139,92,246,0.12)"
             />
           </View>
         </View>
