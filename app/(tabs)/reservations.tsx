@@ -1610,11 +1610,12 @@ export default function ReservationsScreen() {
                                               </View>
                                               <View style={styles.parkingLane2D}>
                                                 {topRowSlots.map((slot) => {
-                                                  const isCompatible = !vtCategory || (
-                                                    vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
-                                                  );
-                                                  const isAvailable = slot.status === 'available' && isCompatible;
-                                                  const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
+                                                  const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                                                   const isCompatible = !vtCategory || (
+                                                     vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                                                   );
+                                                   const isAvailable = slot.status === 'available' && isCompatible;
+                                                   const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
                                                   const isSelected = wizard.slotId === slot._id;
                                                   return (
                                                     <TouchableOpacity
@@ -1669,11 +1670,12 @@ export default function ReservationsScreen() {
                                               </View>
                                               <View style={styles.parkingLane2D}>
                                                 {bottomRowSlots.map((slot) => {
-                                                  const isCompatible = !vtCategory || (
-                                                    vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
-                                                  );
-                                                  const isAvailable = slot.status === 'available' && isCompatible;
-                                                  const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
+                                                  const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                                                   const isCompatible = !vtCategory || (
+                                                     vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                                                   );
+                                                   const isAvailable = slot.status === 'available' && isCompatible;
+                                                   const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
                                                   const isSelected = wizard.slotId === slot._id;
                                                   return (
                                                     <TouchableOpacity
@@ -1749,11 +1751,12 @@ export default function ReservationsScreen() {
                                                   {/* Left Parking Lane (Bottom Row) */}
                                                   <View style={styles.parkingLane3D}>
                                                     {bottomRowSlots.map((slot) => {
-                                                      const isCompatible = !vtCategory || (
-                                                        vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
-                                                      );
-                                                      const isAvailable = slot.status === 'available' && isCompatible;
-                                                      const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
+                                                      const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                                                   const isCompatible = !vtCategory || (
+                                                     vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                                                   );
+                                                   const isAvailable = slot.status === 'available' && isCompatible;
+                                                   const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
                                                       const isSelected = wizard.slotId === slot._id;
 
                                                       return (
@@ -1789,11 +1792,12 @@ export default function ReservationsScreen() {
                                                   {/* Right Parking Lane (Top Row) */}
                                                   <View style={styles.parkingLane3D}>
                                                     {topRowSlots.map((slot) => {
-                                                      const isCompatible = !vtCategory || (
-                                                        vtCategory === 'car' ? !slot.code.toUpperCase().startsWith('M') : !slot.code.toUpperCase().startsWith('C')
-                                                      );
-                                                      const isAvailable = slot.status === 'available' && isCompatible;
-                                                      const isSelectable = isAvailable && slot.selectable !== false && !slot.owner;
+                                                      const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                                                   const isCompatible = !vtCategory || (
+                                                     vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                                                   );
+                                                   const isAvailable = slot.status === 'available' && isCompatible;
+                                                   const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
                                                       const isSelected = wizard.slotId === slot._id;
 
                                                       return (

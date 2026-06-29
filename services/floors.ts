@@ -17,6 +17,8 @@ export interface SlotItem {
   status: 'available' | 'occupied' | 'reserved' | 'maintenance';
   vehicleType?: { _id: string; name: string; code?: string };
   selectable?: boolean;
+  reservable?: boolean;
+  usageType?: string;
   owner?: { plateNumber: string; accountName: string | null } | null;
 }
 
