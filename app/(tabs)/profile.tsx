@@ -20,6 +20,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { updateProfile, changePassword } from '../../services/profile';
 import { addPlate, removePlate, setDefaultPlate } from '../../services/plates';
+import { VEHICLE_PRESETS, PLATE_TYPE_LABELS } from '../../constants/vehiclePresets';
+import type { PlateVehicleType } from '../../types';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -108,7 +110,7 @@ export default function ProfileScreen() {
 
   // Plates
   const [plateInput, setPlateInput] = useState('');
-  const [vehicleType, setVehicleType] = useState<'car' | 'motorcycle'>('car');
+  const [vehicleType, setVehicleType] = useState<PlateVehicleType>('motorcycle');
   const [plateError, setPlateError] = useState<string | null>(null);
   const [plateSuccess, setPlateSuccess] = useState<string | null>(null);
   const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
@@ -456,9 +458,7 @@ export default function ProfileScreen() {
                           </Text>
 
                           <Text style={styles.plateType}>
-                            {plate.vehicleType === 'car'
-                              ? 'Car'
-                              : 'Motorcycle'}
+                            {PLATE_TYPE_LABELS[plate.vehicleType] ?? plate.vehicleType}
                             {plate.isDefault ? ' · Default' : ''}
                           </Text>
                         </View>
@@ -508,24 +508,19 @@ export default function ProfileScreen() {
                 <View style={styles.addPlateForm}>
                   <Text style={styles.addPlateTitle}>Add Plate</Text>
 
-                  {/* Vehicle type toggle */}
-                  <View style={styles.typeToggle}>
-                    <TouchableOpacity
-                      style={[styles.typeBtn, vehicleType === 'car' && styles.typeBtnActive]}
-                      onPress={() => setVehicleType('car')}
-                    >
-                      <Text style={[styles.typeBtnText, vehicleType === 'car' && styles.typeBtnTextActive]}>
-                        Car
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.typeBtn, vehicleType === 'motorcycle' && styles.typeBtnActivePurple]}
-                      onPress={() => setVehicleType('motorcycle')}
-                    >
-                      <Text style={[styles.typeBtnText, vehicleType === 'motorcycle' && styles.typeBtnTextPurple]}>
-                        Motorcycle
-                      </Text>
-                    </TouchableOpacity>
+                  {/* Vehicle type — chọn loại xe (gồm "Khác") */}
+                  <View style={[styles.typeToggle, { flexWrap: 'wrap' }]}>
+                    {VEHICLE_PRESETS.map((p) => (
+                      <TouchableOpacity
+                        key={p.value}
+                        style={[styles.typeBtn, vehicleType === p.value && styles.typeBtnActive]}
+                        onPress={() => setVehicleType(p.value as PlateVehicleType)}
+                      >
+                        <Text style={[styles.typeBtnText, vehicleType === p.value && styles.typeBtnTextActive]}>
+                          {p.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
 
                   <Input

@@ -1,5 +1,5 @@
 import { apiRequest } from './api';
-import type { LicensePlate } from '../types';
+import type { LicensePlate, PlateVehicleType } from '../types';
 
 interface ApiPlatesRes {
   data?: { licensePlates?: LicensePlate[] };
@@ -13,7 +13,7 @@ export async function listPlates(token: string): Promise<LicensePlate[]> {
 export async function addPlate(
   token: string,
   plateNumber: string,
-  vehicleType: 'car' | 'motorcycle',
+  vehicleType: PlateVehicleType,
 ): Promise<LicensePlate[]> {
   const res = await apiRequest<ApiPlatesRes>('/users/license-plates', {
     method: 'POST',

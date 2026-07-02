@@ -1,8 +1,11 @@
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+export type PlateVehicleType =
+  | 'motorcycle' | 'car' | 'ebike' | 'emotorbike' | 'suv' | 'truck' | 'other';
+
 export interface LicensePlate {
   _id?: string;
   plateNumber: string;
-  vehicleType: 'car' | 'motorcycle';
+  vehicleType: PlateVehicleType;
   isDefault?: boolean;
   qrCode?: string;
 }
