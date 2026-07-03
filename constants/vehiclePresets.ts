@@ -32,3 +32,20 @@ export const PLATE_TYPE_LABELS: Record<string, string> = {
   truck: 'Xe tải',
   other: 'Khác',
 };
+
+// Danh mục chính khi thêm biển: Ô tô / Xe máy / Khác.
+export const VEHICLE_CATEGORIES: VehiclePreset[] = [
+  { value: 'car', label: 'Ô tô' },
+  { value: 'motorcycle', label: 'Xe máy' },
+  { value: 'other', label: 'Khác' },
+];
+
+// Hãng xe gợi ý cho ô tô / xe máy (chọn từ dropdown; "Khác" cho nhập tay).
+export const CAR_BRANDS: string[] = [
+  'Toyota', 'Honda', 'Hyundai', 'Kia', 'Mazda', 'Ford', 'Mitsubishi',
+  'VinFast', 'Mercedes-Benz', 'BMW', 'Suzuki', 'Nissan', 'Khác',
+];
+
+export const MOTO_BRANDS: string[] = [
+  'Honda', 'Yamaha', 'Suzuki', 'Piaggio', 'SYM', 'VinFast', 'Vespa', 'Kawasaki', 'Khác',
+];

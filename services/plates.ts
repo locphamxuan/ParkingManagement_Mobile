@@ -14,10 +14,15 @@ export async function addPlate(
   token: string,
   plateNumber: string,
   vehicleType: PlateVehicleType,
+  brand?: string | null,
 ): Promise<LicensePlate[]> {
   const res = await apiRequest<ApiPlatesRes>('/users/license-plates', {
     method: 'POST',
-    body: { plateNumber: plateNumber.trim().toUpperCase(), vehicleType },
+    body: {
+      plateNumber: plateNumber.trim().toUpperCase(),
+      vehicleType,
+      ...(brand ? { brand: brand.trim() } : {}),
+    },
     token,
   });
   return res?.data?.licensePlates ?? [];

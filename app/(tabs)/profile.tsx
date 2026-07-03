@@ -20,11 +20,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { updateProfile, changePassword } from '../../services/profile';
 import { addPlate, removePlate, setDefaultPlate } from '../../services/plates';
-import { VEHICLE_PRESETS, PLATE_TYPE_LABELS } from '../../constants/vehiclePresets';
-import type { PlateVehicleType } from '../../types';
+import { PLATE_TYPE_LABELS, VEHICLE_CATEGORIES, CAR_BRANDS, MOTO_BRANDS } from '../../constants/vehiclePresets';
+import { Dropdown } from '../../components/ui/Dropdown';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/profile';
 import type { LicensePlate } from '../../types';
@@ -110,7 +109,9 @@ export default function ProfileScreen() {
 
   // Plates
   const [plateInput, setPlateInput] = useState('');
-  const [vehicleType, setVehicleType] = useState<PlateVehicleType>('motorcycle');
+  const [category, setCategory] = useState<'car' | 'motorcycle' | 'other'>('motorcycle');
+  const [brand, setBrand] = useState('');
+  const [customType, setCustomType] = useState('');
   const [plateError, setPlateError] = useState<string | null>(null);
   const [plateSuccess, setPlateSuccess] = useState<string | null>(null);
   const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
@@ -196,9 +197,12 @@ export default function ProfileScreen() {
     }
     try {
       setLoadingPlate('add');
-      const updated = await addPlate(token, normalized, vehicleType);
+      const finalBrand = category === 'other' ? customType.trim() : brand.trim();
+      const updated = await addPlate(token, normalized, category, finalBrand || null);
       updateLocal({ licensePlates: updated });
       setPlateInput('');
+      setBrand('');
+      setCustomType('');
       setPlateSuccess(`Added "${normalized}" successfully!`);
       setTimeout(() => setPlateSuccess(null), 2500);
     } catch (err) {
@@ -275,7 +279,6 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{session?.displayName}</Text>
               <Text style={styles.email}>{session?.email}</Text>
-              <Badge label={session?.role ?? 'user'} variant="orange" />
             </View>
           </Animated.View>
 
@@ -370,7 +373,6 @@ export default function ProfileScreen() {
                       { label: 'Full Name', value: session?.displayName },
                       { label: 'Email', value: session?.email },
                       { label: 'Phone', value: session?.phone || '— Not set —' },
-                      { label: 'Role', value: (session?.role ?? 'user').toUpperCase() },
                     ].map((item, idx) => (
                       <AnimatedCard key={item.label} index={idx}>
                         <View style={styles.infoRow}>
@@ -508,19 +510,33 @@ export default function ProfileScreen() {
                 <View style={styles.addPlateForm}>
                   <Text style={styles.addPlateTitle}>Add Plate</Text>
 
-                  {/* Vehicle type — chọn loại xe (gồm "Khác") */}
-                  <View style={[styles.typeToggle, { flexWrap: 'wrap' }]}>
-                    {VEHICLE_PRESETS.map((p) => (
-                      <TouchableOpacity
-                        key={p.value}
-                        style={[styles.typeBtn, vehicleType === p.value && styles.typeBtnActive]}
-                        onPress={() => setVehicleType(p.value as PlateVehicleType)}
-                      >
-                        <Text style={[styles.typeBtnText, vehicleType === p.value && styles.typeBtnTextActive]}>
-                          {p.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                  {/* Loại xe: Ô tô / Xe máy / Khác. Ô tô-Xe máy → chọn hãng; Khác → nhập tay. */}
+                  <View style={{ gap: 12, marginBottom: 14 }}>
+                    <Dropdown
+                      label="Loại xe"
+                      value={category}
+                      options={VEHICLE_CATEGORIES}
+                      onSelect={(v) => {
+                        setCategory(v as 'car' | 'motorcycle' | 'other');
+                        setBrand('');
+                        setCustomType('');
+                      }}
+                    />
+                    {category === 'other' ? (
+                      <Input
+                        placeholder="Nhập loại xe / mô tả"
+                        value={customType}
+                        onChangeText={setCustomType}
+                      />
+                    ) : (
+                      <Dropdown
+                        label="Hãng xe"
+                        value={brand || null}
+                        placeholder="Chọn hãng xe"
+                        options={(category === 'car' ? CAR_BRANDS : MOTO_BRANDS).map((b) => ({ value: b, label: b }))}
+                        onSelect={setBrand}
+                      />
+                    )}
                   </View>
 
                   <Input
