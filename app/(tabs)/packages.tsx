@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,9 @@ import {
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
-import { useAuthStore } from '../../store/authStore';
-import { listPackages, subscribe, listSubscriptions } from '../../services/longTerm';
+import { router } from 'expo-router';
+import { usePackages } from '../../hooks/usePackages';
+import { fmtMoney, fmtDateOnly, vtLabel, vtCode } from '../../utils/packageHelpers';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
@@ -79,164 +79,16 @@ function AnimatedCard({ children, index, style }: { children: React.ReactNode; i
   );
 }
 
-function fmtMoney(n: number) {
-  return `${n.toLocaleString('en-US')} VND`;
-}
-
-function fmtDateOnly(s: string) {
-  if (!s) return '—';
-  const d = new Date(s);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-}
-
-function vtLabel(vt: LongTermPackage['vehicleType']): string {
-  if (!vt) return 'All vehicles';
-  if (typeof vt === 'string') {
-    if (vt === 'car') return 'Car';
-    if (vt === 'motorcycle') return 'Motorcycle';
-    if (vt === 'all') return 'All vehicles';
-    return vt;
-  }
-  return vt.name ?? 'All vehicles';
-}
-
-function vtCode(vt: LongTermPackage['vehicleType']): string | null {
-  if (!vt || typeof vt === 'string') return null;
-  return vt.code ?? null;
-}
-
-// Group packages by building
-function groupByBuilding(packages: LongTermPackage[]) {
-  const map = new Map<string, { building: LongTermPackage['building']; packages: LongTermPackage[] }>();
-  for (const pkg of packages) {
-    const key = pkg.building?._id ?? '__unknown__';
-    if (!map.has(key)) {
-      map.set(key, { building: pkg.building ?? null, packages: [] });
-    }
-    map.get(key)!.packages.push(pkg);
-  }
-  return Array.from(map.values());
-}
-
-// SubscribeSheet removed to prevent direct purchase/subscription from packages page
-
 export default function PackagesScreen() {
-  const { session } = useAuthStore();
-  const token = session?.token ?? '';
-  const plates: LicensePlate[] = session?.licensePlates ?? [];
-
-  const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
-  const params = useLocalSearchParams<{ tab?: string }>();
-
-  React.useEffect(() => {
-    if (params.tab === 'my') {
-      setActiveTab('my');
-    }
-  }, [params.tab]);
-  const [packages, setPackages] = useState<LongTermPackage[]>([]);
-  const [subscriptions, setSubscriptions] = useState<LongTermSubscription[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedBuildings, setExpandedBuildings] = useState<Record<string, boolean>>({});
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [vehicleFilter, setVehicleFilter] = useState<'all' | 'car' | 'motorcycle'>('all');
-  const [durationFilter, setDurationFilter] = useState<'all' | 7 | 30 | 365>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'expired' | 'cancelled'>('all');
-  const [expandedFilter, setExpandedFilter] = useState<'vehicle' | 'duration' | 'status' | null>(null);
-
-  const load = useCallback(
-    async (isRefresh = false) => {
-      if (!token) return;
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-      try {
-        const [pkgData, subData] = await Promise.all([
-          listPackages(token),
-          listSubscriptions(token)
-        ]);
-        setPackages(pkgData);
-        setSubscriptions(subData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load packages');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [token],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
-
-  // Filter packages
-  const filteredPackages = packages.filter((pkg) => {
-    // 1. Search by building name
-    const buildingName = pkg.building?.name || '';
-    if (searchQuery.trim() !== '') {
-      if (!buildingName.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
-      }
-    }
-
-    // 2. Vehicle filter
-    if (vehicleFilter !== 'all') {
-      const codeStr = vtCode(pkg.vehicleType) || (typeof pkg.vehicleType === 'string' ? pkg.vehicleType : (pkg.vehicleType?.name || ''));
-      const lower = codeStr.toLowerCase();
-      if (vehicleFilter === 'car' && !lower.includes('car')) return false;
-      if (vehicleFilter === 'motorcycle' && !(lower.includes('moto') || lower.includes('motorcycle') || lower.includes('xe máy'))) return false;
-    }
-
-    // 3. Duration filter
-    if (durationFilter !== 'all') {
-      if (pkg.durationDays !== durationFilter) return false;
-    }
-
-    return true;
-  });
-
-  const groups = groupByBuilding(filteredPackages);
-
-  // Filter subscriptions
-  const filteredSubscriptions = subscriptions.filter((sub) => {
-    // 1. Search by building name
-    const buildingName = sub.building?.name || sub.package?.building?.name || '';
-    if (searchQuery.trim() !== '') {
-      if (!buildingName.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
-      }
-    }
-
-    // 2. Vehicle filter
-    if (vehicleFilter !== 'all') {
-      const vt = sub.package?.vehicleType;
-      const codeStr = vtCode(vt) || (typeof vt === 'string' ? vt : (vt?.name || ''));
-      const lower = codeStr.toLowerCase();
-      if (vehicleFilter === 'car' && !lower.includes('car')) return false;
-      if (vehicleFilter === 'motorcycle' && !(lower.includes('moto') || lower.includes('motorcycle') || lower.includes('xe máy'))) return false;
-    }
-
-    // 3. Duration filter
-    if (durationFilter !== 'all') {
-      if (sub.package?.durationDays !== durationFilter) return false;
-    }
-
-    // 4. Status filter
-    if (statusFilter !== 'all') {
-      if (sub.status !== statusFilter) return false;
-    }
-
-    return true;
-  });
+  const {
+    token, plates, session, activeTab, setActiveTab,
+    packages, subscriptions, loading, refreshing, error,
+    expandedBuildings, setExpandedBuildings,
+    searchQuery, setSearchQuery, vehicleFilter, setVehicleFilter,
+    durationFilter, setDurationFilter, statusFilter, setStatusFilter,
+    expandedFilter, setExpandedFilter, load,
+    filteredPackages, groups, filteredSubscriptions,
+  } = usePackages();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

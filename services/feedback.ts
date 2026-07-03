@@ -24,7 +24,7 @@ export interface FeedbackInboxItem {
 }
 
 export async function listMyFeedbackInbox(token: string): Promise<FeedbackInboxItem[]> {
-  const res = await apiRequest<{ data?: { items?: FeedbackInboxItem[] } }>('/user/feedbacks/me', {
+  const res = await apiRequest<{ data?: { items?: FeedbackInboxItem[] } }>('/users/feedbacks/me', {
     token,
   });
   return res?.data?.items ?? [];
@@ -62,7 +62,7 @@ export async function submitParkingFeedback(
   token: string,
   payload: SubmitFeedbackPayload,
 ): Promise<FeedbackItem | null> {
-  const res = await apiRequest<SubmitFeedbackResponse>('/user/feedbacks', {
+  const res = await apiRequest<SubmitFeedbackResponse>('/users/feedbacks', {
     method: 'POST',
     token,
     body: {

@@ -46,3 +46,11 @@ yarn-error.*
 .vscode/
 .idea/
 *.log
+
+# Claude Code — chi dung local, khong push len remote
+CLAUDE.md
+claude.md
+.claude.json
+
+# OpenSpec — chi dung local, khong push len remote
+openspec/
