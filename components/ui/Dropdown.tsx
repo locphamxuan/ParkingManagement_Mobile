@@ -20,7 +20,7 @@ interface DropdownProps {
 /**
  * Dropdown đơn giản cho RN: nhấn để mở danh sách lựa chọn (Modal), chọn 1 mục.
  */
-export function Dropdown({ value, options, onSelect, placeholder = 'Chọn...', label }: DropdownProps) {
+export function Dropdown({ value, options, onSelect, placeholder = 'Select...', label }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value) ?? null;
 

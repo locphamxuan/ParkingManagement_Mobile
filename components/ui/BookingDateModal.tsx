@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from './BookingDateModal.styles';
+import { BookingCalendar } from './BookingCalendar';
+import { getDaysInMonth, getFirstDayOfMonth, TIME_SLOTS, fmtDisplayDate } from './BookingDateModal.utils';
 
 type BookingMode = 'hourly' | 'daily';
 
@@ -23,35 +25,7 @@ export interface BookingDateModalProps {
   packageDuration?: number;
 }
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-const DAYS_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
-
-// Generates time slots from 00:00 to 23:30 (30-minute intervals)
-const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
-  const h = String(Math.floor(i / 2)).padStart(2, '0');
-  const m = i % 2 === 0 ? '00' : '30';
-  return `${h}:${m}`;
-});
-
-// Helper: format date for display
-function fmtDisplayDate(date: Date): string {
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = date.getFullYear();
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}, ${d}/${m}/${y}`;
-}
+// Constants/helpers moved to ./BookingDateModal.utils and ./BookingCalendar
 
 export function BookingDateModal({
   visible,
@@ -434,117 +408,22 @@ export function BookingDateModal({
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* Calendar Component */}
-            <View style={styles.calendarSection}>
-              {/* Active selection banner for daily mode */}
-              {mode !== 'hourly' && (
-                <View style={styles.activeSelectionBanner}>
-                  <Ionicons
-                    name={isPackage ? "calendar-outline" : (selectionTarget === 'checkin' ? "log-in-outline" : "log-out-outline")}
-                    size={16}
-                    color={Colors.primary}
-                  />
-                  <Text style={styles.activeSelectionText}>
-                    {isPackage
-                      ? 'Select package start date'
-                      : (selectionTarget === 'checkin' ? 'Selecting Check-in Date' : 'Selecting Check-out Date')}
-                  </Text>
-                </View>
-              )}
-
-              {/* Month Navigation */}
-              <View style={styles.monthNav}>
-                <TouchableOpacity onPress={prevMonth} style={styles.navBtn}>
-                  <Ionicons name="chevron-back" size={18} color={Colors.text} />
-                </TouchableOpacity>
-                <Text style={styles.monthLabel}>
-                  {MONTHS[viewMonth]} {viewYear}
-                </Text>
-                <TouchableOpacity onPress={nextMonth} style={styles.navBtn}>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Day headers */}
-              <View style={styles.dayHeaderRow}>
-                {DAYS_SHORT.map((d) => (
-                  <Text key={d} style={styles.dayHeader}>{d}</Text>
-                ))}
-              </View>
-
-              {/* Calendar Grid */}
-              <View style={styles.calGrid}>
-                {Array.from({ length: calCells.length / 7 }, (_, rowIdx) => (
-                  <View key={rowIdx} style={styles.calRow}>
-                    {calCells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
-                      if (day === null) {
-                        return <View key={colIdx} style={styles.dayCell} />;
-                      }
-
-                      const date = getCellDate(day);
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-
-                      const isDisabled = (() => {
-                        if (!date) return true;
-                        if (date < today) return true;
-
-                        if (isPackage && packageDuration) {
-                          const resolvedMaxDate = (() => {
-                            if (packageDuration <= 7) {
-                              return new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                            } else if (packageDuration <= 30) {
-                              return new Date(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999);
-                            } else {
-                              return new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-                            }
-                          })();
-                          return date > resolvedMaxDate;
-                        }
-
-                        if (mode === 'hourly') {
-                          const maxCheckinDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                          return date > maxCheckinDate;
-                        }
-
-                        const maxDailyDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-                        return date > maxDailyDate;
-                      })();
-
-                      const checkin = isCheckin(day);
-                      const checkout = isCheckout(day);
-                      const middle = isMiddleRange(day);
-
-                      return (
-                        <TouchableOpacity
-                          key={colIdx}
-                          style={[
-                            styles.dayCell,
-                            checkin && styles.checkinCell,
-                            checkout && styles.checkoutCell,
-                            middle && styles.middleCell,
-                            isDisabled && styles.disabledCell,
-                          ]}
-                          onPress={() => handleSelectDay(day)}
-                          disabled={!!isDisabled}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            style={[
-                              styles.dayCellText,
-                              (checkin || checkout) && styles.selectedDayText,
-                              middle && styles.middleRangeText,
-                              isDisabled && styles.disabledText,
-                            ]}
-                          >
-                            {day}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
-            </View>
+            <BookingCalendar
+              mode={mode}
+              isPackage={isPackage}
+              selectionTarget={selectionTarget}
+              viewMonth={viewMonth}
+              viewYear={viewYear}
+              prevMonth={prevMonth}
+              nextMonth={nextMonth}
+              calCells={calCells}
+              getCellDate={getCellDate}
+              packageDuration={packageDuration}
+              isCheckin={isCheckin}
+              isCheckout={isCheckout}
+              isMiddleRange={isMiddleRange}
+              handleSelectDay={handleSelectDay}
+            />
 
             {/* Hourly Booking Fields */}
             {(mode === 'hourly' || isPackage) && (

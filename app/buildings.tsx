@@ -20,6 +20,7 @@ import { guessVehicleCategory } from '../utils/vehicle';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import { styles } from '../styles/screens/buildings';
+import { BuildingPlateModal } from '../components/buildings/BuildingPlateModal';
 import type { LicensePlate } from '../types';
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -554,62 +555,13 @@ export default function BuildingsScreen() {
         </View>
       )}
 
-      {/* ─── LICENSE PLATE SELECTION MODAL ─── */}
-      <Modal visible={showPlateModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select your vehicle</Text>
-              <TouchableOpacity onPress={() => setShowPlateModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {compatiblePlates.length === 0 ? (
-              <View style={styles.modalEmpty}>
-                <Text style={styles.modalEmptyText}>
-                  No license plates registered matching the vehicle types supported at this building.
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={compatiblePlates}
-                keyExtractor={(item) => item._id || item.plateNumber}
-                renderItem={({ item }) => {
-                  const isSelected = item.plateNumber === selectedPlate;
-                  return (
-                    <TouchableOpacity
-                      style={[styles.plateItem, isSelected && styles.plateItemSelected]}
-                      onPress={() => {
-                        setSelectedPlate(item.plateNumber);
-                        setShowPlateModal(false);
-                      }}
-                    >
-                      <Ionicons
-                        name={item.vehicleType === 'motorcycle' ? 'bicycle' : 'car'}
-                        size={22}
-                        color={isSelected ? Colors.primary : Colors.textMuted}
-                        style={{ marginRight: Spacing.md }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.plateItemText, isSelected && styles.plateItemTextSelected]}>
-                          {item.plateNumber}
-                        </Text>
-                        <Text style={styles.plateItemType}>
-                          {item.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Car'}
-                        </Text>
-                      </View>
-                      {isSelected ? (
-                        <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
+      <BuildingPlateModal
+        visible={showPlateModal}
+        onClose={() => setShowPlateModal(false)}
+        compatiblePlates={compatiblePlates}
+        selectedPlate={selectedPlate}
+        onSelect={(pn) => { setSelectedPlate(pn); setShowPlateModal(false); }}
+      />
     </SafeAreaView>
   );
 }

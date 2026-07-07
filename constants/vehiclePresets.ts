@@ -14,38 +14,38 @@ export interface VehiclePreset {
 }
 
 export const VEHICLE_PRESETS: VehiclePreset[] = [
-  { value: 'motorcycle', label: 'Xe máy' },
-  { value: 'car', label: 'Ô tô' },
-  { value: 'ebike', label: 'Xe đạp điện' },
-  { value: 'emotorbike', label: 'Xe máy điện' },
+  { value: 'motorcycle', label: 'Motorcycle' },
+  { value: 'car', label: 'Car' },
+  { value: 'ebike', label: 'E-bike' },
+  { value: 'emotorbike', label: 'E-motorbike' },
   { value: 'suv', label: 'SUV' },
-  { value: 'truck', label: 'Xe tải' },
-  { value: 'other', label: 'Khác' },
+  { value: 'truck', label: 'Truck' },
+  { value: 'other', label: 'Other' },
 ];
 
 export const PLATE_TYPE_LABELS: Record<string, string> = {
-  motorcycle: 'Xe máy',
-  car: 'Ô tô',
-  ebike: 'Xe đạp điện',
-  emotorbike: 'Xe máy điện',
+  motorcycle: 'Motorcycle',
+  car: 'Car',
+  ebike: 'E-bike',
+  emotorbike: 'E-motorbike',
   suv: 'SUV',
-  truck: 'Xe tải',
-  other: 'Khác',
+  truck: 'Truck',
+  other: 'Other',
 };
 
 // Danh mục chính khi thêm biển: Ô tô / Xe máy / Khác.
 export const VEHICLE_CATEGORIES: VehiclePreset[] = [
-  { value: 'car', label: 'Ô tô' },
-  { value: 'motorcycle', label: 'Xe máy' },
-  { value: 'other', label: 'Khác' },
+  { value: 'car', label: 'Car' },
+  { value: 'motorcycle', label: 'Motorcycle' },
+  { value: 'other', label: 'Other' },
 ];
 
 // Hãng xe gợi ý cho ô tô / xe máy (chọn từ dropdown; "Khác" cho nhập tay).
 export const CAR_BRANDS: string[] = [
   'Toyota', 'Honda', 'Hyundai', 'Kia', 'Mazda', 'Ford', 'Mitsubishi',
-  'VinFast', 'Mercedes-Benz', 'BMW', 'Suzuki', 'Nissan', 'Khác',
+  'VinFast', 'Mercedes-Benz', 'BMW', 'Suzuki', 'Nissan', 'Other',
 ];
 
 export const MOTO_BRANDS: string[] = [
-  'Honda', 'Yamaha', 'Suzuki', 'Piaggio', 'SYM', 'VinFast', 'Vespa', 'Kawasaki', 'Khác',
+  'Honda', 'Yamaha', 'Suzuki', 'Piaggio', 'SYM', 'VinFast', 'Vespa', 'Kawasaki', 'Other',
 ];

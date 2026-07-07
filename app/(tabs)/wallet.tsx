@@ -29,6 +29,8 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/wallet';
+import { fmtMoney, fmtDate, txVariant, txSign, txLabel } from './wallet.utils';
+import { WalletDialog } from '../../components/wallet/WalletDialog';
 import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { useUIStore } from '../../store/uiStore';
@@ -61,36 +63,7 @@ const MIN_TOPUP = 2_000;
 const MAX_TOPUP = 10_000_000;
 const TOPUP_PRESETS = [50_000, 100_000, 200_000, 500_000];
 
-function fmtMoney(n: number) {
-  return `${n.toLocaleString('en-US')} VND`;
-}
-
-function fmtDate(s: string) {
-  return new Date(s).toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function txVariant(type: WalletTransaction['type']) {
-  if (type === 'topup' || type === 'credit') return 'success';
-  if (type === 'refund') return 'info';
-  return 'error';
-}
-
-function txSign(type: WalletTransaction['type']) {
-  return type === 'topup' || type === 'refund' || type === 'credit' ? '+' : '-';
-}
-
-function txLabel(type: WalletTransaction['type']) {
-  if (type === 'topup' || type === 'credit') return 'Top-up';
-  if (type === 'debit') return 'Payment';
-  if (type === 'refund') return 'Refund';
-  return type;
-}
+// Helpers moved to ./wallet.utils; Dialog to components/wallet/WalletDialog
 
 export default function WalletScreen() {
   const { session } = useAuthStore();
@@ -598,40 +571,7 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-      {/* ── Custom Dialog Modal ────────────────────────────────────────────────── */}
-      <Modal visible={dialog.visible} transparent animationType="fade" onRequestClose={() => setDialog(d => ({ ...d, visible: false }))}>
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogContainer}>
-            <View style={styles.dialogIconContainer}>
-              {dialog.type === 'success' && <Ionicons name="checkmark-circle" size={42} color={Colors.success} />}
-              {dialog.type === 'error' && <Ionicons name="alert-circle" size={42} color={Colors.error} />}
-              {dialog.type === 'confirm' && <Ionicons name="warning" size={42} color={Colors.amber} />}
-              {dialog.type === 'alert' && <Ionicons name="information-circle" size={42} color={Colors.primary} />}
-            </View>
-
-            <Text style={styles.dialogTitle}>{dialog.title}</Text>
-            <Text style={styles.dialogMessage}>{dialog.message}</Text>
-
-            <View style={styles.dialogActions}>
-              <TouchableOpacity
-                style={[
-                  styles.dialogBtn,
-                  dialog.type === 'confirm' ? styles.dialogBtnConfirmDanger : styles.dialogBtnConfirmPrimary
-                ]}
-                onPress={dialog.onConfirm}
-              >
-                <Text style={styles.dialogBtnConfirmText}>{dialog.confirmText || 'OK'}</Text>
-              </TouchableOpacity>
-              {dialog.type === 'confirm' && (
-                <TouchableOpacity style={[styles.dialogBtn, styles.dialogBtnCancel]} onPress={dialog.onCancel}>
-                  <Text style={styles.dialogBtnCancelText}>{dialog.cancelText || 'Cancel'}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+      <WalletDialog dialog={dialog} onRequestClose={() => setDialog(d => ({ ...d, visible: false }))} />
     </SafeAreaView>
   );
 }
