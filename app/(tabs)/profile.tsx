@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Image,
-  Modal,
   Pressable,
 } from 'react-native';
 import Animated, {
@@ -26,6 +24,9 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/profile';
+import { ProfilePasswordTab } from '../../components/profile/ProfilePasswordTab';
+import { ProfilePlateModals } from '../../components/profile/ProfilePlateModals';
+import { ProfileQrCard } from '../../components/profile/ProfileQrCard';
 import type { LicensePlate } from '../../types';
 import { useUIStore } from '../../store/uiStore';
 import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
@@ -385,29 +386,7 @@ export default function ProfileScreen() {
                 )}
               </View>
 
-              {/* QR Code Check-in Card */}
-              {session?.role?.toLowerCase() === 'user' && session?.userId ? (
-                <View style={styles.qrCard}>
-                  <View style={styles.qrCardHeader}>
-                    <Text style={styles.qrCardTitle}>My QR Check-in</Text>
-                    <Text style={styles.qrCardSubtitle}>
-                      Scan at the gate card-reader to associate your parking session and pay with wallet.
-                    </Text>
-                  </View>
-                  <View style={styles.qrCodeContainer}>
-                    <Image
-                      source={{
-                        uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${session.userId}`,
-                      }}
-                      style={styles.qrImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <View style={styles.qrInfoTag}>
-                    <Text style={styles.qrIdText}>MEMBER ID: {session.userId}</Text>
-                  </View>
-                </View>
-              ) : null}
+              <ProfileQrCard role={session?.role} userId={session?.userId} />
             </>
           )}
 
@@ -513,7 +492,7 @@ export default function ProfileScreen() {
                   {/* Loại xe: Ô tô / Xe máy / Khác. Ô tô-Xe máy → chọn hãng; Khác → nhập tay. */}
                   <View style={{ gap: 12, marginBottom: 14 }}>
                     <Dropdown
-                      label="Loại xe"
+                      label="Vehicle type"
                       value={category}
                       options={VEHICLE_CATEGORIES}
                       onSelect={(v) => {
@@ -524,15 +503,15 @@ export default function ProfileScreen() {
                     />
                     {category === 'other' ? (
                       <Input
-                        placeholder="Nhập loại xe / mô tả"
+                        placeholder="Enter vehicle type / description"
                         value={customType}
                         onChangeText={setCustomType}
                       />
                     ) : (
                       <Dropdown
-                        label="Hãng xe"
+                        label="Brand"
                         value={brand || null}
-                        placeholder="Chọn hãng xe"
+                        placeholder="Select brand"
                         options={(category === 'car' ? CAR_BRANDS : MOTO_BRANDS).map((b) => ({ value: b, label: b }))}
                         onSelect={setBrand}
                       />
@@ -568,52 +547,18 @@ export default function ProfileScreen() {
 
           {/* ── Tab: Password ─────────────────────────────────────────────── */}
           {tab === 'password' && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Change Password</Text>
-
-              <View style={styles.formFields}>
-                <Input
-                  label="Current Password"
-                  value={currentPw}
-                  onChangeText={setCurrentPw}
-                  secureTextEntry
-                  placeholder="Your current password"
-                />
-                <Input
-                  label="New Password"
-                  value={newPw}
-                  onChangeText={setNewPw}
-                  secureTextEntry
-                  placeholder="At least 6 characters"
-                />
-                <Input
-                  label="Confirm New Password"
-                  value={confirmPw}
-                  onChangeText={setConfirmPw}
-                  secureTextEntry
-                  placeholder="Repeat new password"
-                />
-
-                {pwError ? (
-                  <View style={styles.errorBox}>
-                    <Text style={styles.errorText}>{ pwError}</Text>
-                  </View>
-                ) : null}
-
-                {pwSuccess ? (
-                  <View style={styles.successBox}>
-                    <Text style={styles.successText}>{ pwSuccess}</Text>
-                  </View>
-                ) : null}
-
-                <Button
-                  label="Change Password"
-                  onPress={handleChangePassword}
-                  loading={savingPw}
-                  size="md"
-                />
-              </View>
-            </View>
+            <ProfilePasswordTab
+              currentPw={currentPw}
+              setCurrentPw={setCurrentPw}
+              newPw={newPw}
+              setNewPw={setNewPw}
+              confirmPw={confirmPw}
+              setConfirmPw={setConfirmPw}
+              pwError={pwError}
+              pwSuccess={pwSuccess}
+              savingPw={savingPw}
+              onSubmit={handleChangePassword}
+            />
           )}
 
           {/* Sign out */}
@@ -626,75 +571,14 @@ export default function ProfileScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal
-        visible={plateToRemove !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeRemoveModal}
-      >
-        <Pressable style={styles.confirmOverlay} onPress={closeRemoveModal}>
-          <View style={styles.confirmDialog}>
-            <Text style={styles.confirmTitle}>Remove Plate</Text>
-            <Text style={styles.confirmMessage}>
-              {plateToRemove
-                ? `Remove license plate "${plateToRemove.plateNumber}"?`
-                : ''}
-            </Text>
-            <View style={styles.confirmActions}>
-              <TouchableOpacity
-                style={[styles.confirmBtn, styles.confirmBtnCancel]}
-                onPress={closeRemoveModal}
-                disabled={Boolean(plateToRemove?._id && loadingPlate === plateToRemove._id)}
-              >
-                <Text style={styles.confirmBtnCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmBtn, styles.confirmBtnConfirm]}
-                onPress={() => { void handleConfirmRemove(); }}
-                disabled={Boolean(plateToRemove?._id && loadingPlate === plateToRemove._id)}
-              >
-                <Text style={styles.confirmBtnConfirmText}>
-                  {plateToRemove?._id && loadingPlate === plateToRemove._id ? 'Removing…' : 'Confirm'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* Per-plate QR code modal — staff scans this to identify the vehicle */}
-      <Modal
-        visible={plateQrToShow !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPlateQrToShow(null)}
-      >
-        <Pressable style={styles.confirmOverlay} onPress={() => setPlateQrToShow(null)}>
-          <View style={styles.qrDialog}>
-            <Text style={styles.confirmTitle}>Plate QR Code</Text>
-            <Text style={styles.qrPlateText}>{plateQrToShow?.plateNumber}</Text>
-            {plateQrToShow?.qrCode ? (
-              <View style={styles.plateQrImageWrap}>
-                <Image
-                  source={{
-                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(plateQrToShow.qrCode)}`,
-                  }}
-                  style={styles.plateQrImage}
-                />
-              </View>
-            ) : null}
-            <Text style={styles.qrHintText}>
-              Show this code to staff at the gate to identify your vehicle.
-            </Text>
-            <TouchableOpacity
-              style={[styles.confirmBtn, styles.confirmBtnCancel, { alignSelf: 'stretch' }]}
-              onPress={() => setPlateQrToShow(null)}
-            >
-              <Text style={styles.confirmBtnCancelText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+      <ProfilePlateModals
+        plateToRemove={plateToRemove}
+        loadingPlate={loadingPlate}
+        onCloseRemove={closeRemoveModal}
+        onConfirmRemove={handleConfirmRemove}
+        plateQrToShow={plateQrToShow}
+        onCloseQr={() => setPlateQrToShow(null)}
+      />
     </SafeAreaView>
   );
 }

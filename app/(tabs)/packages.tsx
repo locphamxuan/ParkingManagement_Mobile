@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -10,11 +9,11 @@ import {
   TextInput,
   Pressable,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { usePackages } from '../../hooks/usePackages';
+import { AnimatedPressable, AnimatedCard } from '../../components/ui/AnimatedCard';
 import { fmtMoney, fmtDateOnly, vtLabel, vtCode } from '../../utils/packageHelpers';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -22,62 +21,6 @@ import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/packages';
 import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../../types';
 
-function AnimatedPressable({
-  children,
-  onPress,
-  style,
-  fullWidth = true,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-  fullWidth?: boolean;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
-  };
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 150 });
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
-      <Animated.View style={[
-        { alignItems: 'center', justifyContent: 'center' },
-        fullWidth && { width: '100%' },
-        animatedStyle
-      ]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(15);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  React.useEffect(() => {
-    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
-    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
-  }, [index]);
-
-  return (
-    <Animated.View style={[style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
-}
 
 export default function PackagesScreen() {
   const {
