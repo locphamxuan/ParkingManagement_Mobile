@@ -8,10 +8,10 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 import { styles } from './BookingDateModal.styles';
 import { BookingCalendar } from './BookingCalendar';
-import { getDaysInMonth, getFirstDayOfMonth, TIME_SLOTS, fmtDisplayDate } from './BookingDateModal.utils';
+import { getDaysInMonth, getFirstDayOfMonth, TIME_SLOTS, fmtDisplayDate, policyLimits, isTimeSlotPast } from './BookingDateModal.utils';
 
 type BookingMode = 'hourly' | 'daily';
 
@@ -23,6 +23,10 @@ export interface BookingDateModalProps {
   initialEnd: Date;
   isPackage?: boolean;
   packageDuration?: number;
+  /** Số ngày tối đa được đặt trước — từ ReservationPolicy của tòa (GET /users/reservations/policy). */
+  maxAdvanceDays?: number;
+  /** Số giờ tối đa của một lượt đặt — từ ReservationPolicy của tòa. */
+  maxDurationHours?: number;
 }
 
 // Constants/helpers moved to ./BookingDateModal.utils and ./BookingCalendar
@@ -35,7 +39,13 @@ export function BookingDateModal({
   initialEnd,
   isPackage,
   packageDuration,
+  maxAdvanceDays,
+  maxDurationHours,
 }: BookingDateModalProps) {
+  // Giới hạn theo ReservationPolicy của tòa (fallback = hành vi cũ).
+  const { advanceDays, durationDays, hourChipMax, defaultDailySpan, quickDays } =
+    policyLimits(maxAdvanceDays, maxDurationHours);
+
   // Tabs & Settings State
   const [mode, setMode] = useState<BookingMode>('hourly');
 
@@ -127,7 +137,7 @@ export function BookingDateModal({
         setHourDuration(1);
       }
     } else {
-      // Switch Hourly -> Daily: keep check-in hour/minute, auto check-out (default to 7 days)
+      // Switch Hourly -> Daily: keep check-in hour/minute, auto check-out (default span theo policy)
       if (mode === 'hourly') {
         // Store current hourly state before leaving
         setLastHourlyCheckinDate(checkinDate);
@@ -140,7 +150,7 @@ export function BookingDateModal({
       start.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
 
       const end = new Date(start);
-      end.setDate(end.getDate() + 7);
+      end.setDate(end.getDate() + defaultDailySpan);
       setCheckoutDate(end);
     }
 
@@ -161,24 +171,6 @@ export function BookingDateModal({
     handleTabChange('daily');
     applyQuickDuration(days);
   };
-
-  const isTimeSlotPast = (timeStr: string): boolean => {
-    const today = new Date();
-    if (checkinDate.toDateString() === today.toDateString()) {
-      const [hStr, mStr] = timeStr.split(':');
-      const slotHour = parseInt(hStr, 10);
-      const slotMin = parseInt(mStr, 10);
-
-      const slotDate = new Date(today);
-      slotDate.setHours(slotHour, slotMin, 0, 0);
-
-      // Backend allows up to 1 hour grace buffer (slotTime must be >= now - 1 hour)
-      const allowedTime = new Date(today.getTime() - 60 * 60 * 1000);
-      return slotDate < allowedTime;
-    }
-    return false;
-  };
-
 
   // Calendar calculation
   const prevMonth = () => {
@@ -259,20 +251,22 @@ export function BookingDateModal({
         return clickedDate > resolvedMaxDate;
       }
 
+      // Ngày check-in giới hạn theo maxAdvanceDays; check-out theo maxDurationHours (tính từ check-in).
+      const maxCheckinDate = new Date(today.getTime() + advanceDays * 24 * 60 * 60 * 1000);
+
       if (mode === 'hourly') {
-        const maxCheckinDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
         return clickedDate > maxCheckinDate;
       }
 
       if (selectionTarget === 'checkin') {
-        const maxCheckinDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
         return clickedDate > maxCheckinDate;
       } else {
         if (clickedDate < checkinDate) {
-          const maxCheckinDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
           return clickedDate > maxCheckinDate;
         } else {
-          const maxCheckoutDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+          const checkinDay = new Date(checkinDate);
+          checkinDay.setHours(0, 0, 0, 0);
+          const maxCheckoutDate = new Date(checkinDay.getTime() + durationDays * 24 * 60 * 60 * 1000);
           return clickedDate > maxCheckoutDate;
         }
       }
@@ -328,7 +322,7 @@ export function BookingDateModal({
       if (!checkoutDate) {
         // Standard fallback if user only selected check-in date
         end = new Date(start);
-        end.setDate(end.getDate() + 7);
+        end.setDate(end.getDate() + defaultDailySpan);
       } else {
         end = new Date(checkoutDate);
       }
@@ -358,7 +352,7 @@ export function BookingDateModal({
       if (checkoutDate) return checkoutDate;
       // Fallback
       const end = new Date(previewStart);
-      end.setDate(end.getDate() + 7);
+      end.setDate(end.getDate() + defaultDailySpan);
       return end;
     }
   })();
@@ -429,7 +423,7 @@ export function BookingDateModal({
             {(mode === 'hourly' || isPackage) && (
               <View style={styles.modeSection}>
                 <Text style={styles.noteText}>
-                  * Check-in date is only available within 7 days from today.
+                  * Check-in date is only available within {advanceDays} days from today.
                 </Text>
                 <Text style={styles.sectionTitle}>Check in time</Text>
                 {isPackage ? (
@@ -453,7 +447,7 @@ export function BookingDateModal({
                   >
                     {TIME_SLOTS.map((time) => {
                       const isSelected = checkinTime === time;
-                      const isPastTime = isTimeSlotPast(time);
+                      const isPastTime = isTimeSlotPast(checkinDate, time);
                       return (
                         <TouchableOpacity
                           key={time}
@@ -482,7 +476,7 @@ export function BookingDateModal({
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.chipScroll}
                     >
-                      {Array.from({ length: 24 }, (_, i) => i + 1).map((h) => {
+                      {Array.from({ length: hourChipMax }, (_, i) => i + 1).map((h) => {
                         const isSelected = hourDuration === h;
                         return (
                           <TouchableOpacity
@@ -498,21 +492,22 @@ export function BookingDateModal({
                       })}
                     </ScrollView>
 
-                    <Text style={styles.sectionTitle}>Quick duration</Text>
-                    <View style={styles.quickDurationContainer}>
-                      <TouchableOpacity
-                        style={[styles.quickDurationBtn]}
-                        onPress={() => handleQuickSelectFromHourly(7)}
-                      >
-                        <Text style={styles.quickDurationBtnText}>7 days</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.quickDurationBtn]}
-                        onPress={() => handleQuickSelectFromHourly(30)}
-                      >
-                        <Text style={styles.quickDurationBtnText}>30 days</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {quickDays.length > 0 && (
+                      <>
+                        <Text style={styles.sectionTitle}>Quick duration</Text>
+                        <View style={styles.quickDurationContainer}>
+                          {quickDays.map((d) => (
+                            <TouchableOpacity
+                              key={d}
+                              style={[styles.quickDurationBtn]}
+                              onPress={() => handleQuickSelectFromHourly(d)}
+                            >
+                              <Text style={styles.quickDurationBtnText}>{d} days</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    )}
                   </>
                 )}
               </View>
@@ -522,26 +517,27 @@ export function BookingDateModal({
             {mode !== 'hourly' && !isPackage && (
               <View style={styles.modeSection}>
                 <Text style={styles.noteText}>
-                  * Check-in date is only available within 7 days from today.
+                  * Check-in date is only available within {advanceDays} days from today.
                 </Text>
                 <Text style={styles.noteText}>
-                  * If you want to park more than 30 days, please use Long-term Package subscription.
+                  * If you want to park more than {durationDays} days, please use Long-term Package subscription.
                 </Text>
-                <Text style={styles.sectionTitle}>Quick Endurances</Text>
-                <View style={styles.quickDurationContainer}>
-                  <TouchableOpacity
-                    style={[styles.quickDurationBtn]}
-                    onPress={() => applyQuickDuration(7)}
-                  >
-                    <Text style={styles.quickDurationBtnText}>7 days</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.quickDurationBtn]}
-                    onPress={() => applyQuickDuration(30)}
-                  >
-                    <Text style={styles.quickDurationBtnText}>30 days</Text>
-                  </TouchableOpacity>
-                </View>
+                {quickDays.length > 0 && (
+                  <>
+                    <Text style={styles.sectionTitle}>Quick durations</Text>
+                    <View style={styles.quickDurationContainer}>
+                      {quickDays.map((d) => (
+                        <TouchableOpacity
+                          key={d}
+                          style={[styles.quickDurationBtn]}
+                          onPress={() => applyQuickDuration(d)}
+                        >
+                          <Text style={styles.quickDurationBtnText}>{d} days</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
               </View>
             )}
 

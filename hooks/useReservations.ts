@@ -11,7 +11,9 @@ import {
   estimateFee,
   listBuildings,
   getBuildingVehicleTypes,
+  getReservationPolicy,
   type FeeEstimate,
+  type ReservationPolicyInfo,
 } from '../services/reservations';
 import type { BuildingOption, VehicleTypeOption } from '../services/reservations';
 import { ApiError } from '../services/api';
@@ -169,6 +171,21 @@ export function useReservations() {
   const [feeEstimate, setFeeEstimate] = useState<FeeEstimate | null>(null);
   const [fetchingFee, setFetchingFee] = useState(false);
 
+  // Policy đặt chỗ của tòa đang chọn (maxAdvanceDays/maxDurationHours…) — ràng buộc picker.
+  const [policy, setPolicy] = useState<ReservationPolicyInfo | null>(null);
+
+  useEffect(() => {
+    if (!wizard.buildingId || !token) {
+      setPolicy(null);
+      return;
+    }
+    let cancelled = false;
+    getReservationPolicy(token, wizard.buildingId)
+      .then((p) => { if (!cancelled) setPolicy(p); })
+      .catch(() => { if (!cancelled) setPolicy(null); });
+    return () => { cancelled = true; };
+  }, [wizard.buildingId, token]);
+
   // Cancel state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -230,11 +247,12 @@ export function useReservations() {
     setCancellingId(r._id);
     try {
       if ((r as any).isSubscription) {
-        await cancelSubscription(token, r._id);
+        // BE trả refundAmount/refundPercent snapshot theo ReservationPolicy của tòa.
+        const result = await cancelSubscription(token, r._id);
         await load();
-        const price = r.fee ?? 0;
-        const refundAmt = Math.round(price * 0.95);
-        const successMsg = `Your package subscription has been cancelled.\n\nRefunded ${fmtVND(refundAmt)} (95%) to your wallet.`;
+        const refundPct = result.refundPercent ?? 80;
+        const refundAmt = result.refundAmount ?? Math.round(((r.fee ?? 0) * refundPct) / 100);
+        const successMsg = `Your package subscription has been cancelled.\n\nRefunded ${fmtVND(refundAmt)} (${refundPct}%) to your wallet.`;
         showCustomAlert('Subscription Cancelled', successMsg, undefined, 'success');
       } else {
         const result = await cancelReservation(token, r._id);
@@ -260,7 +278,7 @@ export function useReservations() {
     }
   };
 
-  const handleCancel = (r: any) => {
+  const handleCancel = async (r: any) => {
     if ((r as any).isSubscription) {
       const now = new Date();
       const startDate = new Date(r.startTime);
@@ -273,10 +291,20 @@ export function useReservations() {
         return;
       }
 
+      // % hoàn tiền theo ReservationPolicy của tòa (không hardcode) — lỗi thì dùng default BE 80%.
+      const rawBuilding = r.rawSubscription?.building ?? r.building;
+      const buildingId = typeof rawBuilding === 'string' ? rawBuilding : rawBuilding?._id;
+      let refundPct = 80;
+      if (buildingId) {
+        try {
+          refundPct = (await getReservationPolicy(token, buildingId)).refundPercent;
+        } catch { /* giữ default */ }
+      }
+
       const price = r.fee ?? 0;
-      const refundAmt = Math.round(price * 0.95);
+      const refundAmt = Math.round((price * refundPct) / 100);
       const forfeitAmt = price - refundAmt;
-      const msg = `Cancel long-term subscription for plate "${r.plateNumber}"?\n\nYou will be refunded ${fmtVND(refundAmt)} (95% of price) to your wallet. The remaining ${fmtVND(forfeitAmt)} (5%) will be forfeited as a cancellation fee.`;
+      const msg = `Cancel long-term subscription for plate "${r.plateNumber}"?\n\nYou will be refunded ${fmtVND(refundAmt)} (${refundPct}% of price) to your wallet. The remaining ${fmtVND(forfeitAmt)} (${100 - refundPct}%) will be forfeited as a cancellation fee.`;
 
       showCustomConfirm(
         'Cancel Subscription',
@@ -670,8 +698,9 @@ export function useReservations() {
         startTime: startIso,
         endTime: endIso,
       });
+      const depositPct = feeEstimate?.depositPercent ?? policy?.depositPercent ?? 15;
       const depositTxt = result.depositAmount
-        ? `\nDeposit paid: ${fmtVND(result.depositAmount)} (15%)\nRemaining at checkout: ${fmtVND((result.estimatedFee ?? 0) - (result.depositAmount ?? 0))}`
+        ? `\nDeposit paid: ${fmtVND(result.depositAmount)} (${depositPct}%)\nRemaining at checkout: ${fmtVND((result.estimatedFee ?? 0) - (result.depositAmount ?? 0))}`
         : '';
       showCustomAlert(
         'Reservation Confirmed',
@@ -804,6 +833,7 @@ export function useReservations() {
     selectedFloor, selectedBuilding, vtCategory, eligiblePlates,
     // step 3
     startDateTime, endDateTime, applyDateTime,
+    policy,
     feeEstimate, fetchingFee, estimatedFeeInfo,
     creating, createError,
     // navigation

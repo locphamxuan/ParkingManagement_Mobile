@@ -120,6 +120,9 @@ export interface LongTermSubscription {
   slotReleased?: boolean;
   building?: { _id: string; name: string; code?: string; address?: { fullAddress?: string } } | null;
   slot?: { _id: string; code: string; floor?: { _id: string; name?: string; code?: string } | string } | null;
+  /** Snapshot % và số tiền đã hoàn lúc hủy (theo ReservationPolicy thời điểm đó) — null với gói cũ. */
+  refundPercent?: number | null;
+  refundAmount?: number | null;
 }
 
 // ─── Notifications ─────────────────────────────────────────────────────────────

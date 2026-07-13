@@ -15,6 +15,37 @@ export const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
   return `${h}:${m}`;
 });
 
+/**
+ * Chuẩn hóa giới hạn đặt chỗ theo ReservationPolicy của tòa;
+ * fallback = hành vi cũ (7 ngày đặt trước, tối đa 30 ngày = 720h).
+ */
+export function policyLimits(maxAdvanceDays?: number, maxDurationHours?: number) {
+  const advanceDays = Math.max(1, Math.round(maxAdvanceDays ?? 7));
+  const durationHours = Math.max(1, Math.round(maxDurationHours ?? 720));
+  const durationDays = Math.max(1, Math.floor(durationHours / 24));
+  return {
+    advanceDays,
+    durationDays,
+    hourChipMax: Math.min(24, durationHours),
+    defaultDailySpan: Math.min(7, durationDays),
+    quickDays: [7, 30].filter((d) => d <= durationDays),
+  };
+}
+
+/**
+ * Slot giờ đã qua (chỉ áp dụng khi check-in là hôm nay).
+ * BE cho phép trễ tối đa 1 giờ so với hiện tại.
+ */
+export function isTimeSlotPast(checkinDate: Date, timeStr: string): boolean {
+  const today = new Date();
+  if (checkinDate.toDateString() !== today.toDateString()) return false;
+  const [hStr, mStr] = timeStr.split(':');
+  const slotDate = new Date(today);
+  slotDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+  const allowedTime = new Date(today.getTime() - 60 * 60 * 1000);
+  return slotDate < allowedTime;
+}
+
 // Helper: format date for display
 export function fmtDisplayDate(date: Date): string {
   const d = String(date.getDate()).padStart(2, '0');
