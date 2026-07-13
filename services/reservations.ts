@@ -69,6 +69,33 @@ export async function getBuildingVehicleTypes(
   return res?.data?.items ?? [];
 }
 
+/** Giới hạn đặt chỗ công khai của tòa — dùng ràng buộc date/duration picker TRƯỚC khi chọn giờ. */
+export interface ReservationPolicyInfo {
+  maxAdvanceDays: number;
+  maxDurationHours: number;
+  depositPercent: number;
+  refundPercent: number;
+  cancellationCutoffHours: number;
+}
+
+export async function getReservationPolicy(
+  token: string,
+  buildingId: string,
+): Promise<ReservationPolicyInfo> {
+  const res = await apiRequest<ApiRes<ReservationPolicyInfo>>(
+    `/users/reservations/policy?buildingId=${encodeURIComponent(buildingId)}`,
+    { token },
+  );
+  // Fallback = default của BE khi tòa chưa cấu hình policy.
+  return {
+    maxAdvanceDays: res?.data?.maxAdvanceDays ?? 7,
+    maxDurationHours: res?.data?.maxDurationHours ?? 24,
+    depositPercent: res?.data?.depositPercent ?? 15,
+    refundPercent: res?.data?.refundPercent ?? 80,
+    cancellationCutoffHours: res?.data?.cancellationCutoffHours ?? 0,
+  };
+}
+
 export async function cancelReservation(token: string, id: string): Promise<{ refund: number; refundPercent?: number; amountPaid?: number }> {
   const res = await apiRequest<ApiRes<{ refund?: number; refundPercent?: number; amountPaid?: number }>>(
     `/users/reservations/${id}`,

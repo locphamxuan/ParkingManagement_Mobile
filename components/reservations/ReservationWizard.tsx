@@ -31,6 +31,7 @@ export function ReservationWizard({ vm }: { vm: ReservationsVM }) {
     selectedFloor, selectedBuilding, vtCategory,
     displaySlotCode, slots,
     startDateTime, endDateTime, applyDateTime,
+    policy,
     feeEstimate,
     creating,
     goToStep2, goToStep3, handleCreate,
@@ -170,6 +171,8 @@ export function ReservationWizard({ vm }: { vm: ReservationsVM }) {
         initialEnd={endDateTime}
         isPackage={bookingType === 'package'}
         packageDuration={activePkg?.durationDays}
+        maxAdvanceDays={policy?.maxAdvanceDays}
+        maxDurationHours={policy?.maxDurationHours}
       />
     </>
   );

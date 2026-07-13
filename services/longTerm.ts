@@ -39,13 +39,20 @@ export async function subscribe(
   return res.data.subscription;
 }
 
+/** BE trả kèm refundAmount/refundPercent (snapshot theo ReservationPolicy lúc hủy). */
+export interface CancelSubscriptionResult {
+  subscription?: LongTermSubscription;
+  refundAmount?: number;
+  refundPercent?: number;
+}
+
 export async function cancelSubscription(
   token: string,
   id: string,
   cancelReason: string = 'no_longer_needed',
   cancelNote: string = ''
-): Promise<any> {
-  const res = await apiRequest<ApiRes<any>>(
+): Promise<CancelSubscriptionResult> {
+  const res = await apiRequest<ApiRes<CancelSubscriptionResult>>(
     `/users/long-term/subscriptions/${id}/cancel`,
     {
       method: 'POST',
@@ -53,7 +60,7 @@ export async function cancelSubscription(
       token,
     },
   );
-  return res?.data;
+  return res?.data ?? {};
 }
 
 export async function renewSubscription(
