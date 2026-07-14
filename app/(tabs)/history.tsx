@@ -19,6 +19,8 @@ import { styles } from '../../styles/screens/history';
 import type { ParkingSession } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import FeedbackModal from '../../components/shared/FeedbackModal';
+import { AnimatedCard } from '../../components/ui/AnimatedCard';
+import { EmptyState } from '../../components/ui/EmptyState';
 
 function fmtDate(s?: string) {
   if (!s) return '—';
@@ -41,30 +43,6 @@ function fmtDuration(checkIn: string, checkOut?: string): string {
   return `${h}h${m > 0 ? ` ${m}m` : ''}`;
 }
 
-function AnimatedCard({
-  children,
-  index,
-  style,
-}: {
-  children: React.ReactNode;
-  index: number;
-  style?: any;
-}) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(15);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  useEffect(() => {
-    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
-    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
-  }, [index]);
-
-  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
-}
 
 export default function HistoryScreen() {
   const { session } = useAuthStore();
@@ -133,14 +111,12 @@ export default function HistoryScreen() {
         />
 
         {filteredSessions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="car-outline" size={32} color={Colors.textDim} />
-            <Text style={styles.emptyText}>
-              {sessions.length === 0
-                ? 'No parking sessions yet.'
-                : 'No sessions found in this date range.'}
-            </Text>
-          </View>
+          <EmptyState
+            icon="car-outline"
+            title={sessions.length === 0
+              ? 'No parking sessions yet.'
+              : 'No sessions found in this date range.'}
+          />
         ) : (
           filteredSessions.map((s, idx) => (
             <AnimatedCard key={s._id} index={idx} style={styles.card}>

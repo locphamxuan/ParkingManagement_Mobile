@@ -6,7 +6,6 @@ import {
   Modal,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +21,7 @@ import { submitParkingFeedback, type SubmitFeedbackPayload } from '../../service
 import { ApiError } from '../../services/api';
 import type { ParkingSession } from '../../types';
 import { styles } from './FeedbackModal.styles';
+import { CustomDialog, useCustomDialog } from '../reservations/CustomDialog';
 
 interface FeedbackModalProps {
   visible: boolean;
@@ -44,6 +44,8 @@ export default function FeedbackModal({
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  // Dialog dùng chung thay Alert.alert native.
+  const { dialog, showCustomAlert, dismissDialog } = useCustomDialog();
 
   useEffect(() => {
     if (!visible) {
@@ -93,9 +95,15 @@ export default function FeedbackModal({
       const result = await submitParkingFeedback(token, payload);
 
       if (result) {
-        Alert.alert('Thank you', 'Your feedback has been recorded. Thanks for sharing your experience!');
-        onSuccess();
-        onClose();
+        showCustomAlert(
+          'Thank you',
+          'Your feedback has been recorded. Thanks for sharing your experience!',
+          () => {
+            onSuccess();
+            onClose();
+          },
+          'success',
+        );
       }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
@@ -200,6 +208,7 @@ export default function FeedbackModal({
           )}
         </TouchableOpacity>
       </View>
+      <CustomDialog dialog={dialog} onDismiss={dismissDialog} />
     </SheetModal>
   );
 }

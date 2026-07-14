@@ -10,6 +10,7 @@ export const Colors = {
 
   // Brand / Primary (Cyan / Sky-blue matching Image 2)
   primary: '#0ea5e9',   // sky-500 (premium cyan-blue)
+  primaryDark: '#0369a1', // sky-700 (header/gradient đậm)
   primaryGlow: 'rgba(14,165,233,0.15)',
   amber: '#d97706',     // amber-600 for contrast in light theme
 

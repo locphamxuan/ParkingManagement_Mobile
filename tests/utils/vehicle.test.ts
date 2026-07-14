@@ -14,26 +14,36 @@ describe('guessVehicleCategory', () => {
   });
 });
 
-// NOTE: test đặc tả (characterization) — khóa lại HÀNH VI HIỆN TẠI của normalizePlate.
-// Với chuỗi số liền, regex `([A-Z]{1,2}\d?)` "ăn" tham lam 1 chữ số vào series
-// (vd 51F97022 → series "F9", số "7022"), nên KHÔNG tự tạo dạng 5 số NNN.NN từ
-// chuỗi số thô — chỉ nhánh có sẵn dấu chấm mới ra NNN.NN. (Khác impl bên FE.)
-describe('normalizePlate (hành vi hiện tại)', () => {
-  it('chuỗi số liền: chữ số đầu của phần số bị gộp vào series', () => {
-    expect(normalizePlate('51F97022')).toBe('51F9-7022');
-    expect(normalizePlate('29AB22658')).toBe('29AB2-2658');
-    expect(normalizePlate('99H77060')).toBe('99H7-7060');
+// Hành vi CHUẨN theo spec (OpenSpec fix-mobile-plate-normalization) — mirror
+// BE plate.util.js / FE web utils/plate.ts: chuỗi số THÔ 5 số → NNN.NN;
+// ≥6 số → 1 số đầu là series digit; series chữ+số của biển 4 số nhận qua
+// dấu phân cách tường minh (51F1-2345).
+describe('normalizePlate (chuẩn hóa đồng bộ BE/FE)', () => {
+  it('chuỗi số liền 5 số → dạng NNN.NN', () => {
+    expect(normalizePlate('51F97022')).toBe('51F-970.22');
+    expect(normalizePlate('29AB22658')).toBe('29AB-226.58');
+    expect(normalizePlate('99H77060')).toBe('99H-770.60');
   });
 
-  it('idempotent với biển đã có dấu chấm (nhánh m5dot)', () => {
+  it('chuỗi số liền ≥6 số → tách series digit + 5 số NNN.NN', () => {
+    expect(normalizePlate('51F123456')).toBe('51F1-234.56');
+  });
+
+  it('series chữ+số của biển 4 số qua dấu phân cách tường minh', () => {
+    expect(normalizePlate('51F1-2345')).toBe('51F1-2345');
+    expect(normalizePlate('99h7 7060')).toBe('99H7-7060');
+  });
+
+  it('idempotent với biển đã canonical', () => {
     expect(normalizePlate('51F-970.22')).toBe('51F-970.22');
+    expect(normalizePlate('30LD-1234')).toBe('30LD-1234');
   });
 
   it('bỏ khoảng trắng và viết hoa', () => {
-    expect(normalizePlate('  51f 970 22 ')).toBe('51F9-7022');
+    expect(normalizePlate('  51f 970 22 ')).toBe('51F-970.22');
   });
 
-  it('trả nguyên (upper, bỏ space) khi không khớp mẫu', () => {
+  it('trả nguyên (upper + trim) khi không parse được', () => {
     expect(normalizePlate('abc')).toBe('ABC');
   });
 });

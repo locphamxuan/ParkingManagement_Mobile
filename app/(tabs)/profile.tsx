@@ -30,57 +30,9 @@ import { ProfileQrCard } from '../../components/profile/ProfileQrCard';
 import type { LicensePlate } from '../../types';
 import { useUIStore } from '../../store/uiStore';
 import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
+import { AnimatedCard, AnimatedPressable } from '../../components/ui/AnimatedCard';
 
-function AnimatedPressable({
-  children,
-  onPress,
-  style,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
-  const handlePressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
-  };
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 150 });
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
-      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(15);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  useEffect(() => {
-    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
-    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
-  }, [index]);
-
-  return (
-    <Animated.View style={[style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
-}
 
 const MAX_PLATES = 3;
 

@@ -468,10 +468,10 @@ export default function PackagesScreen() {
               const statusColors = {
                 active: { bg: 'rgba(22,163,74,0.12)', text: '#16a34a', label: 'Active' },
                 pending: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Pending' },
-                expired: { bg: 'rgba(100,116,139,0.12)', text: '#64748b', label: 'Expired' },
+                expired: { bg: 'rgba(100,116,139,0.12)', text: Colors.textDim, label: 'Expired' },
                 cancelled: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Cancelled' },
               };
-              const config = statusColors[sub.status] || { bg: 'rgba(100,116,139,0.12)', text: '#64748b', label: sub.status };
+              const config = statusColors[sub.status] || { bg: 'rgba(100,116,139,0.12)', text: Colors.textDim, label: sub.status };
 
               return (
                 <AnimatedCard
