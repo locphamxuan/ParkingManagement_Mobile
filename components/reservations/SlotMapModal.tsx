@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +14,7 @@ import type { FloorWithAvailability, SlotItem } from '../../services/floors';
 import type { VehicleTypeOption } from '../../services/reservations';
 import { guessVehicleCategory } from '../../utils/vehicle';
 import { splitSlotsSymmetrically } from '../../utils/reservationFormat';
+import { CustomDialog, useCustomDialog } from './CustomDialog';
 
 interface SlotMapModalProps {
   visible: boolean;
@@ -46,6 +46,10 @@ export function SlotMapModal({
   selectedVehicleTypeId,
   onSelectSlot,
 }: SlotMapModalProps) {
+  // Dialog dùng chung thay Alert.alert native (giữ tông sky-blue của app).
+  const { dialog, showCustomAlert, dismissDialog } = useCustomDialog();
+  const showOccupiedAlert = () =>
+    showCustomAlert('Slot Occupied', 'This slot is already reserved or occupied.', undefined, 'error');
   return (
     <Modal
       visible={visible}
@@ -185,7 +189,7 @@ export function SlotMapModal({
                                   if (isSelectable) {
                                     onSelectSlot(slot);
                                   } else {
-                                    Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
+                                    showOccupiedAlert();
                                   }
                                 }}
                                 activeOpacity={0.8}
@@ -244,7 +248,7 @@ export function SlotMapModal({
                                   if (isSelectable) {
                                     onSelectSlot(slot);
                                   } else {
-                                    Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
+                                    showOccupiedAlert();
                                   }
                                 }}
                                 activeOpacity={0.8}
@@ -320,7 +324,7 @@ export function SlotMapModal({
                                       if (isSelectable) {
                                         onSelectSlot(slot);
                                       } else {
-                                        Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
+                                        showOccupiedAlert();
                                       }
                                     }}
                                     activeOpacity={0.8}
@@ -360,7 +364,7 @@ export function SlotMapModal({
                                       if (isSelectable) {
                                         onSelectSlot(slot);
                                       } else {
-                                        Alert.alert('Slot Occupied', 'This slot is already reserved or occupied.');
+                                        showOccupiedAlert();
                                       }
                                     }}
                                     activeOpacity={0.8}
@@ -408,6 +412,7 @@ export function SlotMapModal({
             </TouchableOpacity>
           </View>
         </View>
+        <CustomDialog dialog={dialog} onDismiss={dismissDialog} />
       </View>
     </Modal>
   );

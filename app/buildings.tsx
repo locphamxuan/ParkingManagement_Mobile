@@ -1,15 +1,15 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
   TextInput,
   ActivityIndicator,
   Modal,
   FlatList,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import { styles } from '../styles/screens/buildings';
 import { BuildingPlateModal } from '../components/buildings/BuildingPlateModal';
 import type { LicensePlate } from '../types';
+import { CustomDialog, useCustomDialog } from '../components/reservations/CustomDialog';
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -68,27 +69,31 @@ export default function BuildingsScreen() {
   // License plate states
   const [selectedPlate, setSelectedPlate] = useState<string>('');
   const [showPlateModal, setShowPlateModal] = useState(false);
+  // Dialog alert/confirm dùng chung (thay Alert.alert native).
+  const { dialog, showCustomAlert, dismissDialog } = useCustomDialog();
 
-  // Fetch initial building list
-  useEffect(() => {
-    let active = true;
-    const fetchBuildings = async () => {
-      if (!token) return;
-      try {
-        setIsLoading(true);
-        const data = await listBuildings(token);
-        if (active) setBuildings(data);
-      } catch (err) {
-        console.error('Failed to list buildings:', err);
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    };
-    fetchBuildings();
-    return () => {
-      active = false;
-    };
+  // Fetch building list — dùng lại cho pull-to-refresh.
+  const fetchBuildings = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await listBuildings(token);
+      setBuildings(data);
+    } catch (err) {
+      console.error('Failed to list buildings:', err);
+    }
   }, [token]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchBuildings().finally(() => setIsLoading(false));
+  }, [fetchBuildings]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchBuildings();
+    setRefreshing(false);
+  }, [fetchBuildings]);
 
   // Filter building list locally
   const filteredBuildings = useMemo(() => {
@@ -186,7 +191,7 @@ export default function BuildingsScreen() {
       setFloorSlots((prev) => ({ ...prev, [floorId]: slotsData }));
     } catch (err) {
       console.error('Failed to get slots for floor:', floorId, err);
-      Alert.alert('Error', 'Failed to load parking slot layout.');
+      showCustomAlert('Error', 'Failed to load parking slot layout.', undefined, 'error');
     } finally {
       setSlotsLoading((prev) => ({ ...prev, [floorId]: false }));
     }
@@ -267,6 +272,7 @@ export default function BuildingsScreen() {
             </View>
           ) : (
             <FlatList
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
               data={filteredBuildings}
               keyExtractor={(item) => item._id}
               contentContainerStyle={styles.listContent}
@@ -562,6 +568,7 @@ export default function BuildingsScreen() {
         selectedPlate={selectedPlate}
         onSelect={(pn) => { setSelectedPlate(pn); setShowPlateModal(false); }}
       />
+      <CustomDialog dialog={dialog} onDismiss={dismissDialog} />
     </SafeAreaView>
   );
 }

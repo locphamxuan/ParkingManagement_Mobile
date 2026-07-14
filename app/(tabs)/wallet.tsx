@@ -34,29 +34,10 @@ import { WalletDialog } from '../../components/wallet/WalletDialog';
 import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { useUIStore } from '../../store/uiStore';
+import { AnimatedCard } from '../../components/ui/AnimatedCard';
 
 
 
-function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(15);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  useEffect(() => {
-    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
-    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
-  }, [index]);
-
-  return (
-    <Animated.View style={[style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
-}
 
 
 const MIN_TOPUP = 2_000;

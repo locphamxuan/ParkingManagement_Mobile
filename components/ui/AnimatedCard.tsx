@@ -11,11 +11,14 @@ export function AnimatedPressable({
   children,
   onPress,
   style,
+  contentStyle,
   fullWidth = true,
 }: {
   children: React.ReactNode;
   onPress: () => void;
   style?: any;
+  /** Style áp lên Animated.View bên trong (bản local cũ ở Home có prop này). */
+  contentStyle?: any;
   fullWidth?: boolean;
 }) {
   const scale = useSharedValue(1);
@@ -35,6 +38,7 @@ export function AnimatedPressable({
       <Animated.View style={[
         { alignItems: 'center', justifyContent: 'center' },
         fullWidth && { width: '100%' },
+        contentStyle,
         animatedStyle
       ]}>
         {children}

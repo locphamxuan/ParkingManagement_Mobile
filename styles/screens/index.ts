@@ -191,7 +191,7 @@ export const styles = StyleSheet.create({
   emptyNotifContainer: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyNotifText: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '600' },
   notifItem: { flexDirection: 'row', gap: Spacing.md, backgroundColor: 'rgba(0,0,0,0.01)', borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'flex-start' },
-  notifItemUnread: { backgroundColor: 'rgba(14,165,233,0.04)', borderColor: 'rgba(14,165,233,0.15)' },
+  notifItemUnread: { backgroundColor: 'rgba(14,165,233,0.04)', borderColor: Colors.primaryGlow },
   notifIconContainer: { width: 36, height: 36, borderRadius: Radius.md, backgroundColor: 'rgba(0,0,0,0.02)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', justifyContent: 'center', alignItems: 'center' },
   notifTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted, flex: 1, marginRight: Spacing.sm },
   notifTitleUnread: { color: Colors.text, fontWeight: '800' },

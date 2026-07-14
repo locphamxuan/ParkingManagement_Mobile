@@ -1,3 +1,5 @@
+// AnimatedPressable/AnimatedCard: dùng bản canonical ở components/ui/AnimatedCard (bỏ bản trùng lặp).
+export { AnimatedPressable, AnimatedCard } from '../ui/AnimatedCard';
 import React, { useEffect } from 'react';
 import { Pressable } from 'react-native';
 import Animated, {
@@ -48,48 +50,5 @@ export function GlitterParticle({ color, size }: { color: string; size: number }
 }
 
 // Nút nhấn có hiệu ứng thu nhỏ khi bấm.
-export function AnimatedPressable({
-  children,
-  onPress,
-  style,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => { scale.value = withTiming(0.96, { duration: 100 }); }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 150 }); }}
-      style={style}
-    >
-      <Animated.View style={[{ width: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
 
 // Thẻ xuất hiện dần theo thứ tự (stagger).
-export function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(15);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  useEffect(() => {
-    opacity.value = withDelay(index * 60, withTiming(1, { duration: 400 }));
-    translateY.value = withDelay(index * 60, withTiming(0, { duration: 400 }));
-  }, [index]);
-
-  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
-}

@@ -14,6 +14,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ErrorBanner } from '../../components/ui/ErrorBanner';
+import { Colors } from '../../constants/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -61,10 +62,10 @@ export default function RegisterScreen() {
           <View style={{ paddingHorizontal: 24, paddingTop: 30, paddingBottom: 20, gap: 20 }}>
             {/* Back button */}
             <TouchableOpacity onPress={() => router.back()} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
-              <Text style={{ color: '#0ea5e9', fontSize: 14, fontWeight: '700' }}>← Back</Text>
+              <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '700' }}>← Back</Text>
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 26, fontWeight: '900', color: '#0f172a', textAlign: 'center', marginBottom: 4 }}>Register</Text>
+            <Text style={{ fontSize: 26, fontWeight: '900', color: Colors.text, textAlign: 'center', marginBottom: 4 }}>Register</Text>
 
             <View style={{ gap: 14 }}>
               <Input
@@ -117,22 +118,22 @@ export default function RegisterScreen() {
             />
 
             <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 12 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }} />
+              <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
               <Text style={{ marginHorizontal: 12, fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>or register with social platforms</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }} />
+              <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
                 <Ionicons name="logo-google" size={20} color="#ea4335" />
               </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
                 <Ionicons name="logo-facebook" size={20} color="#1877f2" />
               </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
                 <Ionicons name="logo-github" size={20} color="#24292e" />
               </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
                 <Ionicons name="logo-linkedin" size={20} color="#0a66c2" />
               </TouchableOpacity>
             </View>
@@ -140,7 +141,7 @@ export default function RegisterScreen() {
 
           {/* Bottom Curved Card */}
           <View style={{
-            backgroundColor: '#0369a1', // Sky-700 deep royal cyan-blue
+            backgroundColor: Colors.primaryDark, // Sky-700 deep royal cyan-blue
             borderTopLeftRadius: 80,
             borderTopRightRadius: 80,
             paddingTop: 40,
@@ -148,7 +149,7 @@ export default function RegisterScreen() {
             paddingHorizontal: 24,
             alignItems: 'center',
             marginTop: 'auto',
-            shadowColor: '#0369a1',
+            shadowColor: Colors.primaryDark,
             shadowOffset: { width: 0, height: -6 },
             shadowOpacity: 0.25,
             shadowRadius: 10,

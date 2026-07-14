@@ -24,47 +24,10 @@ import NotificationBellStream from '../../components/shared/NotificationBellStre
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notification } from '../../types';
 import { useHomeScreen } from '../../hooks/useHomeScreen';
 import { HomeNotificationsModal } from '../../components/home/HomeNotificationsModal';
+import { AnimatedPressable } from '../../components/ui/AnimatedCard';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-function AnimatedPressable({
-  children,
-  onPress,
-  style,
-  contentStyle,
-  fullWidth = true,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-  contentStyle?: any;
-  fullWidth?: boolean;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
-  };
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 150 });
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
-      <Animated.View style={[
-        { alignItems: 'center', justifyContent: 'center' },
-        fullWidth && { width: '100%' },
-        contentStyle,
-        animatedStyle
-      ]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
 
 function QuickLink({
   icon,
@@ -98,8 +61,8 @@ export default function HomeScreen() {
   } = useHomeScreen();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0369a1' }} edges={['top']}>
-      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.primaryDark }} edges={['top']}>
+      <View style={{ flex: 1, backgroundColor: Colors.bg }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
@@ -113,14 +76,14 @@ export default function HomeScreen() {
         >
           {/* Top Curved Block */}
           <View style={{
-            backgroundColor: '#0369a1', // Sky-700 deep royal cyan-blue
+            backgroundColor: Colors.primaryDark, // Sky-700 deep royal cyan-blue
             borderBottomLeftRadius: 40,
             borderBottomRightRadius: 40,
             paddingHorizontal: 20,
             paddingTop: 16,
             paddingBottom: 32,
             gap: 20,
-            shadowColor: '#0369a1',
+            shadowColor: Colors.primaryDark,
             shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.15,
             shadowRadius: 12,
