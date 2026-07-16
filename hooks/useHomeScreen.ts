@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { getWallet } from '../services/wallet';
 import { listReservations } from '../services/reservations';
 import { listParkingHistory } from '../services/history';
-import { listPackages } from '../services/longTerm';
+import { listPackages, listSubscriptions } from '../services/longTerm';
 import { listNotifications, markNotificationRead } from '../services/notifications';
 import { useUIStore } from '../store/uiStore';
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notification } from '../types';
@@ -128,16 +128,16 @@ export function useHomeScreen() {
   const load = async () => {
     if (!session?.token) return;
     try {
-      const [w, rs, h, pkgs, notifs] = await Promise.allSettled([
+      const [w, subsRes, h, pkgs, notifs] = await Promise.allSettled([
         getWallet(session.token),
-        listReservations(session.token),
+        listSubscriptions(session.token),
         listParkingHistory(session.token),
         listPackages(session.token),
         listNotifications(session.token),
       ]);
       if (w.status === 'fulfilled') setWallet(w.value);
-      if (rs.status === 'fulfilled') {
-        setActiveReservations(rs.value.filter((r: Reservation) => r.status === 'confirmed').length);
+      if (subsRes.status === 'fulfilled') {
+        setActiveReservations(subsRes.value.filter((s: any) => s.status === 'active').length);
       }
       if (h.status === 'fulfilled') {
         const active = h.value.find((s: ParkingSession) => s.status === 'active');

@@ -207,7 +207,7 @@ export default function HomeScreen() {
                 }}>
                   <Ionicons name="calendar" size={12} color="#ffffff" />
                   <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
-                    {activeReservations} active reservation{activeReservations !== 1 ? 's' : ''}
+                    {activeReservations} active package{activeReservations !== 1 ? 's' : ''}
                   </Text>
                 </View>
               )}
@@ -293,11 +293,11 @@ export default function HomeScreen() {
               <Text style={styles.sectionTitle}>Quick Actions</Text>
               <View style={styles.quickRow}>
                 <QuickLink
-                  icon="calendar-outline"
-                  label="Reserve"
-                  onPress={() => router.push('/(tabs)/reservations')}
-                  color="#f97316" // Orange/Coral
-                  bgColor="rgba(249,115,22,0.12)"
+                  icon="alert-circle-outline"
+                  label="Incidents"
+                  onPress={() => router.push('/incidents')}
+                  color="#ef4444"
+                  bgColor="rgba(239,68,68,0.12)"
                 />
                 <QuickLink
                   icon="business-outline"

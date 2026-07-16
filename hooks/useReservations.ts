@@ -222,11 +222,8 @@ export function useReservations() {
     if (!token) return;
     setLoadError(null);
     try {
-      const [resData, subData] = await Promise.all([
-        listReservations(token),
-        listSubscriptions(token).catch(() => []),
-      ]);
-      setReservations(resData);
+      const subData = await listSubscriptions(token).catch(() => []);
+      setReservations([]);
       setSubscriptions(subData);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load reservations');
