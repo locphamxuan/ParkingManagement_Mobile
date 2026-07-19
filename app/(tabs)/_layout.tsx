@@ -31,10 +31,10 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'home', 'home-outline', color) }} />
-      <Tabs.Screen name="reservations" options={{ title: 'Reserve', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'calendar', 'calendar-outline', color) }} />
+      <Tabs.Screen name="reservations" options={{ href: null, title: 'Reserve', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'calendar', 'calendar-outline', color) }} />
+      <Tabs.Screen name="packages" options={{ title: 'Packages', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'cube', 'cube-outline', color) }} />
       <Tabs.Screen name="history" options={{ title: 'History', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'time', 'time-outline', color) }} />
       <Tabs.Screen name="wallet" options={{ title: 'Wallet', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'wallet', 'wallet-outline', color) }} />
-      <Tabs.Screen name="packages" options={{ title: 'Packages', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'cube', 'cube-outline', color) }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ focused, color }) => tabIcon(focused, 'person', 'person-outline', color) }} />
     </Tabs>
   );

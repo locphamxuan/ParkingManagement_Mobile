@@ -24,12 +24,15 @@ export async function listBuildings(token: string): Promise<BuildingOption[]> {
 }
 
 export async function listReservations(token: string): Promise<Reservation[]> {
-  const res = await apiRequest<ApiRes<{ items?: Reservation[]; reservations?: Reservation[] }>>(
-    '/users/reservations',
-    { token },
-  );
-  // Backend returns data.items; fallback to data.reservations for compatibility
-  return res?.data?.items ?? res?.data?.reservations ?? [];
+  try {
+    const res = await apiRequest<ApiRes<{ items?: Reservation[]; reservations?: Reservation[] }>>(
+      '/users/reservations',
+      { token },
+    );
+    return res?.data?.items ?? res?.data?.reservations ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export interface CreateReservationResult {
@@ -82,18 +85,27 @@ export async function getReservationPolicy(
   token: string,
   buildingId: string,
 ): Promise<ReservationPolicyInfo> {
-  const res = await apiRequest<ApiRes<ReservationPolicyInfo>>(
-    `/users/reservations/policy?buildingId=${encodeURIComponent(buildingId)}`,
-    { token },
-  );
-  // Fallback = default của BE khi tòa chưa cấu hình policy.
-  return {
-    maxAdvanceDays: res?.data?.maxAdvanceDays ?? 7,
-    maxDurationHours: res?.data?.maxDurationHours ?? 24,
-    depositPercent: res?.data?.depositPercent ?? 15,
-    refundPercent: res?.data?.refundPercent ?? 80,
-    cancellationCutoffHours: res?.data?.cancellationCutoffHours ?? 0,
-  };
+  try {
+    const res = await apiRequest<ApiRes<ReservationPolicyInfo>>(
+      `/users/reservations/policy?buildingId=${encodeURIComponent(buildingId)}`,
+      { token },
+    );
+    return {
+      maxAdvanceDays: res?.data?.maxAdvanceDays ?? 7,
+      maxDurationHours: res?.data?.maxDurationHours ?? 24,
+      depositPercent: res?.data?.depositPercent ?? 15,
+      refundPercent: res?.data?.refundPercent ?? 80,
+      cancellationCutoffHours: res?.data?.cancellationCutoffHours ?? 0,
+    };
+  } catch {
+    return {
+      maxAdvanceDays: 7,
+      maxDurationHours: 24,
+      depositPercent: 15,
+      refundPercent: 80,
+      cancellationCutoffHours: 0,
+    };
+  }
 }
 
 export async function cancelReservation(token: string, id: string): Promise<{ refund: number; refundPercent?: number; amountPaid?: number }> {

@@ -31,6 +31,23 @@ interface SlotMapModalProps {
   onSelectSlot: (slot: SlotItem) => void;
 }
 
+function getSlotCategory(slot: SlotItem): 'car' | 'motorcycle' {
+  const vtStr = (slot.vehicleType?.code || (typeof slot.vehicleType === 'string' ? slot.vehicleType : '')).toLowerCase();
+  if (vtStr.includes('moto') || vtStr.includes('xe máy')) return 'motorcycle';
+  if (vtStr.includes('car') || vtStr.includes('ô tô')) return 'car';
+  
+  const slotCode = slot.code.toUpperCase();
+  if (slotCode.includes('MOTO') || slotCode.includes('SMW') || slotCode.includes('SMR') || slotCode.startsWith('M')) {
+    return 'motorcycle';
+  }
+  return 'car';
+}
+
+function getSlotSymbol(slot: SlotItem): string {
+  const cat = getSlotCategory(slot);
+  return cat === 'car' ? '🚗' : '🏍️';
+}
+
 // Modal bản đồ bãi đỗ 2D/3D để chọn slot — tách từ reservations.tsx.
 export function SlotMapModal({
   visible,
@@ -48,8 +65,24 @@ export function SlotMapModal({
 }: SlotMapModalProps) {
   // Dialog dùng chung thay Alert.alert native (giữ tông sky-blue của app).
   const { dialog, showCustomAlert, dismissDialog } = useCustomDialog();
-  const showOccupiedAlert = () =>
-    showCustomAlert('Slot Occupied', 'This slot is already reserved or occupied.', undefined, 'error');
+
+  const handleSlotClick = (slot: SlotItem, isSelectable: boolean, isCompatible: boolean) => {
+    if (isSelectable) {
+      onSelectSlot(slot);
+      return;
+    }
+    if (!isCompatible) {
+      const slotCat = getSlotCategory(slot);
+      showCustomAlert(
+        'Incompatible Vehicle Type',
+        `Slot ${slot.code} is designated for ${slotCat === 'car' ? 'Cars 🚗' : 'Motorcycles 🏍️'}. You cannot assign a ${vtCategory === 'motorcycle' ? 'Motorcycle 🏍️' : 'Car 🚗'} package to a ${slotCat === 'car' ? 'Car 🚗' : 'Motorcycle 🏍️'} slot.`,
+        undefined,
+        'warning'
+      );
+    } else {
+      showCustomAlert('Slot Occupied', `Slot ${slot.code} is currently occupied or assigned to another customer.`, undefined, 'error');
+    }
+  };
   return (
     <Modal
       visible={visible}
@@ -169,9 +202,9 @@ export function SlotMapModal({
                         </View>
                         <View style={styles.parkingLane2D}>
                           {topRowSlots.map((slot) => {
-                            const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                            const slotCat = getSlotCategory(slot);
                             const isCompatible = !vtCategory || (
-                              vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                              vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                             );
                             const isAvailable = slot.status === 'available' && isCompatible;
                             const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
@@ -185,13 +218,7 @@ export function SlotMapModal({
                                   isSelected && styles.slotCell2DSelected,
                                   !isSelectable && styles.slotCell2DDisabled,
                                 ]}
-                                onPress={() => {
-                                  if (isSelectable) {
-                                    onSelectSlot(slot);
-                                  } else {
-                                    showOccupiedAlert();
-                                  }
-                                }}
+                                onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
                                 activeOpacity={0.8}
                               >
                                 {isSelectable ? (
@@ -228,9 +255,9 @@ export function SlotMapModal({
                         </View>
                         <View style={styles.parkingLane2D}>
                           {bottomRowSlots.map((slot) => {
-                            const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                            const slotCat = getSlotCategory(slot);
                             const isCompatible = !vtCategory || (
-                              vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                              vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                             );
                             const isAvailable = slot.status === 'available' && isCompatible;
                             const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
@@ -244,13 +271,7 @@ export function SlotMapModal({
                                   isSelected && styles.slotCell2DSelected,
                                   !isSelectable && styles.slotCell2DDisabled,
                                 ]}
-                                onPress={() => {
-                                  if (isSelectable) {
-                                    onSelectSlot(slot);
-                                  } else {
-                                    showOccupiedAlert();
-                                  }
-                                }}
+                                onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
                                 activeOpacity={0.8}
                               >
                                 {isSelectable ? (

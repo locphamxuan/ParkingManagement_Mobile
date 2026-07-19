@@ -1,3 +1,4 @@
+import { Redirect } from 'expo-router';
 import {
   View,
   Text,
@@ -17,8 +18,8 @@ import { ReservationCard } from '../../components/reservations/ReservationCard';
 import { ReservationWizard } from '../../components/reservations/ReservationWizard';
 import { useReservations } from '../../hooks/useReservations';
 
-// Logic tách sang hooks/useReservations; wizard + card + dialog tách sang components/reservations/*.
 export default function ReservationsScreen() {
+  return <Redirect href="/(tabs)/packages" />;
   const vm = useReservations();
   const {
     refreshing, onRefresh, loadError, filter, setFilter,

@@ -13,6 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { usePackages } from '../../hooks/usePackages';
+import { subscribe } from '../../services/longTerm';
+import { SlotMapModal } from '../../components/reservations/SlotMapModal';
+import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../../services/floors';
 import { AnimatedPressable, AnimatedCard } from '../../components/ui/AnimatedCard';
 import { fmtMoney, fmtDateOnly, vtLabel, vtCode } from '../../utils/packageHelpers';
 import { Button } from '../../components/ui/Button';
@@ -32,6 +35,70 @@ export default function PackagesScreen() {
     expandedFilter, setExpandedFilter, load,
     filteredPackages, groups, filteredSubscriptions,
   } = usePackages();
+
+  const [selectedPkg, setSelectedPkg] = React.useState<LongTermPackage | null>(null);
+  const [selectedPlate, setSelectedPlate] = React.useState<string>('');
+  const [selectedSlot, setSelectedSlot] = React.useState<SlotItem | null>(null);
+  const [showMapModal, setShowMapModal] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<'2D' | '3D'>('2D');
+  const [floors, setFloors] = React.useState<FloorWithAvailability[]>([]);
+  const [selectedFloorId, setSelectedFloorId] = React.useState<string>('');
+  const [slots, setSlots] = React.useState<SlotItem[]>([]);
+  const [fetchingSlots, setFetchingSlots] = React.useState(false);
+  const [purchasing, setPurchasing] = React.useState(false);
+  const [purchaseErr, setPurchaseErr] = React.useState<string | null>(null);
+  const [purchaseSuccessMsg, setPurchaseSuccessMsg] = React.useState<string | null>(null);
+
+  const handleOpenSubscribe = async (pkg: LongTermPackage) => {
+    setSelectedPkg(pkg);
+    setSelectedSlot(null);
+    setPurchaseErr(null);
+    setPurchaseSuccessMsg(null);
+    const code = vtCode(pkg.vehicleType);
+    const isCar = code.toLowerCase().includes('car') || (typeof pkg.vehicleType === 'string' && pkg.vehicleType.toLowerCase().includes('car'));
+    const matched = plates.filter(p => isCar ? (p.vehicleType === 'car' || p.vehicleType?.toLowerCase().includes('car')) : (p.vehicleType === 'motorcycle' || p.vehicleType?.toLowerCase().includes('moto')));
+    setSelectedPlate(matched[0]?.plateNumber || '');
+
+    const bldId = pkg.building?._id || '';
+    if (bldId && token) {
+      try {
+        const flList = await getBuildingFloors(token, bldId);
+        setFloors(flList);
+        if (flList.length > 0) {
+          setSelectedFloorId(flList[0]._id);
+          const slList = await getFloorSlots(token, bldId, flList[0]._id);
+          setSlots(slList);
+        }
+      } catch {}
+    }
+  };
+
+  const handleConfirmSubscribe = async () => {
+    if (!selectedPkg || !selectedPlate) return;
+    setPurchasing(true);
+    setPurchaseErr(null);
+    try {
+      await subscribe(
+        token,
+        selectedPkg._id,
+        selectedPlate,
+        selectedPkg.building?._id || '',
+        selectedSlot?._id || undefined,
+      );
+      setPurchaseSuccessMsg('Successfully subscribed & locked your dedicated slot!');
+      setTimeout(() => {
+        setSelectedPkg(null);
+        setSelectedSlot(null);
+        setPurchaseSuccessMsg(null);
+        setActiveTab('my');
+        load(true);
+      }, 1200);
+    } catch (err) {
+      setPurchaseErr(err instanceof Error ? err.message : 'Subscription failed. Please check your wallet balance.');
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -401,21 +468,11 @@ export default function PackagesScreen() {
                           <AnimatedPressable
                             style={[styles.pkgActionBtn, { backgroundColor: themeColor }]}
                             fullWidth={false}
-                            onPress={() => {
-                              const code = vtCode(pkg.vehicleType);
-                              router.push({
-                                pathname: '/(tabs)/reservations',
-                                params: {
-                                  buildingId: pkg.building?._id || '',
-                                  packageId: pkg._id,
-                                  vehicleType: code || 'car',
-                                },
-                              });
-                            }}
+                            onPress={() => handleOpenSubscribe(pkg)}
                           >
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Ionicons name="eye-outline" size={14} color="#ffffff" />
-                              <Text style={styles.pkgActionBtnText}>View Now</Text>
+                              <Ionicons name="card-outline" size={14} color="#ffffff" />
+                              <Text style={styles.pkgActionBtnText}>Subscribe Now</Text>
                             </View>
                           </AnimatedPressable>
                         </View>
@@ -542,6 +599,202 @@ export default function PackagesScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* Subscribe Package Purchase Modal */}
+      {selectedPkg && (() => {
+        const code = vtCode(selectedPkg.vehicleType);
+        const isCar = code.toLowerCase().includes('car') || (typeof selectedPkg.vehicleType === 'string' && selectedPkg.vehicleType.toLowerCase().includes('car'));
+        const matchedPlates = plates.filter(p => isCar ? (p.vehicleType === 'car' || p.vehicleType?.toLowerCase().includes('car')) : (p.vehicleType === 'motorcycle' || p.vehicleType?.toLowerCase().includes('moto')));
+
+        return (
+          <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedPkg(null)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContext: 'flex-end', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 16, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 1.2 }}>Confirm Package Subscription</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: '#0f172a', marginTop: 2 }}>{selectedPkg.name}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setSelectedPkg(null)}>
+                    <Ionicons name="close-circle" size={26} color={Colors.textDim} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Package Details */}
+                <View style={{ backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>Building</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{selectedPkg.building?.name || 'Building'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>Vehicle Type</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isCar ? Colors.blue : Colors.success }}>{isCar ? 'Car 🚗' : 'Motorcycle 🏍️'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>Duration</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{selectedPkg.durationDays} Days</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderColor: '#cbd5e1', paddingTop: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#334155' }}>Total Price</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '900', color: Colors.primary }}>{fmtMoney(selectedPkg.price)}</Text>
+                  </View>
+                </View>
+
+                {/* Vehicle License Plate Selection */}
+                <View style={{ gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>
+                    Select {isCar ? 'Car 🚗' : 'Motorcycle 🏍️'} License Plate:
+                  </Text>
+                  {matchedPlates.length > 0 ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {matchedPlates.map((p) => {
+                        const isSel = selectedPlate === p.plateNumber;
+                        return (
+                          <TouchableOpacity
+                            key={p.plateNumber}
+                            onPress={() => setSelectedPlate(p.plateNumber)}
+                            style={{
+                              paddingHorizontal: 14,
+                              paddingVertical: 10,
+                              borderRadius: 12,
+                              borderWidth: 1.5,
+                              borderColor: isSel ? Colors.primary : '#cbd5e1',
+                              backgroundColor: isSel ? 'rgba(14,165,233,0.1)' : '#ffffff',
+                            }}
+                          >
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: isSel ? Colors.primary : '#334155' }}>
+                              {isCar ? '🚗' : '🏍️'} {p.plateNumber}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <View style={{ backgroundColor: '#fef2f2', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#fca5a5' }}>
+                      <Text style={{ fontSize: 12, color: '#991b1b', fontWeight: '600' }}>
+                        ⚠️ You don't have any registered {isCar ? 'Car' : 'Motorcycle'} license plates in your account. Please add a vehicle plate in Profile first.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Dedicated Slot Selection (Choose specific spot on 2D/3D map) */}
+                <View style={{ gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>
+                    Dedicated Reserved Slot:
+                  </Text>
+                  {selectedSlot ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0fdf4', borderRadius: 14, padding: 12, borderWidth: 1.5, borderColor: '#86efac' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="checkmark-circle" size={20} color="#166534" />
+                        <View>
+                          <Text style={{ fontSize: 13, fontWeight: '900', color: '#166534' }}>
+                            Slot {selectedSlot.code}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: '#15803d', fontWeight: '600' }}>
+                            Reserved Exclusively for {selectedPlate || 'your vehicle'}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setShowMapModal(true)}
+                        style={{ backgroundColor: '#166534', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffffff' }}>Change Spot</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setShowMapModal(true)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justify: 'center',
+                        gap: 8,
+                        backgroundColor: '#f8fafc',
+                        borderWidth: 1.5,
+                        borderColor: Colors.primary,
+                        borderStyle: 'dashed',
+                        borderRadius: 14,
+                        paddingVertical: 12,
+                      }}
+                    >
+                      <Ionicons name="map-outline" size={18} color={Colors.primary} />
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.primary }}>
+                        📍 Click to Pick Specific Slot on 2D/3D Map
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Interactive Map Picker Modal */}
+                {showMapModal && (
+                  <SlotMapModal
+                    visible={showMapModal}
+                    onClose={() => setShowMapModal(false)}
+                    slots={slots}
+                    fetchingSlots={fetchingSlots}
+                    viewMode={viewMode}
+                    setViewMode={setViewMode}
+                    selectedFloor={{
+                      _id: selectedFloorId,
+                      name: floors.find(f => f._id === selectedFloorId)?.name || 'Floor',
+                      code: floors.find(f => f._id === selectedFloorId)?.code || 'FL',
+                    }}
+                    selectedSlotId={selectedSlot?._id || ''}
+                    vtCategory={isCar ? 'car' : 'motorcycle'}
+                    vehicleTypes={[]}
+                    selectedVehicleTypeId=""
+                    onSelectSlot={(slot) => {
+                      setSelectedSlot(slot);
+                      setShowMapModal(false);
+                    }}
+                  />
+                )}
+
+                {/* Status / Error messages */}
+                {purchaseErr && (
+                  <View style={{ backgroundColor: '#fef2f2', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#fca5a5' }}>
+                    <Text style={{ fontSize: 12, color: '#991b1b', fontWeight: '700' }}>{purchaseErr}</Text>
+                  </View>
+                )}
+
+                {purchaseSuccessMsg && (
+                  <View style={{ backgroundColor: '#f0fdf4', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#86efac' }}>
+                    <Text style={{ fontSize: 12, color: '#166534', fontWeight: '800' }}>✓ {purchaseSuccessMsg}</Text>
+                  </View>
+                )}
+
+                {/* Action buttons */}
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedPkg(null)}
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center' }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirmSubscribe}
+                    disabled={purchasing || !selectedPlate || matchedPlates.length === 0}
+                    style={{
+                      flex: 2,
+                      paddingVertical: 12,
+                      borderRadius: 14,
+                      backgroundColor: Colors.primary,
+                      alignItems: 'center',
+                      opacity: purchasing || !selectedPlate || matchedPlates.length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>
+                      {purchasing ? 'Processing...' : 'Confirm Subscription'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
     </SafeAreaView>
   );
 }
