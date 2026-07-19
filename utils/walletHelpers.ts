@@ -1,4 +1,4 @@
-import type { WalletTransaction } from '../../types';
+import type { WalletTransaction } from '../types';
 
 export function fmtMoney(n: number) {
   return `${n.toLocaleString('en-US')} VND`;

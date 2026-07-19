@@ -29,7 +29,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/wallet';
-import { fmtMoney, fmtDate, txVariant, txSign, txLabel } from './wallet.utils';
+import { fmtMoney, fmtDate, txVariant, txSign, txLabel } from '../../utils/walletHelpers';
 import { WalletDialog } from '../../components/wallet/WalletDialog';
 import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
