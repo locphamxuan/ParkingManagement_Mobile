@@ -77,7 +77,7 @@ export function SlotMapModal({
         'Incompatible Vehicle Type',
         `Slot ${slot.code} is designated for ${slotCat === 'car' ? 'Cars 🚗' : 'Motorcycles 🏍️'}. You cannot assign a ${vtCategory === 'motorcycle' ? 'Motorcycle 🏍️' : 'Car 🚗'} package to a ${slotCat === 'car' ? 'Car 🚗' : 'Motorcycle 🏍️'} slot.`,
         undefined,
-        'warning'
+        'alert'
       );
     } else {
       showCustomAlert('Slot Occupied', `Slot ${slot.code} is currently occupied or assigned to another customer.`, undefined, 'error');
@@ -329,9 +329,9 @@ export function SlotMapModal({
                             {/* Left Parking Lane (Bottom Row) */}
                             <View style={styles.parkingLane3D}>
                               {bottomRowSlots.map((slot) => {
-                                const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                                const slotCat = getSlotCategory(slot);
                                 const isCompatible = !vtCategory || (
-                                  vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                                  vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                                 );
                                 const isAvailable = slot.status === 'available' && isCompatible;
                                 const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
@@ -341,13 +341,7 @@ export function SlotMapModal({
                                   <TouchableOpacity
                                     key={slot._id}
                                     style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                    onPress={() => {
-                                      if (isSelectable) {
-                                        onSelectSlot(slot);
-                                      } else {
-                                        showOccupiedAlert();
-                                      }
-                                    }}
+                                    onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
                                     activeOpacity={0.8}
                                   >
                                     <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isSelectable && styles.faceTopDisabled3D]}>
@@ -369,9 +363,9 @@ export function SlotMapModal({
                             {/* Right Parking Lane (Top Row) */}
                             <View style={styles.parkingLane3D}>
                               {topRowSlots.map((slot) => {
-                                const slotVtCode = slot.vehicleType?.code?.toLowerCase() || (slot.code.toUpperCase().startsWith('M') ? 'motorcycle' : 'car');
+                                const slotCat = getSlotCategory(slot);
                                 const isCompatible = !vtCategory || (
-                                  vtCategory === 'car' ? slotVtCode === 'car' : slotVtCode === 'motorcycle'
+                                  vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                                 );
                                 const isAvailable = slot.status === 'available' && isCompatible;
                                 const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
@@ -381,13 +375,7 @@ export function SlotMapModal({
                                   <TouchableOpacity
                                     key={slot._id}
                                     style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                    onPress={() => {
-                                      if (isSelectable) {
-                                        onSelectSlot(slot);
-                                      } else {
-                                        showOccupiedAlert();
-                                      }
-                                    }}
+                                    onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
                                     activeOpacity={0.8}
                                   >
                                     <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isSelectable && styles.faceTopDisabled3D]}>

@@ -54,7 +54,7 @@ export default function PackagesScreen() {
     setSelectedSlot(null);
     setPurchaseErr(null);
     setPurchaseSuccessMsg(null);
-    const code = vtCode(pkg.vehicleType);
+    const code = vtCode(pkg.vehicleType) || '';
     const isCar = code.toLowerCase().includes('car') || (typeof pkg.vehicleType === 'string' && pkg.vehicleType.toLowerCase().includes('car'));
     const matched = plates.filter(p => isCar ? (p.vehicleType === 'car' || p.vehicleType?.toLowerCase().includes('car')) : (p.vehicleType === 'motorcycle' || p.vehicleType?.toLowerCase().includes('moto')));
     setSelectedPlate(matched[0]?.plateNumber || '');
@@ -602,13 +602,13 @@ export default function PackagesScreen() {
 
       {/* Subscribe Package Purchase Modal */}
       {selectedPkg && (() => {
-        const code = vtCode(selectedPkg.vehicleType);
+        const code = vtCode(selectedPkg.vehicleType) || '';
         const isCar = code.toLowerCase().includes('car') || (typeof selectedPkg.vehicleType === 'string' && selectedPkg.vehicleType.toLowerCase().includes('car'));
         const matchedPlates = plates.filter(p => isCar ? (p.vehicleType === 'car' || p.vehicleType?.toLowerCase().includes('car')) : (p.vehicleType === 'motorcycle' || p.vehicleType?.toLowerCase().includes('moto')));
 
         return (
           <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedPkg(null)}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContext: 'flex-end', justifyContent: 'flex-end' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContent: 'flex-end' }}>
               <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 16, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
@@ -709,7 +709,7 @@ export default function PackagesScreen() {
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        justify: 'center',
+                        alignSelf: 'stretch',
                         gap: 8,
                         backgroundColor: '#f8fafc',
                         borderWidth: 1.5,
@@ -717,6 +717,7 @@ export default function PackagesScreen() {
                         borderStyle: 'dashed',
                         borderRadius: 14,
                         paddingVertical: 12,
+                        paddingHorizontal: 16,
                       }}
                     >
                       <Ionicons name="map-outline" size={18} color={Colors.primary} />
@@ -736,10 +737,15 @@ export default function PackagesScreen() {
                     fetchingSlots={fetchingSlots}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
-                    selectedFloor={{
+                    selectedFloor={floors.find(f => f._id === selectedFloorId) || {
                       _id: selectedFloorId,
-                      name: floors.find(f => f._id === selectedFloorId)?.name || 'Floor',
-                      code: floors.find(f => f._id === selectedFloorId)?.code || 'FL',
+                      name: 'Floor',
+                      code: 'FL',
+                      allowedVehicleTypes: [],
+                      availableSlots: 0,
+                      occupiedSlots: 0,
+                      reservedSlots: 0,
+                      totalSlots: 0,
                     }}
                     selectedSlotId={selectedSlot?._id || ''}
                     vtCategory={isCar ? 'car' : 'motorcycle'}
