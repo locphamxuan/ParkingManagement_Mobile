@@ -39,9 +39,11 @@ export async function getFloorSlots(
   token: string,
   buildingId: string,
   floorId: string,
+  usage: string = 'subscriber',
 ): Promise<SlotItem[]> {
+  const query = usage ? `?usage=${usage}` : '';
   const res = await apiRequest<ApiRes<{ items?: SlotItem[]; slots?: SlotItem[] }>>(
-    `/users/buildings/${buildingId}/floors/${floorId}/slots`,
+    `/users/buildings/${buildingId}/floors/${floorId}/slots${query}`,
     { token },
   );
   return res?.data?.items ?? res?.data?.slots ?? [];
