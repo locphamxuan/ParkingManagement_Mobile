@@ -33,29 +33,28 @@ export function fmtVND(amount: number) {
 
 // Chia slot thành 2 hàng đối xứng cho sơ đồ bãi (T1/chẵn ở trên, T2/lẻ ở dưới).
 export function splitSlotsSymmetrically(allSlots: SlotItem[]) {
-  const top: SlotItem[] = [];
-  const bottom: SlotItem[] = [];
+  const cars: SlotItem[] = [];
+  const motos: SlotItem[] = [];
 
-  const sorted = [...allSlots].sort((a, b) => {
-    const numA = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
-    const numB = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
-    return numA - numB;
-  });
-
-  sorted.forEach((slot) => {
-    const codeUpper = slot.code.toUpperCase();
-    if (codeUpper === 'T1' || codeUpper.includes('_') || codeUpper.includes('-')) {
-      top.push(slot);
-    } else if (codeUpper === 'T2') {
-      bottom.push(slot);
+  allSlots.forEach((s) => {
+    const code = s.code.toUpperCase();
+    const vtName = s.vehicleType?.name?.toLowerCase() || '';
+    if (code.includes('MOTO') || code.includes('SMW') || code.includes('SMR') || code.startsWith('M') || vtName.includes('moto')) {
+      motos.push(s);
     } else {
-      const num = parseInt(slot.code.replace(/\D/g, ''), 10) || 0;
-      if (num % 2 === 0) top.push(slot);
-      else bottom.push(slot);
+      cars.push(s);
     }
   });
 
-  return { topRowSlots: top, bottomRowSlots: bottom };
+  if (cars.length > 0 && motos.length > 0) {
+    return { topRowSlots: cars, bottomRowSlots: motos };
+  }
+
+  const half = Math.ceil(allSlots.length / 2);
+  return {
+    topRowSlots: allSlots.slice(0, half),
+    bottomRowSlots: allSlots.slice(half),
+  };
 }
 
 // Format Date → wizard string "YYYY-MM-DD HH:MM"

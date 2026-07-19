@@ -196,9 +196,9 @@ export function SlotMapModal({
                       style={{ flex: 1, width: '100%' }}
                     >
                       <View style={styles.basement2DContainer}>
-                        {/* ROW T (TOP) */}
+                        {/* ROW T1 (CAR SLOTS) */}
                         <View style={styles.rowHeaderRow2D}>
-                          <Text style={styles.rowHeader2D}>ROW T (TOP)</Text>
+                          <Text style={styles.rowHeader2D}>ROW T1 (CAR SLOTS 🚗)</Text>
                         </View>
                         <View style={styles.parkingLane2D}>
                           {topRowSlots.map((slot) => {
@@ -249,9 +249,9 @@ export function SlotMapModal({
                           <Text style={styles.drivewayArrow2D}>EXIT (OUT) ──▶</Text>
                         </View>
 
-                        {/* ROW T (BOTTOM) */}
+                        {/* ROW T2 (MOTORCYCLE SLOTS) */}
                         <View style={styles.rowHeaderRow2D}>
-                          <Text style={styles.rowHeader2D}>ROW T (BOTTOM)</Text>
+                          <Text style={styles.rowHeader2D}>ROW T2 (MOTORCYCLE SLOTS 🏍️)</Text>
                         </View>
                         <View style={styles.parkingLane2D}>
                           {bottomRowSlots.map((slot) => {
