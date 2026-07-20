@@ -206,8 +206,8 @@ export function SlotMapModal({
                             const isCompatible = !vtCategory || (
                               vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                             );
-                            const isAvailable = slot.status === 'available' && isCompatible;
-                            const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
+                            const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
+                            const isSelectable = isAvailable;
                             const isSelected = selectedSlotId === slot._id;
                             return (
                               <TouchableOpacity
@@ -259,8 +259,8 @@ export function SlotMapModal({
                             const isCompatible = !vtCategory || (
                               vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                             );
-                            const isAvailable = slot.status === 'available' && isCompatible;
-                            const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
+                            const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
+                            const isSelectable = isAvailable;
                             const isSelected = selectedSlotId === slot._id;
                             return (
                               <TouchableOpacity
@@ -333,8 +333,8 @@ export function SlotMapModal({
                                 const isCompatible = !vtCategory || (
                                   vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                                 );
-                                const isAvailable = slot.status === 'available' && isCompatible;
-                                const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
+                                const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
+                                const isSelectable = isAvailable;
                                 const isSelected = selectedSlotId === slot._id;
 
                                 return (
@@ -367,8 +367,8 @@ export function SlotMapModal({
                                 const isCompatible = !vtCategory || (
                                   vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
                                 );
-                                const isAvailable = slot.status === 'available' && isCompatible;
-                                const isSelectable = isAvailable && slot.selectable !== false && slot.reservable !== false && !slot.owner;
+                                const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
+                                const isSelectable = isAvailable;
                                 const isSelected = selectedSlotId === slot._id;
 
                                 return (
