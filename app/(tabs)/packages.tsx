@@ -92,7 +92,16 @@ export default function PackagesScreen() {
       try {
         const flList = await getBuildingFloors(token, bldId);
         setFloors(flList);
-        if (flList.length > 0) {
+        
+        // Find floors that support this vehicleType
+        const pkgVtId = String(typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType._id : pkg.vehicleType);
+        const compatibleFloors = flList.filter(f => f.allowedVehicleTypes.map(String).includes(pkgVtId));
+        
+        if (compatibleFloors.length > 0) {
+          setSelectedFloorId(compatibleFloors[0]._id);
+          const slList = await getFloorSlots(token, bldId, compatibleFloors[0]._id);
+          setSlots(slList);
+        } else if (flList.length > 0) {
           setSelectedFloorId(flList[0]._id);
           const slList = await getFloorSlots(token, bldId, flList[0]._id);
           setSlots(slList);
@@ -736,6 +745,53 @@ export default function PackagesScreen() {
                     </View>
                   )}
                 </View>
+
+                {/* Floor Selection if there are compatible floors */}
+                {floors.length > 0 && (() => {
+                  const pkgVtId = String(typeof selectedPkg.vehicleType === 'object' && selectedPkg.vehicleType ? selectedPkg.vehicleType._id : selectedPkg.vehicleType);
+                  const compFloors = floors.filter(f => f.allowedVehicleTypes.map(String).includes(pkgVtId));
+                  if (compFloors.length === 0) return null;
+
+                  return (
+                    <View style={{ gap: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>
+                        Select Floor:
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {compFloors.map((f) => {
+                          const isSel = selectedFloorId === f._id;
+                          return (
+                            <TouchableOpacity
+                              key={f._id}
+                              onPress={async () => {
+                                setSelectedFloorId(f._id);
+                                setSelectedSlot(null);
+                                setFetchingSlots(true);
+                                try {
+                                  const slList = await getFloorSlots(token, selectedPkg.building?._id || '', f._id);
+                                  setSlots(slList);
+                                } catch {}
+                                setFetchingSlots(false);
+                              }}
+                              style={{
+                                paddingHorizontal: 14,
+                                paddingVertical: 10,
+                                borderRadius: 12,
+                                borderWidth: 1.5,
+                                borderColor: isSel ? Colors.primary : '#cbd5e1',
+                                backgroundColor: isSel ? 'rgba(14,165,233,0.1)' : '#ffffff',
+                              }}
+                            >
+                              <Text style={{ fontSize: 13, fontWeight: '800', color: isSel ? Colors.primary : '#334155' }}>
+                                {f.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })()}
 
                 {/* Dedicated Slot Selection (Choose specific spot on 2D/3D map) */}
                 <View style={{ gap: 6 }}>
