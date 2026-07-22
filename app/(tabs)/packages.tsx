@@ -59,7 +59,7 @@ export default function PackagesScreen() {
   const handleConfirmCancel = async () => {
     if (!cancellingSub) return;
     if (cancelReason === 'other' && !cancelNote.trim()) {
-      setCancelErr('Vui lòng nhập chi tiết lý do khác.');
+      setCancelErr('Please enter detailed reason for other option.');
       return;
     }
     setCancelling(true);
@@ -71,7 +71,7 @@ export default function PackagesScreen() {
       setCancelNote('');
       load(true);
     } catch (err) {
-      setCancelErr(err instanceof Error ? err.message : 'Hủy gói thất bại');
+      setCancelErr(err instanceof Error ? err.message : 'Failed to cancel package');
     } finally {
       setCancelling(false);
     }
@@ -647,7 +647,7 @@ export default function PackagesScreen() {
                           activeOpacity={0.7}
                         >
                           <Ionicons name="trash-outline" size={14} color="#dc2626" />
-                          <Text style={{ fontSize: 12, fontWeight: '800', color: '#dc2626' }}>Hủy gói</Text>
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: '#dc2626' }}>Cancel Package</Text>
                         </TouchableOpacity>
                       </View>
                     </>
@@ -873,8 +873,8 @@ export default function PackagesScreen() {
             <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 16, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View>
-                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1.2 }}>Xác nhận hủy gói đỗ xe</Text>
-                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#0f172a', marginTop: 2 }}>{cancellingSub.package?.name ?? 'Gói dài hạn'}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1.2 }}>Confirm Package Cancellation</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#0f172a', marginTop: 2 }}>{cancellingSub.package?.name ?? 'Long-term Package'}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setCancellingSub(null)}>
                   <Ionicons name="close-circle" size={26} color={Colors.textDim} />
@@ -882,42 +882,42 @@ export default function PackagesScreen() {
               </View>
 
               <Text style={{ fontSize: 13, color: '#475569', lineHeight: 20 }}>
-                Bạn có chắc chắn muốn hủy gói đỗ xe dài hạn này? 
-                Hành động này sẽ giải phóng vị trí đỗ xe của bạn và hoàn lại tiền vào ví tài khoản sau khi áp dụng chính sách của tòa nhà.
+                Are you sure you want to cancel this long-term parking subscription? 
+                This action will release your reserved parking slot and refund the balance back to your wallet according to the building's policies.
               </Text>
 
               {/* Package details preview */}
               <View style={{ backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 12, color: '#64748b' }}>Biển số xe</Text>
+                  <Text style={{ fontSize: 12, color: '#64748b' }}>License Plate</Text>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{cancellingSub.plateNumber}</Text>
                 </View>
                 {cancellingSub.slot && (
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 12, color: '#64748b' }}>Vị trí ô đỗ</Text>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>Dedicated Slot</Text>
                     <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.primary }}>Slot {cancellingSub.slot.code}</Text>
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 12, color: '#64748b' }}>Ngày bắt đầu</Text>
+                  <Text style={{ fontSize: 12, color: '#64748b' }}>Start Date</Text>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{fmtDateOnly(cancellingSub.startDate)}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 12, color: '#64748b' }}>Ngày kết thúc</Text>
+                  <Text style={{ fontSize: 12, color: '#64748b' }}>End Date</Text>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{fmtDateOnly(cancellingSub.endDate)}</Text>
                 </View>
               </View>
 
               {/* Reason selector */}
               <View style={{ gap: 8 }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>Chọn lý do hủy:</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>Select cancellation reason:</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {[
-                    { key: 'no_longer_needed', label: 'Không còn nhu cầu đỗ' },
-                    { key: 'change_slot', label: 'Đổi vị trí đỗ' },
-                    { key: 'change_vehicle', label: 'Đổi phương tiện' },
-                    { key: 'pricing_issue', label: 'Vấn đề giá cả' },
-                    { key: 'other', label: 'Lý do khác' },
+                    { key: 'no_longer_needed', label: 'No longer needed' },
+                    { key: 'change_slot', label: 'Change parking slot' },
+                    { key: 'change_vehicle', label: 'Change vehicle' },
+                    { key: 'pricing_issue', label: 'Pricing issues' },
+                    { key: 'other', label: 'Other reason' },
                   ].map((item) => {
                     const isSel = cancelReason === item.key;
                     return (
@@ -948,7 +948,7 @@ export default function PackagesScreen() {
               {/* Text Input for 'other' reason */}
               {cancelReason === 'other' && (
                 <View style={{ gap: 6 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>Nhập lý do chi tiết:</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>Enter detailed reason:</Text>
                   <TextInput
                     style={{
                       borderWidth: 1,
@@ -962,7 +962,7 @@ export default function PackagesScreen() {
                     }}
                     multiline
                     numberOfLines={3}
-                    placeholder="Vui lòng nhập lý do cụ thể..."
+                    placeholder="Please enter a specific reason..."
                     value={cancelNote}
                     onChangeText={setCancelNote}
                   />
@@ -983,7 +983,7 @@ export default function PackagesScreen() {
                   disabled={cancelling}
                   style={{ flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center' }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b' }}>Đóng</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b' }}>Close</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleConfirmCancel}
@@ -998,7 +998,7 @@ export default function PackagesScreen() {
                   }}
                 >
                   <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>
-                    {cancelling ? 'Đang xử lý...' : 'Xác nhận hủy'}
+                    {cancelling ? 'Processing...' : 'Confirm Cancel'}
                   </Text>
                 </TouchableOpacity>
               </View>
