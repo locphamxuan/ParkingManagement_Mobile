@@ -102,6 +102,19 @@ export function usePackages() {
     if (statusFilter !== 'all') {
       if (sub.status !== statusFilter) return false;
     }
+
+    // Automatically hide cancelled or expired subscriptions older than 14 days (2 weeks)
+    if (sub.status === 'cancelled' || sub.status === 'expired') {
+      const timeReference = sub.updatedAt || sub.endDate || sub.startDate;
+      if (timeReference) {
+        const lastUpdated = new Date(timeReference).getTime();
+        const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
+        if (Date.now() - lastUpdated > twoWeeksMs) {
+          return false;
+        }
+      }
+    }
+
     return true;
   });
 
