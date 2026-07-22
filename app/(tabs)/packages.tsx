@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { usePackages } from '../../hooks/usePackages';
-import { subscribe } from '../../services/longTerm';
+import { subscribe, cancelSubscription } from '../../services/longTerm';
 import { SlotMapModal } from '../../components/reservations/SlotMapModal';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../../services/floors';
 import { AnimatedPressable, AnimatedCard } from '../../components/ui/AnimatedCard';
@@ -48,6 +48,34 @@ export default function PackagesScreen() {
   const [purchasing, setPurchasing] = React.useState(false);
   const [purchaseErr, setPurchaseErr] = React.useState<string | null>(null);
   const [purchaseSuccessMsg, setPurchaseSuccessMsg] = React.useState<string | null>(null);
+
+  // States for cancellation
+  const [cancellingSub, setCancellingSub] = React.useState<LongTermSubscription | null>(null);
+  const [cancelReason, setCancelReason] = React.useState<string>('no_longer_needed');
+  const [cancelNote, setCancelNote] = React.useState<string>('');
+  const [cancelling, setCancelling] = React.useState(false);
+  const [cancelErr, setCancelErr] = React.useState<string | null>(null);
+
+  const handleConfirmCancel = async () => {
+    if (!cancellingSub) return;
+    if (cancelReason === 'other' && !cancelNote.trim()) {
+      setCancelErr('Vui lòng nhập chi tiết lý do khác.');
+      return;
+    }
+    setCancelling(true);
+    setCancelErr(null);
+    try {
+      await cancelSubscription(token, cancellingSub._id, cancelReason, cancelNote);
+      setCancellingSub(null);
+      setCancelReason('no_longer_needed');
+      setCancelNote('');
+      load(true);
+    } catch (err) {
+      setCancelErr(err instanceof Error ? err.message : 'Hủy gói thất bại');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const handleOpenSubscribe = async (pkg: LongTermPackage) => {
     setSelectedPkg(pkg);
@@ -593,6 +621,37 @@ export default function PackagesScreen() {
                     <Text style={styles.subPriceLabel}>Price Paid</Text>
                     <Text style={styles.subPriceVal}>{fmtMoney(pkg?.price ?? 0)}</Text>
                   </View>
+
+                  {sub.status === 'active' && (
+                    <>
+                      <View style={styles.subCardDivider} />
+                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setCancellingSub(sub);
+                            setCancelReason('no_longer_needed');
+                            setCancelNote('');
+                            setCancelErr(null);
+                          }}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: '#fca5a5',
+                            backgroundColor: '#fef2f2',
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: '#dc2626' }}>Hủy gói</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
                 </AnimatedCard>
               );
             })}
@@ -801,6 +860,152 @@ export default function PackagesScreen() {
           </Modal>
         );
       })()}
+
+      {/* Cancel Subscription Modal */}
+      {cancellingSub && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCancellingSub(null)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 16, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1.2 }}>Xác nhận hủy gói đỗ xe</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#0f172a', marginTop: 2 }}>{cancellingSub.package?.name ?? 'Gói dài hạn'}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setCancellingSub(null)}>
+                  <Ionicons name="close-circle" size={26} color={Colors.textDim} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{ fontSize: 13, color: '#475569', lineHeight: 20 }}>
+                Bạn có chắc chắn muốn hủy gói đỗ xe dài hạn này? 
+                Hành động này sẽ giải phóng vị trí đỗ xe của bạn và hoàn lại tiền vào ví tài khoản sau khi áp dụng chính sách của tòa nhà.
+              </Text>
+
+              {/* Package details preview */}
+              <View style={{ backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, color: '#64748b' }}>Biển số xe</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{cancellingSub.plateNumber}</Text>
+                </View>
+                {cancellingSub.slot && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>Vị trí ô đỗ</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.primary }}>Slot {cancellingSub.slot.code}</Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, color: '#64748b' }}>Ngày bắt đầu</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{fmtDateOnly(cancellingSub.startDate)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, color: '#64748b' }}>Ngày kết thúc</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{fmtDateOnly(cancellingSub.endDate)}</Text>
+                </View>
+              </View>
+
+              {/* Reason selector */}
+              <View style={{ gap: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>Chọn lý do hủy:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {[
+                    { key: 'no_longer_needed', label: 'Không còn nhu cầu đỗ' },
+                    { key: 'change_slot', label: 'Đổi vị trí đỗ' },
+                    { key: 'change_vehicle', label: 'Đổi phương tiện' },
+                    { key: 'pricing_issue', label: 'Vấn đề giá cả' },
+                    { key: 'other', label: 'Lý do khác' },
+                  ].map((item) => {
+                    const isSel = cancelReason === item.key;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        onPress={() => {
+                          setCancelReason(item.key);
+                          setCancelErr(null);
+                        }}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          borderWidth: 1.5,
+                          borderColor: isSel ? '#ef4444' : '#cbd5e1',
+                          backgroundColor: isSel ? 'rgba(239, 68, 68, 0.08)' : '#ffffff',
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: isSel ? '#ef4444' : '#334155' }}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Text Input for 'other' reason */}
+              {cancelReason === 'other' && (
+                <View style={{ gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#334155' }}>Nhập lý do chi tiết:</Text>
+                  <TextInput
+                    style={{
+                      borderWidth: 1,
+                      borderColor: '#cbd5e1',
+                      borderRadius: 12,
+                      padding: 12,
+                      fontSize: 13,
+                      minHeight: 60,
+                      textAlignVertical: 'top',
+                      color: '#0f172a',
+                    }}
+                    multiline
+                    numberOfLines={3}
+                    placeholder="Vui lòng nhập lý do cụ thể..."
+                    value={cancelNote}
+                    onChangeText={setCancelNote}
+                  />
+                </View>
+              )}
+
+              {/* Error warning */}
+              {cancelErr && (
+                <View style={{ backgroundColor: '#fef2f2', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#fca5a5' }}>
+                  <Text style={{ fontSize: 12, color: '#991b1b', fontWeight: '700' }}>⚠️ {cancelErr}</Text>
+                </View>
+              )}
+
+              {/* Action buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setCancellingSub(null)}
+                  disabled={cancelling}
+                  style={{ flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b' }}>Đóng</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirmCancel}
+                  disabled={cancelling}
+                  style={{
+                    flex: 2,
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    backgroundColor: '#ef4444',
+                    alignItems: 'center',
+                    opacity: cancelling ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>
+                    {cancelling ? 'Đang xử lý...' : 'Xác nhận hủy'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
