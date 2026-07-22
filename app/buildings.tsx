@@ -428,119 +428,156 @@ export default function BuildingsScreen() {
                 {/* Floors Capacity & Layout */}
                 <View style={styles.sectionContainer}>
                   <Text style={styles.sectionTitle}>Floor status</Text>
-                  {floors.map((floor) => {
-                    const isExpanded = expandedFloorId === floor._id;
-                    const occupied = floor.totalSlots - floor.availableSlots;
-                    const occupancyRate = floor.totalSlots ? occupied / floor.totalSlots : 0;
-                    const percentText = `${Math.round(occupancyRate * 100)}%`;
+                  {(() => {
+                    const selectedPlateObj = compatiblePlates.find((p) => p.plateNumber === selectedPlate);
+                    const selectedVtType = selectedPlateObj?.vehicleType; // 'motorcycle' or 'car'
 
-                    let barColor = Colors.success;
-                    if (occupancyRate > 0.9) {
-                      barColor = Colors.error;
-                    } else if (occupancyRate > 0.7) {
-                      barColor = Colors.warning;
+                    const filteredFloors = floors.filter((floor) => {
+                      if (!selectedVtType) return true;
+
+                      const allowedVT = floor.allowedVehicleTypes || [];
+                      const allowsMotorcycle = allowedVT.some(vt => 
+                        vt.code?.toLowerCase() === 'motorcycle' || 
+                        vt.code?.toLowerCase() === 'motor' ||
+                        vt.name?.toLowerCase().includes('motor') ||
+                        vt.name?.toLowerCase().includes('bike')
+                      );
+                      const allowsCar = allowedVT.some(vt => 
+                        vt.code?.toLowerCase() === 'car' || 
+                        vt.name?.toLowerCase().includes('car')
+                      );
+
+                      if (selectedVtType === 'motorcycle') {
+                        return allowsMotorcycle;
+                      }
+                      if (selectedVtType === 'car') {
+                        return allowsCar;
+                      }
+                      return true;
+                    });
+
+                    if (filteredFloors.length === 0) {
+                      return (
+                        <Text style={[styles.emptyDetailText, { textAlign: 'center', marginTop: 12 }]}>
+                          No floors available for {selectedVtType === 'motorcycle' ? 'Motorcycles 🏍️' : 'Cars 🚗'} in this building.
+                        </Text>
+                      );
                     }
 
-                    return (
-                      <View key={floor._id} style={styles.floorCard}>
-                        {/* Floor header toggling slots grid */}
-                        <TouchableOpacity
-                          style={styles.floorHeader}
-                          onPress={() => toggleFloorSlots(floor._id)}
-                          activeOpacity={0.8}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.floorName}>{floor.name || floor.code}</Text>
-                            <Text style={styles.floorSlotsInfo}>
-                              Available: {floor.availableSlots} / {floor.totalSlots} slots
-                            </Text>
-                          </View>
-                          <View style={styles.floorPercentBox}>
-                            <Text style={[styles.floorPercentText, { color: barColor }]}>
-                              Full {percentText}
-                            </Text>
-                            <Ionicons
-                              name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                              size={18}
-                              color={Colors.textMuted}
-                              style={{ marginLeft: 8 }}
+                    return filteredFloors.map((floor) => {
+                      const isExpanded = expandedFloorId === floor._id;
+                      const occupied = floor.totalSlots - floor.availableSlots;
+                      const occupancyRate = floor.totalSlots ? occupied / floor.totalSlots : 0;
+                      const percentText = `${Math.round(occupancyRate * 100)}%`;
+
+                      let barColor = Colors.success;
+                      if (occupancyRate > 0.9) {
+                        barColor = Colors.error;
+                      } else if (occupancyRate > 0.7) {
+                        barColor = Colors.warning;
+                      }
+
+                      return (
+                        <View key={floor._id} style={styles.floorCard}>
+                          {/* Floor header toggling slots grid */}
+                          <TouchableOpacity
+                            style={styles.floorHeader}
+                            onPress={() => toggleFloorSlots(floor._id)}
+                            activeOpacity={0.8}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.floorName}>{floor.name || floor.code}</Text>
+                              <Text style={styles.floorSlotsInfo}>
+                                Available: {floor.availableSlots} / {floor.totalSlots} slots
+                              </Text>
+                            </View>
+                            <View style={styles.floorPercentBox}>
+                              <Text style={[styles.floorPercentText, { color: barColor }]}>
+                                Full {percentText}
+                              </Text>
+                              <Ionicons
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={18}
+                                color={Colors.textMuted}
+                                style={{ marginLeft: 8 }}
+                              />
+                            </View>
+                          </TouchableOpacity>
+
+                          {/* Progress Bar */}
+                          <View style={styles.progressTrack}>
+                            <View
+                              style={[
+                                styles.progressBar,
+                                { width: `${occupancyRate * 100}%`, backgroundColor: barColor },
+                              ]}
                             />
                           </View>
-                        </TouchableOpacity>
 
-                        {/* Progress Bar */}
-                        <View style={styles.progressTrack}>
-                          <View
-                            style={[
-                              styles.progressBar,
-                              { width: `${occupancyRate * 100}%`, backgroundColor: barColor },
-                            ]}
-                          />
+                          {/* Collapsible Slots Grid */}
+                          {isExpanded ? (
+                            <View style={styles.slotsGridContainer}>
+                              {slotsLoading[floor._id] ? (
+                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: Spacing.md }} />
+                              ) : !floorSlots[floor._id] || floorSlots[floor._id].length === 0 ? (
+                                <Text style={styles.emptyDetailText}>No parking slots</Text>
+                              ) : (
+                                <View style={styles.slotsGrid}>
+                                  {floorSlots[floor._id].map((slot) => {
+                                    let bg = Colors.successBg;
+                                    let border = Colors.successBorder;
+                                    let textCol = Colors.success;
+
+                                    if (slot.status === 'occupied') {
+                                      bg = Colors.cardAlt;
+                                      border = Colors.borderAlt;
+                                      textCol = Colors.textMuted;
+                                    } else if (slot.status === 'reserved') {
+                                      bg = Colors.blueBg;
+                                      border = 'rgba(59,130,246,0.25)';
+                                      textCol = Colors.blue;
+                                    } else if (slot.status === 'maintenance') {
+                                      bg = Colors.errorBg;
+                                      border = Colors.errorBorder;
+                                      textCol = Colors.error;
+                                    }
+
+                                    const slotIcon = slot.code.toUpperCase().startsWith('M') ? '🏍️' : '🚗';
+
+                                    return (
+                                      <View
+                                        key={slot._id}
+                                        style={[
+                                          styles.slotCell,
+                                          { backgroundColor: bg, borderColor: border },
+                                        ]}
+                                      >
+                                        <Text style={[styles.slotIconText, { color: textCol }]}>
+                                          {slotIcon}
+                                        </Text>
+                                        <Text style={[styles.slotCodeText, { color: textCol }]}>
+                                          {slot.code}
+                                        </Text>
+                                        <Text style={[styles.slotStatusText, { color: textCol }]}>
+                                          {slot.status === 'available'
+                                            ? 'Available'
+                                            : slot.status === 'occupied'
+                                            ? 'Parked'
+                                            : slot.status === 'reserved'
+                                            ? 'Reserved'
+                                            : 'Maintenance'}
+                                        </Text>
+                                      </View>
+                                    );
+                                  })}
+                                </View>
+                              )}
+                            </View>
+                          ) : null}
                         </View>
-
-                        {/* Collapsible Slots Grid */}
-                        {isExpanded ? (
-                          <View style={styles.slotsGridContainer}>
-                            {slotsLoading[floor._id] ? (
-                              <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: Spacing.md }} />
-                            ) : !floorSlots[floor._id] || floorSlots[floor._id].length === 0 ? (
-                              <Text style={styles.emptyDetailText}>No parking slots</Text>
-                            ) : (
-                              <View style={styles.slotsGrid}>
-                                {floorSlots[floor._id].map((slot) => {
-                                  let bg = Colors.successBg;
-                                  let border = Colors.successBorder;
-                                  let textCol = Colors.success;
-
-                                  if (slot.status === 'occupied') {
-                                    bg = Colors.cardAlt;
-                                    border = Colors.borderAlt;
-                                    textCol = Colors.textMuted;
-                                  } else if (slot.status === 'reserved') {
-                                    bg = Colors.blueBg;
-                                    border = 'rgba(59,130,246,0.25)';
-                                    textCol = Colors.blue;
-                                  } else if (slot.status === 'maintenance') {
-                                    bg = Colors.errorBg;
-                                    border = Colors.errorBorder;
-                                    textCol = Colors.error;
-                                  }
-
-                                  const slotIcon = slot.code.toUpperCase().startsWith('M') ? '🏍️' : '🚗';
-
-                                  return (
-                                    <View
-                                      key={slot._id}
-                                      style={[
-                                        styles.slotCell,
-                                        { backgroundColor: bg, borderColor: border },
-                                      ]}
-                                    >
-                                      <Text style={[styles.slotIconText, { color: textCol }]}>
-                                        {slotIcon}
-                                      </Text>
-                                      <Text style={[styles.slotCodeText, { color: textCol }]}>
-                                        {slot.code}
-                                      </Text>
-                                      <Text style={[styles.slotStatusText, { color: textCol }]}>
-                                        {slot.status === 'available'
-                                          ? 'Available'
-                                          : slot.status === 'occupied'
-                                          ? 'Parked'
-                                          : slot.status === 'reserved'
-                                          ? 'Reserved'
-                                          : 'Maintenance'}
-                                      </Text>
-                                    </View>
-                                  );
-                                })}
-                              </View>
-                            )}
-                          </View>
-                        ) : null}
-                      </View>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </View>
               </ScrollView>
 
