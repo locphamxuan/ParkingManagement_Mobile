@@ -7,7 +7,6 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -18,9 +17,10 @@ import { useAuthStore } from '../store/authStore';
 import { listMyIncidents, reportIncident, type MobileIncident } from '../services/incidents';
 import { listBuildings, type BuildingOption } from '../services/reservations';
 import { ApiError } from '../services/api';
-import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
+import { Colors, Spacing } from '../constants/theme';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { styles } from '../styles/screens/incidents';
 
 const INCIDENT_TYPES = [
   { value: 'slot_occupied', label: 'Slot Occupied by someone else' },
@@ -45,7 +45,6 @@ export default function IncidentsScreen() {
 
   // Form State
   const [selectedType, setSelectedType] = useState('slot_occupied');
-  const [target, setTarget] = useState('');
   const [violatorPlate, setViolatorPlate] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -96,14 +95,12 @@ export default function IncidentsScreen() {
     try {
       await reportIncident(token, {
         type: selectedType,
-        target: target.trim() || undefined,
         violatorPlate: selectedType === 'slot_occupied' ? (violatorPlate.trim() || undefined) : undefined,
         note: note.trim(),
         buildingId: needsBuilding ? (selectedBuildingId || undefined) : undefined,
       });
       setSuccessMsg('Thank you. Your incident report has been submitted to the building security crew.');
       setNote('');
-      setTarget('');
       setViolatorPlate('');
       setNeedsBuilding(false);
       setSelectedBuildingId('');
@@ -240,16 +237,6 @@ export default function IncidentsScreen() {
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Related Plate / Slot Code (Optional)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="E.g. 59G2-038.80 or Slot A-05"
-                placeholderTextColor={Colors.textDim}
-                value={target}
-                onChangeText={setTarget}
-                maxLength={40}
-              />
-
               {selectedType === 'slot_occupied' && (
                 <>
                   <Text style={styles.inputLabel}>Offending Vehicle Plate (Optional)</Text>
@@ -378,228 +365,3 @@ export default function IncidentsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderColor: Colors.border,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.cardAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: FontSize.md,
-    fontWeight: '900',
-    color: Colors.text,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: Colors.card,
-    padding: Spacing.xs,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: Radius.sm,
-  },
-  activeTab: {
-    backgroundColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.textDim,
-  },
-  activeTabText: {
-    color: '#ffffff',
-  },
-  scrollContent: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  msgCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-  },
-  successCard: {
-    backgroundColor: Colors.successBg,
-    borderColor: Colors.successBorder,
-  },
-  successText: {
-    flex: 1,
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.success,
-  },
-  errorCard: {
-    backgroundColor: Colors.errorBg,
-    borderColor: Colors.errorBorder,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.error,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  inputLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    color: Colors.textMuted,
-    letterSpacing: 0.5,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.cardAlt,
-    padding: Spacing.xs,
-    gap: 4,
-  },
-  typeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: 8,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-  },
-  typeOptionActive: {
-    backgroundColor: 'rgba(14,165,233,0.06)',
-  },
-  typeOptionText: {
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  typeOptionTextActive: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  textInput: {
-    backgroundColor: Colors.input,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    height: 44,
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  textArea: {
-    height: 100,
-    paddingTop: Spacing.md,
-    textAlignVertical: 'top',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    gap: Spacing.md,
-  },
-  emptyText: {
-    fontSize: FontSize.sm,
-    color: Colors.textDim,
-    fontWeight: '600',
-  },
-  ticketCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
-    gap: 6,
-  },
-  ticketHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  ticketCode: {
-    fontSize: FontSize.sm,
-    fontWeight: '900',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'mono',
-    color: Colors.text,
-  },
-  ticketType: {
-    fontSize: FontSize.sm,
-    fontWeight: '800',
-    color: Colors.text,
-    marginTop: 4,
-  },
-  ticketTarget: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-  },
-  ticketNote: {
-    fontSize: FontSize.sm,
-    color: Colors.textDim,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  ticketTime: {
-    fontSize: FontSize.xs,
-    color: Colors.textDim,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  escalatedNote: {
-    fontSize: FontSize.xs,
-    color: '#c2410c',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  resolutionBox: {
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: 'rgba(16,185,129,0.06)',
-    borderColor: 'rgba(16,185,129,0.15)',
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    gap: 4,
-  },
-  resolutionTitle: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: '#047857',
-  },
-  resolutionText: {
-    fontSize: FontSize.sm,
-    color: '#065f46',
-    fontWeight: '600',
-  },
-});
