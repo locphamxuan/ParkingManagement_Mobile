@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing } from '../../constants/theme';
-import { styles } from './BookingDateModal.styles';
+import { styles } from '@/styles/components/BookingDateModal.styles';
 import { BookingCalendar } from './BookingCalendar';
 import { getDaysInMonth, getFirstDayOfMonth, TIME_SLOTS, fmtDisplayDate, policyLimits, isTimeSlotPast } from './BookingDateModal.utils';
 

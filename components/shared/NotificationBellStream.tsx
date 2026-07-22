@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Inbox, MessageCircleReply, X } from 'lucide-react-native';
-import { styles } from './NotificationBellStream.styles';
+import { styles } from '@/styles/components/NotificationBellStream.styles';
 import { useNotificationStream } from '../../hooks/useNotificationStream';
 import { listMyFeedbackInbox, type FeedbackInboxItem } from '../../services/feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';

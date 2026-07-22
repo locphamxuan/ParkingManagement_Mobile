@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
-import { styles } from './BookingDateModal.styles';
+import { styles } from '@/styles/components/BookingDateModal.styles';
 
 type BookingMode = 'hourly' | 'daily';
 

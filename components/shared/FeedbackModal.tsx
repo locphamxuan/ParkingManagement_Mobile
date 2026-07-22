@@ -20,7 +20,7 @@ import { ErrorBanner } from '../ui/ErrorBanner';
 import { submitParkingFeedback, type SubmitFeedbackPayload } from '../../services/feedback';
 import { ApiError } from '../../services/api';
 import type { ParkingSession } from '../../types';
-import { styles } from './FeedbackModal.styles';
+import { styles } from '@/styles/components/FeedbackModal.styles';
 import { CustomDialog, useCustomDialog } from '../reservations/CustomDialog';
 
 interface FeedbackModalProps {
