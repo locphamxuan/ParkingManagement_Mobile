@@ -31,8 +31,6 @@ export function ReservationWizard({ vm }: { vm: ReservationsVM }) {
     selectedFloor, selectedBuilding, vtCategory,
     displaySlotCode, slots,
     startDateTime, endDateTime, applyDateTime,
-    policy,
-    feeEstimate,
     creating,
     goToStep2, goToStep3, handleCreate,
   } = vm;
@@ -103,7 +101,7 @@ export function ReservationWizard({ vm }: { vm: ReservationsVM }) {
                         {wizard.plateNumber}
                       </Text>
                     </View>
-                    {(!bookingType || bookingType === 'hourly' || reserveDedicatedSlot) && wizard.slotId ? (
+                    {reserveDedicatedSlot && wizard.slotId ? (
                       <View style={styles.summarySheetRow}>
                         <Text style={styles.summarySheetLabel}>Spot</Text>
                         <Text style={styles.summarySheetValue}>Floor {selectedFloor?.code} · Slot {displaySlotCode || slots.find(s => s._id === wizard.slotId)?.code}</Text>
@@ -120,11 +118,6 @@ export function ReservationWizard({ vm }: { vm: ReservationsVM }) {
                           <Text style={[styles.summarySheetValue, { color: Colors.primary, fontWeight: '900' }]}>{(activePkg.price).toLocaleString('en-US')} VND</Text>
                         </View>
                       </>
-                    ) : feeEstimate ? (
-                      <View style={styles.summarySheetRow}>
-                        <Text style={styles.summarySheetLabel}>Est. Fee</Text>
-                        <Text style={[styles.summarySheetValue, { color: Colors.primary }]}>{(feeEstimate.estimatedFee).toLocaleString('en-US')} VND</Text>
-                      </View>
                     ) : null}
                   </View>
                 )}
@@ -171,8 +164,6 @@ export function ReservationWizard({ vm }: { vm: ReservationsVM }) {
         initialEnd={endDateTime}
         isPackage={bookingType === 'package'}
         packageDuration={activePkg?.durationDays}
-        maxAdvanceDays={policy?.maxAdvanceDays}
-        maxDurationHours={policy?.maxDurationHours}
       />
     </>
   );

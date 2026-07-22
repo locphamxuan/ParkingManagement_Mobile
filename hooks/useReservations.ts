@@ -5,18 +5,10 @@ import { useAuthStore } from '../store/authStore';
 import { listPackages, subscribe, listSubscriptions, cancelSubscription, renewSubscription } from '../services/longTerm';
 import type { LongTermPackage, LongTermSubscription } from '../types';
 import {
-  listReservations,
-  createReservation,
-  cancelReservation,
-  estimateFee,
   listBuildings,
   getBuildingVehicleTypes,
-  getReservationPolicy,
-  type FeeEstimate,
-  type ReservationPolicyInfo,
 } from '../services/reservations';
 import type { BuildingOption, VehicleTypeOption } from '../services/reservations';
-import { ApiError } from '../services/api';
 import {
   getBuildingFloors,
   getFloorSlots,
@@ -39,7 +31,6 @@ export function useReservations() {
   const token = session?.token ?? '';
   const plates = session?.licensePlates ?? [];
 
-  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [subscriptions, setSubscriptions] = useState<LongTermSubscription[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -77,10 +68,8 @@ export function useReservations() {
 
   const params = useLocalSearchParams<{ buildingId?: string; packageId?: string; vehicleType?: string; mode?: string; plateNumber?: string }>();
 
-  // Custom package states
-  const [bookingType, setBookingType] = useState<'hourly' | 'package'>(() => {
-    return params.packageId || params.mode === 'package' ? 'package' : 'hourly';
-  });
+  // Chỉ còn duy nhất chế độ đăng ký gói dài hạn — chế độ đặt theo giờ đã bị BE gỡ bỏ.
+  const bookingType = 'package' as const;
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
   const [fetchingPackages, setFetchingPackages] = useState(false);
@@ -135,23 +124,6 @@ export function useReservations() {
     }
   };
 
-  // Fetch real fee estimate from server whenever step 3 times or vehicle type change.
-  useEffect(() => {
-    if (step !== 3 || !wizard.buildingId || !wizard.vehicleTypeId || !wizard.startTime || !wizard.endTime) {
-      setFeeEstimate(null);
-      return;
-    }
-    let cancelled = false;
-    setFetchingFee(true);
-    const startISO = new Date(wizard.startTime.trim()).toISOString();
-    const endISO = new Date(wizard.endTime.trim()).toISOString();
-    estimateFee(token, wizard.buildingId, wizard.vehicleTypeId, startISO, endISO)
-      .then((data) => { if (!cancelled) setFeeEstimate(data); })
-      .catch(() => { if (!cancelled) setFeeEstimate(null); })
-      .finally(() => { if (!cancelled) setFetchingFee(false); });
-    return () => { cancelled = true; };
-  }, [step, wizard.buildingId, wizard.vehicleTypeId, wizard.startTime, wizard.endTime, token]);
-
   // Step 1 — buildings + vehicle types
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
   const [fetchingBuildings, setFetchingBuildings] = useState(false);
@@ -165,26 +137,9 @@ export function useReservations() {
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [fetchingSlots, setFetchingSlots] = useState(false);
 
-  // Step 3 — submit + fee estimate
+  // Step 3 — submit
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [feeEstimate, setFeeEstimate] = useState<FeeEstimate | null>(null);
-  const [fetchingFee, setFetchingFee] = useState(false);
-
-  // Policy đặt chỗ của tòa đang chọn (maxAdvanceDays/maxDurationHours…) — ràng buộc picker.
-  const [policy, setPolicy] = useState<ReservationPolicyInfo | null>(null);
-
-  useEffect(() => {
-    if (!wizard.buildingId || !token) {
-      setPolicy(null);
-      return;
-    }
-    let cancelled = false;
-    getReservationPolicy(token, wizard.buildingId)
-      .then((p) => { if (!cancelled) setPolicy(p); })
-      .catch(() => { if (!cancelled) setPolicy(null); });
-    return () => { cancelled = true; };
-  }, [wizard.buildingId, token]);
 
   // Cancel state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -223,7 +178,6 @@ export function useReservations() {
     setLoadError(null);
     try {
       const subData = await listSubscriptions(token).catch(() => []);
-      setReservations([]);
       setSubscriptions(subData);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load reservations');
@@ -251,21 +205,6 @@ export function useReservations() {
         const refundAmt = result.refundAmount ?? Math.round(((r.fee ?? 0) * refundPct) / 100);
         const successMsg = `Your package subscription has been cancelled.\n\nRefunded ${fmtVND(refundAmt)} (${refundPct}%) to your wallet.`;
         showCustomAlert('Subscription Cancelled', successMsg, undefined, 'success');
-      } else {
-        const result = await cancelReservation(token, r._id);
-        await load();
-
-        const refundPct = result.refundPercent ?? r.refundPercent ?? 0;
-        const refundAmt = result.refund ?? Math.round(((r.fee ?? 0) * refundPct) / 100);
-
-        let successMsg = 'Your reservation has been cancelled.';
-        if (refundPct > 0) {
-          successMsg += `\n\nRefunded ${fmtVND(refundAmt)} (${refundPct}%) to your wallet.`;
-        } else {
-          successMsg += '\n\nThe deposit is non-refundable and has been forfeited as a cancellation fee.';
-        }
-
-        showCustomAlert('Reservation Cancelled', successMsg, undefined, 'success');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not cancel reservation';
@@ -288,16 +227,8 @@ export function useReservations() {
         return;
       }
 
-      // % hoàn tiền theo ReservationPolicy của tòa (không hardcode) — lỗi thì dùng default BE 80%.
-      const rawBuilding = r.rawSubscription?.building ?? r.building;
-      const buildingId = typeof rawBuilding === 'string' ? rawBuilding : rawBuilding?._id;
-      let refundPct = 80;
-      if (buildingId) {
-        try {
-          refundPct = (await getReservationPolicy(token, buildingId)).refundPercent;
-        } catch { /* giữ default */ }
-      }
-
+      // % hoàn tiền theo ReservationPolicy của tòa — endpoint đã bị BE gỡ bỏ, dùng thẳng default 80%.
+      const refundPct = 80;
       const price = r.fee ?? 0;
       const refundAmt = Math.round((price * refundPct) / 100);
       const forfeitAmt = price - refundAmt;
@@ -313,28 +244,6 @@ export function useReservations() {
       );
       return;
     }
-
-    const refundPct = r.refundPercent ?? 0;
-    const depositPaid = r.fee ?? 0;
-    const refundAmt = Math.round((depositPaid * refundPct) / 100);
-    const forfeitAmt = depositPaid - refundAmt;
-
-    let refundMsg = '';
-    if (refundPct > 0) {
-      refundMsg = `You will be refunded ${fmtVND(refundAmt)} (${refundPct}% of deposit) to your wallet. The remaining ${fmtVND(forfeitAmt)} will be forfeited as a cancellation fee.`;
-    } else {
-      refundMsg = `Warning: The deposit of ${fmtVND(depositPaid)} is non-refundable and will be forfeited.`;
-    }
-
-    const msg = `Cancel reservation for plate "${r.plateNumber}"?\n\n${refundMsg}`;
-    showCustomConfirm(
-      'Cancel Reservation',
-      msg,
-      () => doCancel(r),
-      undefined,
-      'Cancel & Process Refund',
-      'Keep Reservation'
-    );
   };
 
   // ── Wizard helpers ─────────────────────────────────────────────────────────
@@ -348,7 +257,6 @@ export function useReservations() {
     setCreateError(null);
     setShowWizard(true);
     setDisplaySlotCode('');
-    setBookingType('hourly');
     setSelectedPackageId('');
     setReserveDedicatedSlot(false);
 
@@ -410,7 +318,6 @@ export function useReservations() {
       }
 
       if (pkgId) {
-        setBookingType('package');
         setSelectedPackageId(pkgId);
         setReserveDedicatedSlot(false);
         setFetchingPackages(true);
@@ -422,8 +329,6 @@ export function useReservations() {
         } finally {
           setFetchingPackages(false);
         }
-      } else {
-        setBookingType('hourly');
       }
     }
   };
@@ -667,58 +572,6 @@ export function useReservations() {
       }
       return;
     }
-
-    if (!wizard.endTime.trim()) {
-      setCreateError('Please select a checkout time.');
-      return;
-    }
-    let startIso: string;
-    let endIso: string;
-    try {
-      startIso = new Date(wizard.startTime.trim()).toISOString();
-      endIso = new Date(wizard.endTime.trim()).toISOString();
-    } catch {
-      setCreateError('Invalid time format. Please re-select dates.');
-      return;
-    }
-    if (new Date(endIso) <= new Date(startIso)) {
-      setCreateError('Checkout time must be after check-in time.');
-      return;
-    }
-    try {
-      setCreating(true);
-      const result = await createReservation(token, {
-        buildingId: wizard.buildingId,
-        vehicleTypeId: wizard.vehicleTypeId,
-        plateNumber: wizard.plateNumber.trim().toUpperCase(),
-        slotId: wizard.slotId,
-        startTime: startIso,
-        endTime: endIso,
-      });
-      const depositPct = feeEstimate?.depositPercent ?? policy?.depositPercent ?? 15;
-      const depositTxt = result.depositAmount
-        ? `\nDeposit paid: ${fmtVND(result.depositAmount)} (${depositPct}%)\nRemaining at checkout: ${fmtVND((result.estimatedFee ?? 0) - (result.depositAmount ?? 0))}`
-        : '';
-      showCustomAlert(
-        'Reservation Confirmed',
-        `Your slot is booked.${depositTxt}`,
-        () => {
-          closeWizard();
-          load();
-        },
-        'success'
-      );
-    } catch (err) {
-      if (err instanceof ApiError && err.errorCode === 'PLATE_RECENTLY_CANCELLED') {
-        setCreateError(
-          'This license plate has cancelled a reservation at this building within the last 24 hours. Please try again later.'
-        );
-      } else {
-        setCreateError(err instanceof Error ? err.message : 'Failed to create reservation');
-      }
-    } finally {
-      setCreating(false);
-    }
   };
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -726,7 +579,6 @@ export function useReservations() {
   const activePkg = packages.find((p) => p._id === selectedPackageId);
 
   const combinedBookings = React.useMemo(() => {
-    const normReservations = reservations.map((r) => ({ ...r, isSubscription: false }));
     const normSubscriptions = subscriptions.map((s) => ({
       _id: s._id,
       code: s.package ? `PKG-${s.package.name.substring(0, 3).toUpperCase()}` : 'PKG',
@@ -741,10 +593,10 @@ export function useReservations() {
       isSubscription: true,
       rawSubscription: s,
     }));
-    return [...normReservations, ...normSubscriptions].sort((a, b) => {
+    return normSubscriptions.sort((a, b) => {
       return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
     });
-  }, [reservations, subscriptions]);
+  }, [subscriptions]);
 
   const filtered = combinedBookings.filter((r) =>
     filter === 'booked' ? !isCancelled(r.status) : isCancelled(r.status),
@@ -774,33 +626,11 @@ export function useReservations() {
   const vtCategory = selectedVt ? guessVehicleCategory(selectedVt.name) : null;
   const eligiblePlates = vtCategory ? plates.filter((p) => p.vehicleType === vtCategory) : plates;
 
-  // Fee display built from server estimate
-  const estimatedFeeInfo = (() => {
-    const totalMs = endDateTime.getTime() - startDateTime.getTime();
-    if (totalMs <= 0) return null;
-    const hours2 = Math.floor(totalMs / 3600000);
-    const mins = Math.round((totalMs % 3600000) / 60000);
-    const duration = hours2 > 0 ? `${hours2}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins}m`;
-    if (fetchingFee) return { duration, depositText: 'Calculating...', remainingText: '' };
-    if (!feeEstimate) return { duration, depositText: '—', remainingText: '' };
-    // When the stay spans peak hours, show the regular + peak split; else a flat rate.
-    const rate = (feeEstimate.peakHours && feeEstimate.peakHours > 0)
-      ? `${feeEstimate.regularHours}h × ${fmtVND(feeEstimate.hourlyRate)} + ${feeEstimate.peakHours}h × ${fmtVND(feeEstimate.peakRate ?? 0)} (peak)`
-      : `${fmtVND(feeEstimate.hourlyRate)}/hr`;
-    const depPercent = feeEstimate.depositPercent ?? 15;
-    return {
-      duration,
-      depositText: `Deposit now (${depPercent}%): ${fmtVND(feeEstimate.depositAmount)}`,
-      remainingText: `Remaining at checkout: ${fmtVND(feeEstimate.remainingFee)}`,
-      rate,
-    };
-  })();
-
   return {
     // session
     plates,
     // list state
-    reservations, subscriptions, refreshing, loadError, filter, setFilter,
+    subscriptions, refreshing, loadError, filter, setFilter,
     fromDate, setFromDate, toDate, setToDate,
     filtered, finalFiltered,
     cancellingId, renewingId, handleCancel, handleRenewSubscription,
@@ -815,7 +645,7 @@ export function useReservations() {
     displaySlotCode, setDisplaySlotCode,
     showBookingModal, setShowBookingModal,
     // booking type / packages
-    bookingType, setBookingType,
+    bookingType,
     selectedPackageId, setSelectedPackageId,
     packages, fetchingPackages,
     reserveDedicatedSlot, setReserveDedicatedSlot,
@@ -830,8 +660,6 @@ export function useReservations() {
     selectedFloor, selectedBuilding, vtCategory, eligiblePlates,
     // step 3
     startDateTime, endDateTime, applyDateTime,
-    policy,
-    feeEstimate, fetchingFee, estimatedFeeInfo,
     creating, createError,
     // navigation
     goToStep2, goToStep3, handleCreate,

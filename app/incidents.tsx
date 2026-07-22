@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { listMyIncidents, reportIncident, type MobileIncident } from '../services/incidents';
+import { listBuildings, type BuildingOption } from '../services/reservations';
+import { ApiError } from '../services/api';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -27,7 +29,6 @@ const INCIDENT_TYPES = [
   { value: 'facility_issue', label: 'Facility Issue (broken lights/floors)' },
   { value: 'wrong_scan', label: 'Incorrect License Plate Scan' },
   { value: 'payment_dispute', label: 'Payment / Fee Dispute' },
-  { value: 'lost_ticket', label: 'Lost Parking Ticket / QR code' },
   { value: 'security', label: 'Security (suspicious activity)' },
   { value: 'other', label: 'Other General Incident' },
 ];
@@ -45,9 +46,17 @@ export default function IncidentsScreen() {
   // Form State
   const [selectedType, setSelectedType] = useState('slot_occupied');
   const [target, setTarget] = useState('');
+  const [violatorPlate, setViolatorPlate] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Building picker fallback — chỉ hiện khi BE không tự suy ra được building
+  // (user không có active session/subscription nào) → chặn 400 BUILDING_REQUIRED.
+  const [needsBuilding, setNeedsBuilding] = useState(false);
+  const [buildings, setBuildings] = useState<BuildingOption[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState('');
+  const [loadingBuildings, setLoadingBuildings] = useState(false);
 
   const loadIncidents = useCallback(async () => {
     if (!token) return;
@@ -88,18 +97,39 @@ export default function IncidentsScreen() {
       await reportIncident(token, {
         type: selectedType,
         target: target.trim() || undefined,
+        violatorPlate: selectedType === 'slot_occupied' ? (violatorPlate.trim() || undefined) : undefined,
         note: note.trim(),
+        buildingId: needsBuilding ? (selectedBuildingId || undefined) : undefined,
       });
       setSuccessMsg('Thank you. Your incident report has been submitted to the building security crew.');
       setNote('');
       setTarget('');
+      setViolatorPlate('');
+      setNeedsBuilding(false);
+      setSelectedBuildingId('');
       // Switch to list after brief delay
       setTimeout(() => {
         setSuccessMsg(null);
         setActiveTab('list');
       }, 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Submission failed');
+      if (err instanceof ApiError && err.errorCode === 'BUILDING_REQUIRED') {
+        setError('You have no active parking session. Please select which building this incident happened in.');
+        setNeedsBuilding(true);
+        if (buildings.length === 0) {
+          setLoadingBuildings(true);
+          try {
+            const list = await listBuildings(token);
+            setBuildings(list);
+          } catch {
+            // ignore — user can retry via pull/refresh of the picker
+          } finally {
+            setLoadingBuildings(false);
+          }
+        }
+      } else {
+        setError(err instanceof Error ? err.message : 'Submission failed');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -110,8 +140,11 @@ export default function IncidentsScreen() {
       case 'open':
         return 'warning';
       case 'investigating':
-      case 'escalated':
         return 'info';
+      case 'escalated':
+        return 'orange';
+      case 'penalty_pending':
+        return 'purple';
       case 'resolved':
         return 'success';
       case 'closed':
@@ -217,6 +250,21 @@ export default function IncidentsScreen() {
                 maxLength={40}
               />
 
+              {selectedType === 'slot_occupied' && (
+                <>
+                  <Text style={styles.inputLabel}>Offending Vehicle Plate (Optional)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="E.g. 59G2-038.80"
+                    placeholderTextColor={Colors.textDim}
+                    value={violatorPlate}
+                    onChangeText={(v) => setViolatorPlate(v.toUpperCase())}
+                    autoCapitalize="characters"
+                    maxLength={20}
+                  />
+                </>
+              )}
+
               <Text style={styles.inputLabel}>Detailed Description</Text>
               <TextInput
                 style={[styles.textInput, styles.textArea]}
@@ -229,10 +277,40 @@ export default function IncidentsScreen() {
                 maxLength={500}
               />
 
+              {needsBuilding && (
+                <>
+                  <Text style={styles.inputLabel}>Building</Text>
+                  {loadingBuildings ? (
+                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: Spacing.sm }} />
+                  ) : (
+                    <View style={styles.pickerContainer}>
+                      {buildings.map((b) => (
+                        <TouchableOpacity
+                          key={b._id}
+                          style={[styles.typeOption, selectedBuildingId === b._id && styles.typeOptionActive]}
+                          onPress={() => setSelectedBuildingId(b._id)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons
+                            name={selectedBuildingId === b._id ? 'radio-button-on' : 'radio-button-off'}
+                            size={16}
+                            color={selectedBuildingId === b._id ? Colors.primary : Colors.textDim}
+                          />
+                          <Text style={[styles.typeOptionText, selectedBuildingId === b._id && styles.typeOptionTextActive]}>
+                            {b.name} ({b.code})
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+
               <Button
                 label={submitting ? 'Submitting...' : 'Submit Report'}
                 onPress={handleReport}
                 loading={submitting}
+                disabled={needsBuilding && !selectedBuildingId}
                 style={{ marginTop: Spacing.md }}
               />
             </View>
@@ -274,6 +352,12 @@ export default function IncidentsScreen() {
                   )}
 
                   <Text style={styles.ticketNote}>{inc.note}</Text>
+
+                  {inc.status === 'escalated' && (
+                    <Text style={styles.escalatedNote}>
+                      The reported plate has no registered account in this building — a manager is handling it directly.
+                    </Text>
+                  )}
 
                   <Text style={styles.ticketTime}>
                     Reported At: {new Date(inc.createdAt).toLocaleString('vi-VN')}
@@ -491,6 +575,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textDim,
     fontWeight: '500',
+    marginTop: 4,
+  },
+  escalatedNote: {
+    fontSize: FontSize.xs,
+    color: '#c2410c',
+    fontWeight: '600',
     marginTop: 4,
   },
   resolutionBox: {

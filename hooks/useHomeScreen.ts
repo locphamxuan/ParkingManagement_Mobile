@@ -10,7 +10,6 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { getWallet } from '../services/wallet';
-import { listReservations } from '../services/reservations';
 import { listParkingHistory } from '../services/history';
 import { listPackages, listSubscriptions } from '../services/longTerm';
 import { listNotifications, markNotificationRead } from '../services/notifications';
