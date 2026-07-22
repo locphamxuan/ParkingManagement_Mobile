@@ -12,10 +12,12 @@ interface HomeNotificationsModalProps {
   onClose: () => void;
   notifications: Notification[];
   onNotificationTap: (notif: Notification) => void;
+  unreadCount?: number;
+  onMarkAllRead?: () => void;
 }
 
 /** Modal danh sách thông báo của màn Home. */
-export function HomeNotificationsModal({ visible, onClose, notifications, onNotificationTap }: HomeNotificationsModalProps) {
+export function HomeNotificationsModal({ visible, onClose, notifications, onNotificationTap, unreadCount = 0, onMarkAllRead }: HomeNotificationsModalProps) {
   return (
     <Modal
       visible={visible}
@@ -30,9 +32,16 @@ export function HomeNotificationsModal({ visible, onClose, notifications, onNoti
               <Ionicons name="notifications" size={20} color={Colors.primary} />
               <Text style={styles.modalTitle}>NOTIFICATIONS</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={Colors.text} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              {unreadCount > 0 && onMarkAllRead && (
+                <TouchableOpacity onPress={onMarkAllRead}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.primary }}>Mark all read</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
