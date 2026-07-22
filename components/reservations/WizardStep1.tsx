@@ -5,12 +5,12 @@ import { guessVehicleCategory } from '../../utils/vehicle';
 import { GlitterParticle } from './animations';
 import type { ReservationsVM } from '../../hooks/useReservations';
 
-// Step 1 wizard — chọn toà, loại đặt (giờ/gói), gói, biển số, loại xe.
+// Step 1 wizard — chọn toà, gói dài hạn, biển số, loại xe.
 export function WizardStep1({ vm }: { vm: ReservationsVM }) {
   const {
     plates,
     wizard, setWizard,
-    bookingType, setBookingType,
+    bookingType,
     selectedPackageId, setSelectedPackageId,
     packages, fetchingPackages,
     particles, triggerGlitter,
@@ -55,36 +55,6 @@ export function WizardStep1({ vm }: { vm: ReservationsVM }) {
             })
           )}
         </View>
-
-        {/* Booking Type selection */}
-        {wizard.buildingId ? (
-          <View style={{ gap: 6 }}>
-            <Text style={styles.fieldLabel}>Booking Type</Text>
-            <View style={styles.chipRow}>
-              <TouchableOpacity
-                style={[styles.chip, bookingType === 'hourly' && styles.chipActive]}
-                onPress={() => {
-                  setBookingType('hourly');
-                  setSelectedPackageId('');
-                }}
-              >
-                <Text style={[styles.chipText, bookingType === 'hourly' && styles.chipTextActive]}>
-                  Hourly Reservation
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chip, bookingType === 'package' && styles.chipActive]}
-                onPress={() => {
-                  setBookingType('package');
-                }}
-              >
-                <Text style={[styles.chipText, bookingType === 'package' && styles.chipTextActive]}>
-                  Long-term Package
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
 
         {/* Package Selector */}
         {bookingType === 'package' && !!wizard.buildingId && (

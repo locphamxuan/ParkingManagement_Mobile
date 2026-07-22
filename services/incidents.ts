@@ -6,10 +6,13 @@ export interface MobileIncident {
   type: string;
   note?: string;
   target?: string;
+  violatorPlate?: string;
+  /** null = không áp dụng; false → biển vi phạm chưa có account trong building, incident tự escalate cho manager. */
+  plateAccountFound?: boolean | null;
   building?: { _id: string; code: string; name: string } | string | null;
   slot?: { _id: string; code: string } | string | null;
   severity: 'medium' | 'high' | 'critical';
-  status: 'open' | 'investigating' | 'escalated' | 'resolved' | 'closed';
+  status: 'open' | 'investigating' | 'escalated' | 'penalty_pending' | 'resolved' | 'closed';
   resolutionNote?: string;
   createdAt: string;
 }
@@ -35,6 +38,7 @@ export async function reportIncident(
     slotId?: string;
     target?: string;
     note?: string;
+    violatorPlate?: string;
   }
 ): Promise<MobileIncident> {
   const res = await apiRequest<ApiRes<{ item?: MobileIncident; incident?: MobileIncident } | MobileIncident>>(

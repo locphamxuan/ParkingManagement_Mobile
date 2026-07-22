@@ -33,3 +33,68 @@ export const styles = StyleSheet.create({
   linkHighlight: { color: Colors.primary, fontWeight: '700' },
   note: { color: Colors.textDim, fontSize: FontSize.xs, textAlign: 'center' },
 });
+
+/** Confirmation modal styles (forgot-password "send reset link?" dialog). */
+export const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing['2xl'],
+  },
+  container: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    padding: Spacing['2xl'],
+    width: '100%',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  title: {
+    fontSize: FontSize.md,
+    fontWeight: '800',
+    color: Colors.text,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  body: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Spacing['2xl'],
+  },
+  emailHighlight: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  btnCancel: {
+    backgroundColor: Colors.cardAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  btnCancelText: {
+    color: Colors.text,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+  btnConfirm: {
+    backgroundColor: Colors.primary,
+  },
+  btnConfirmText: {
+    color: '#ffffff',
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+});

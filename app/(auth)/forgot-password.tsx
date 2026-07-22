@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   TouchableOpacity,
-  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,9 +14,8 @@ import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { SuccessBanner } from "../../components/ui/SuccessBanner";
 import { commonStyles } from "../../styles/common";
-import { styles } from "../../styles/screens/authForm";
+import { styles, modalStyles } from "../../styles/screens/authForm";
 import { forgotPassword } from "../../services/auth";
-import { Colors, Spacing, Radius, FontSize } from "../../constants/theme";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
 
@@ -170,67 +168,3 @@ export default function ForgotPasswordScreen() {
     </SafeAreaView>
   );
 }
-
-const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: Spacing["2xl"],
-  },
-  container: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    padding: Spacing["2xl"],
-    width: "100%",
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  title: {
-    fontSize: FontSize.md,
-    fontWeight: "800",
-    color: Colors.text,
-    marginBottom: Spacing.md,
-    textAlign: "center",
-  },
-  body: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: Spacing["2xl"],
-  },
-  emailHighlight: {
-    color: Colors.primary,
-    fontWeight: "700",
-  },
-  actions: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.md,
-    alignItems: "center",
-  },
-  btnCancel: {
-    backgroundColor: Colors.cardAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  btnCancelText: {
-    color: Colors.text,
-    fontSize: FontSize.sm,
-    fontWeight: "700",
-  },
-  btnConfirm: {
-    backgroundColor: Colors.primary,
-  },
-  btnConfirmText: {
-    color: "#ffffff",
-    fontSize: FontSize.sm,
-    fontWeight: "700",
-  },
-});
