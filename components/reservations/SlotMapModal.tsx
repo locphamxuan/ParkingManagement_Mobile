@@ -95,8 +95,10 @@ export function SlotMapModal({
           {/* Header */}
           <View style={styles.mapModalHeader}>
             <View>
-              <Text style={styles.mapModalTitle}>Basement Parking Map</Text>
-              <Text style={styles.mapModalSubtitle}>{selectedFloor?.name || 'Floor Map'}</Text>
+              <Text style={styles.mapModalTitle}>BẢN ĐỒ CHỌN SLOT ĐỖ XE</Text>
+              <Text style={styles.mapModalSubtitle}>
+                {selectedFloor?.name ? `${selectedFloor.name} — ${vtCategory === 'car' ? 'Slot Ô tô 🚗' : 'Slot Xe máy 🏍️'}` : 'Sơ đồ Tầng đỗ xe'}
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close-circle" size={28} color={Colors.textDim} />
@@ -105,7 +107,7 @@ export function SlotMapModal({
 
           {/* View Mode Toggle */}
           <View style={styles.mapToggleRow}>
-            <Text style={styles.mapSelectHint}>Tap a slot to select</Text>
+            <Text style={styles.mapSelectHint}>Chạm vào slot để chọn vị trí</Text>
             <View style={styles.toggleBtnGroup}>
               <TouchableOpacity
                 style={[styles.toggleBtn, viewMode === '2D' && styles.toggleBtnActive]}
@@ -128,11 +130,15 @@ export function SlotMapModal({
           <View style={styles.legendRow2D}>
             <View style={styles.legendItem2D}>
               <View style={[styles.legendDot2D, { borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} />
-              <Text style={styles.legendText2D}>Available</Text>
+              <Text style={styles.legendText2D}>Trống (Available)</Text>
             </View>
             <View style={styles.legendItem2D}>
               <View style={[styles.legendDot2D, { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.2)' }]} />
-              <Text style={styles.legendText2D}>Selected</Text>
+              <Text style={styles.legendText2D}>Đang chọn (Selected)</Text>
+            </View>
+            <View style={styles.legendItem2D}>
+              <View style={[styles.legendDot2D, { borderColor: 'rgba(255,255,255,0.25)', borderStyle: 'dashed', backgroundColor: 'transparent' }]} />
+              <Text style={styles.legendText2D}>Đã đỗ / Khóa</Text>
             </View>
           </View>
 
@@ -141,38 +147,38 @@ export function SlotMapModal({
             {fetchingSlots ? (
               <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 40 }} />
             ) : (() => {
-              const availableSlots = slots.filter((slot) => {
-                const isAvailable = !slot.status || slot.status.toLowerCase() === 'available';
-                if (!isAvailable) return false;
+              // Strictly filter slots by vehicle type matching the package (Car vs Motorcycle)
+              const filteredSlots = slots.filter((slot) => {
                 if (!vtCategory) return true;
                 const slotCat = getSlotCategory(slot);
                 return vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle';
               });
 
-              if (availableSlots.length === 0) {
+              if (filteredSlots.length === 0) {
                 return (
                   <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                    <Text style={styles.hintText}>No available slots for your vehicle type on this floor.</Text>
+                    <Text style={styles.hintText}>Không có slot đỗ {vtCategory === 'car' ? 'ô tô' : 'xe máy'} nào trên tầng này.</Text>
                   </View>
                 );
               }
 
-              const slotCount = availableSlots.length;
-              let slotWidth = 50;
-              let slotHeight = 35;
+              const slotCount = filteredSlots.length;
+              let slotWidth = 55;
+              let slotHeight = 45;
               let gapVal = 8;
               if (slotCount < 10) {
-                slotWidth = 80;
-                slotHeight = 55;
+                slotWidth = 85;
+                slotHeight = 65;
                 gapVal = 12;
               } else if (slotCount <= 20) {
-                slotWidth = 65;
-                slotHeight = 45;
+                slotWidth = 70;
+                slotHeight = 55;
                 gapVal = 10;
               }
               const fontSize3D = slotWidth < 60 ? 9 : 11;
 
-              const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically(availableSlots);
+              const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically(filteredSlots);
+              const carEmoji = vtCategory === 'car' ? '🚗' : '🏍️';
 
               if (viewMode === '2D') {
                 return (
@@ -188,27 +194,33 @@ export function SlotMapModal({
                       style={{ flex: 1, width: '100%' }}
                     >
                       <View style={styles.basement2DContainer}>
-                        {/* AVAILABLE SLOTS HEADER */}
+                        {/* ROW HEADER FOR CAR SLOTS */}
                         <View style={styles.rowHeaderRow2D}>
-                          <Text style={styles.rowHeader2D}>AVAILABLE SLOTS</Text>
+                          <Text style={styles.rowHeader2D}>
+                            {vtCategory === 'car' ? 'DÃY VỊ TRÍ ĐỖ Ô TÔ 🏎️' : 'DÃY VỊ TRÍ ĐỖ XE MÁY 🏍️'}
+                          </Text>
                         </View>
                         <View style={styles.parkingLane2D}>
                           {topRowSlots.map((slot) => {
+                            const isAvailable = !slot.status || slot.status.toLowerCase() === 'available';
                             const isSelected = selectedSlotId === slot._id;
                             return (
                               <TouchableOpacity
                                 key={slot._id}
+                                disabled={!isAvailable && !isSelected}
                                 style={[
                                   styles.slotCell2D,
-                                  { width: slotWidth + 12, height: slotHeight + 12 },
+                                  { width: slotWidth + 12, height: slotHeight + 12, flexDirection: 'column', justifyContent: 'center', alignItems: 'center' },
                                   isSelected && styles.slotCell2DSelected,
+                                  !isAvailable && !isSelected && styles.slotCell2DDisabled,
                                 ]}
-                                onPress={() => onSelectSlot(slot)}
+                                onPress={() => isAvailable && onSelectSlot(slot)}
                                 activeOpacity={0.8}
                               >
-                                <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected, !isAvailable && { color: '#64748b' }]}>
                                   {slot.code}
                                 </Text>
+                                <Text style={{ fontSize: 16, marginTop: 2 }}>{carEmoji}</Text>
                               </TouchableOpacity>
                             );
                           })}
@@ -226,21 +238,25 @@ export function SlotMapModal({
                         {bottomRowSlots.length > 0 && (
                           <View style={styles.parkingLane2D}>
                             {bottomRowSlots.map((slot) => {
+                              const isAvailable = !slot.status || slot.status.toLowerCase() === 'available';
                               const isSelected = selectedSlotId === slot._id;
                               return (
                                 <TouchableOpacity
                                   key={slot._id}
+                                  disabled={!isAvailable && !isSelected}
                                   style={[
                                     styles.slotCell2D,
-                                    { width: slotWidth + 12, height: slotHeight + 12 },
+                                    { width: slotWidth + 12, height: slotHeight + 12, flexDirection: 'column', justifyContent: 'center', alignItems: 'center' },
                                     isSelected && styles.slotCell2DSelected,
+                                    !isAvailable && !isSelected && styles.slotCell2DDisabled,
                                   ]}
-                                  onPress={() => onSelectSlot(slot)}
+                                  onPress={() => isAvailable && onSelectSlot(slot)}
                                   activeOpacity={0.8}
                                 >
-                                  <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                  <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected, !isAvailable && { color: '#64748b' }]}>
                                     {slot.code}
                                   </Text>
+                                  <Text style={{ fontSize: 16, marginTop: 2 }}>{carEmoji}</Text>
                                 </TouchableOpacity>
                               );
                             })}
@@ -293,6 +309,7 @@ export function SlotMapModal({
                                   >
                                     <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D]}>
                                       <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
+                                      <Text style={{ fontSize: 12, marginTop: 1 }}>{carEmoji}</Text>
                                     </View>
                                     <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D]} />
                                     <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D]} />
@@ -319,6 +336,7 @@ export function SlotMapModal({
                                   >
                                     <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D]}>
                                       <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
+                                      <Text style={{ fontSize: 12, marginTop: 1 }}>{carEmoji}</Text>
                                     </View>
                                     <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D]} />
                                     <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D]} />
