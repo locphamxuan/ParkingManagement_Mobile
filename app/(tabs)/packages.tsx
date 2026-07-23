@@ -90,21 +90,33 @@ export default function PackagesScreen() {
     const bldId = pkg.building?._id || '';
     if (bldId && token) {
       try {
-        const flList = await getBuildingFloors(token, bldId);
-        setFloors(flList);
-        
-        // Find floors that support this vehicleType
         const pkgVtId = String(typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType._id : pkg.vehicleType);
-        const compatibleFloors = flList.filter(f => f.allowedVehicleTypes.map(String).includes(pkgVtId));
+        const flList = await getBuildingFloors(token, bldId, pkgVtId);
         
+        // Filter floors that allow this vehicleType (or have empty allowedVehicleTypes meaning all allowed)
+        const compatibleFloors = flList.filter(f => {
+          if (!f.allowedVehicleTypes || f.allowedVehicleTypes.length === 0) return true;
+          return f.allowedVehicleTypes.some(vt => {
+            const vtId = typeof vt === 'object' ? vt._id : String(vt);
+            const vtNameOrCode = (typeof vt === 'object' ? (vt.code || vt.name) : String(vt)).toLowerCase();
+            if (pkgVtId && vtId === pkgVtId) return true;
+            if (isCar) {
+              return /car|oto|ô t|auto/i.test(vtNameOrCode);
+            } else {
+              return /motor|xe|máy|bike|moto/i.test(vtNameOrCode);
+            }
+          });
+        });
+
+        setFloors(compatibleFloors);
+
         if (compatibleFloors.length > 0) {
           setSelectedFloorId(compatibleFloors[0]._id);
-          const slList = await getFloorSlots(token, bldId, compatibleFloors[0]._id);
+          const slList = await getFloorSlots(token, bldId, compatibleFloors[0]._id, 'subscriber');
           setSlots(slList);
-        } else if (flList.length > 0) {
-          setSelectedFloorId(flList[0]._id);
-          const slList = await getFloorSlots(token, bldId, flList[0]._id);
-          setSlots(slList);
+        } else {
+          setSelectedFloorId('');
+          setSlots([]);
         }
       } catch {}
     }
@@ -763,7 +775,7 @@ export default function PackagesScreen() {
                               setSelectedSlot(null);
                               setFetchingSlots(true);
                               try {
-                                const slList = await getFloorSlots(token, selectedPkg.building?._id || '', f._id);
+                                const slList = await getFloorSlots(token, selectedPkg.building?._id || '', f._id, 'subscriber');
                                 setSlots(slList);
                               } catch {}
                               setFetchingSlots(false);
