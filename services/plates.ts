@@ -5,11 +5,6 @@ interface ApiPlatesRes {
   data?: { licensePlates?: LicensePlate[] };
 }
 
-export async function listPlates(token: string): Promise<LicensePlate[]> {
-  const res = await apiRequest<ApiPlatesRes>('/users/license-plates', { token });
-  return res?.data?.licensePlates ?? [];
-}
-
 export async function addPlate(
   token: string,
   plateNumber: string,
