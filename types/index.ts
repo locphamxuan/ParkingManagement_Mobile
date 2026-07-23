@@ -123,6 +123,7 @@ export interface LongTermSubscription {
   /** Snapshot % và số tiền đã hoàn lúc hủy (theo ReservationPolicy thời điểm đó) — null với gói cũ. */
   refundPercent?: number | null;
   refundAmount?: number | null;
+  updatedAt?: string;
 }
 
 // ─── Notifications ─────────────────────────────────────────────────────────────
