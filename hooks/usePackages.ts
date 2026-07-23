@@ -15,7 +15,12 @@ export function usePackages() {
   const plates: LicensePlate[] = session?.licensePlates ?? [];
 
   const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
-  const params = useLocalSearchParams<{ tab?: string }>();
+  // buildingId/plateNumber: passed by app/buildings.tsx's "Book Now" button and
+  // useHomeScreen.ts's notification tap via router.push('/(tabs)/reservations', {...})
+  // — reservations.tsx redirects here, but params used to be silently dropped.
+  const params = useLocalSearchParams<{ tab?: string; buildingId?: string; plateNumber?: string }>();
+  const prefillPlateNumber = params.plateNumber || '';
+  const [prefillApplied, setPrefillApplied] = useState(false);
 
   useEffect(() => {
     if (params.tab === 'my') setActiveTab('my');
@@ -62,6 +67,21 @@ export function usePackages() {
       load();
     }, [load]),
   );
+
+  // Pre-fill: once packages are loaded, if navigated here with ?buildingId=...
+  // (Book Now / notification tap), jump to Browse tab, expand that building's
+  // group and filter the search to it so the user lands on the right packages
+  // instead of the params being silently dropped.
+  useEffect(() => {
+    if (prefillApplied || !params.buildingId || packages.length === 0) return;
+    const match = packages.find((pkg) => pkg.building?._id === params.buildingId);
+    if (match?.building) {
+      setActiveTab('browse');
+      setExpandedBuildings((prev) => ({ ...prev, [match.building!._id]: true }));
+      setSearchQuery(match.building.name || '');
+    }
+    setPrefillApplied(true);
+  }, [prefillApplied, params.buildingId, packages]);
 
   // Filter packages
   const filteredPackages = packages.filter((pkg) => {
@@ -121,6 +141,7 @@ export function usePackages() {
   return {
     token, plates, session,
     activeTab, setActiveTab,
+    prefillPlateNumber,
     packages, subscriptions, loading, refreshing, error,
     expandedBuildings, setExpandedBuildings,
     searchQuery, setSearchQuery,
