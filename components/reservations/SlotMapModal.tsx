@@ -131,12 +131,8 @@ export function SlotMapModal({
               <Text style={styles.legendText2D}>Available</Text>
             </View>
             <View style={styles.legendItem2D}>
-              <View style={[styles.legendDot2D, { borderColor: '#475569', backgroundColor: 'rgba(71, 85, 105, 0.1)' }]} />
-              <Text style={styles.legendText2D}>Reserved</Text>
-            </View>
-            <View style={styles.legendItem2D}>
-              <View style={[styles.legendDot2D, { borderColor: 'rgba(255,255,255,0.25)', borderStyle: 'dashed', backgroundColor: 'transparent' }]} />
-              <Text style={styles.legendText2D}>Unavailable</Text>
+              <View style={[styles.legendDot2D, { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.2)' }]} />
+              <Text style={styles.legendText2D}>Selected</Text>
             </View>
           </View>
 
@@ -144,10 +140,24 @@ export function SlotMapModal({
           <View style={styles.mapModalContent}>
             {fetchingSlots ? (
               <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 40 }} />
-            ) : slots.length === 0 ? (
-              <Text style={styles.hintText}>No slots available.</Text>
             ) : (() => {
-              const slotCount = slots.length;
+              const availableSlots = slots.filter((slot) => {
+                const isAvailable = !slot.status || slot.status.toLowerCase() === 'available';
+                if (!isAvailable) return false;
+                if (!vtCategory) return true;
+                const slotCat = getSlotCategory(slot);
+                return vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle';
+              });
+
+              if (availableSlots.length === 0) {
+                return (
+                  <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                    <Text style={styles.hintText}>No available slots for your vehicle type on this floor.</Text>
+                  </View>
+                );
+              }
+
+              const slotCount = availableSlots.length;
               let slotWidth = 50;
               let slotHeight = 35;
               let gapVal = 8;
@@ -162,25 +172,7 @@ export function SlotMapModal({
               }
               const fontSize3D = slotWidth < 60 ? 9 : 11;
 
-              const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically(slots);
-              const getSlotSymbol = (sItem: SlotItem) => {
-                if (sItem.vehicleType?.name) {
-                  const cat = guessVehicleCategory(sItem.vehicleType.name);
-                  if (cat === 'motorcycle') return '🏍️';
-                  return '🚗';
-                }
-                // Try to guess by code prefix (M for motorcycle, C for car)
-                const codeUpper = sItem.code.toUpperCase();
-                if (codeUpper.startsWith('M')) return '🏍️';
-                if (codeUpper.startsWith('C')) return '🚗';
-
-                const selectedVt = vehicleTypes.find(vt => vt._id === selectedVehicleTypeId);
-                if (selectedVt) {
-                  const cat = guessVehicleCategory(selectedVt.name);
-                  if (cat === 'motorcycle') return '🏍️';
-                }
-                return '🚗';
-              };
+              const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically(availableSlots);
 
               if (viewMode === '2D') {
                 return (
@@ -196,18 +188,12 @@ export function SlotMapModal({
                       style={{ flex: 1, width: '100%' }}
                     >
                       <View style={styles.basement2DContainer}>
-                        {/* ROW T1 (CAR SLOTS) */}
+                        {/* AVAILABLE SLOTS HEADER */}
                         <View style={styles.rowHeaderRow2D}>
-                          <Text style={styles.rowHeader2D}>ROW T1 (CAR SLOTS 🚗)</Text>
+                          <Text style={styles.rowHeader2D}>AVAILABLE SLOTS</Text>
                         </View>
                         <View style={styles.parkingLane2D}>
                           {topRowSlots.map((slot) => {
-                            const slotCat = getSlotCategory(slot);
-                            const isCompatible = !vtCategory || (
-                              vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
-                            );
-                            const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
-                            const isSelectable = isAvailable;
                             const isSelected = selectedSlotId === slot._id;
                             return (
                               <TouchableOpacity
@@ -216,25 +202,13 @@ export function SlotMapModal({
                                   styles.slotCell2D,
                                   { width: slotWidth + 12, height: slotHeight + 12 },
                                   isSelected && styles.slotCell2DSelected,
-                                  !isSelectable && styles.slotCell2DDisabled,
                                 ]}
-                                onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
+                                onPress={() => onSelectSlot(slot)}
                                 activeOpacity={0.8}
                               >
-                                {isSelectable ? (
-                                  <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
-                                    {slot.code}
-                                  </Text>
-                                ) : (
-                                  <View style={styles.slotOccupiedContainer2D}>
-                                    <Text style={styles.slotCode2DDisabledTop}>
-                                      {slot.code}
-                                    </Text>
-                                    <Text style={styles.slotVehicleEmoji2D}>
-                                      {getSlotSymbol(slot)}
-                                    </Text>
-                                  </View>
-                                )}
+                                <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
+                                  {slot.code}
+                                </Text>
                               </TouchableOpacity>
                             );
                           })}
@@ -249,49 +223,29 @@ export function SlotMapModal({
                           <Text style={styles.drivewayArrow2D}>EXIT (OUT) ──▶</Text>
                         </View>
 
-                        {/* ROW T2 (MOTORCYCLE SLOTS) */}
-                        <View style={styles.rowHeaderRow2D}>
-                          <Text style={styles.rowHeader2D}>ROW T2 (MOTORCYCLE SLOTS 🏍️)</Text>
-                        </View>
-                        <View style={styles.parkingLane2D}>
-                          {bottomRowSlots.map((slot) => {
-                            const slotCat = getSlotCategory(slot);
-                            const isCompatible = !vtCategory || (
-                              vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
-                            );
-                            const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
-                            const isSelectable = isAvailable;
-                            const isSelected = selectedSlotId === slot._id;
-                            return (
-                              <TouchableOpacity
-                                key={slot._id}
-                                style={[
-                                  styles.slotCell2D,
-                                  { width: slotWidth + 12, height: slotHeight + 12 },
-                                  isSelected && styles.slotCell2DSelected,
-                                  !isSelectable && styles.slotCell2DDisabled,
-                                ]}
-                                onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
-                                activeOpacity={0.8}
-                              >
-                                {isSelectable ? (
+                        {bottomRowSlots.length > 0 && (
+                          <View style={styles.parkingLane2D}>
+                            {bottomRowSlots.map((slot) => {
+                              const isSelected = selectedSlotId === slot._id;
+                              return (
+                                <TouchableOpacity
+                                  key={slot._id}
+                                  style={[
+                                    styles.slotCell2D,
+                                    { width: slotWidth + 12, height: slotHeight + 12 },
+                                    isSelected && styles.slotCell2DSelected,
+                                  ]}
+                                  onPress={() => onSelectSlot(slot)}
+                                  activeOpacity={0.8}
+                                >
                                   <Text style={[styles.slotCode2D, isSelected && styles.slotCode2DSelected]}>
                                     {slot.code}
                                   </Text>
-                                ) : (
-                                  <View style={styles.slotOccupiedContainer2D}>
-                                    <Text style={styles.slotCode2DDisabledTop}>
-                                      {slot.code}
-                                    </Text>
-                                    <Text style={styles.slotVehicleEmoji2D}>
-                                      {getSlotSymbol(slot)}
-                                    </Text>
-                                  </View>
-                                )}
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
                       </View>
                     </ScrollView>
                   </ScrollView>
@@ -329,27 +283,19 @@ export function SlotMapModal({
                             {/* Left Parking Lane (Bottom Row) */}
                             <View style={styles.parkingLane3D}>
                               {bottomRowSlots.map((slot) => {
-                                const slotCat = getSlotCategory(slot);
-                                const isCompatible = !vtCategory || (
-                                  vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
-                                );
-                                const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
-                                const isSelectable = isAvailable;
                                 const isSelected = selectedSlotId === slot._id;
-
                                 return (
                                   <TouchableOpacity
                                     key={slot._id}
                                     style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                    onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
+                                    onPress={() => onSelectSlot(slot)}
                                     activeOpacity={0.8}
                                   >
-                                    <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isSelectable && styles.faceTopDisabled3D]}>
+                                    <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D]}>
                                       <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                      {!isSelectable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
                                     </View>
-                                    <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isSelectable && styles.faceLeftDisabled3D]} />
-                                    <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isSelectable && styles.faceRightDisabled3D]} />
+                                    <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D]} />
+                                    <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D]} />
                                   </TouchableOpacity>
                                 );
                               })}
@@ -363,27 +309,19 @@ export function SlotMapModal({
                             {/* Right Parking Lane (Top Row) */}
                             <View style={styles.parkingLane3D}>
                               {topRowSlots.map((slot) => {
-                                const slotCat = getSlotCategory(slot);
-                                const isCompatible = !vtCategory || (
-                                  vtCategory === 'car' ? slotCat === 'car' : slotCat === 'motorcycle'
-                                );
-                                const isAvailable = (!slot.status || slot.status.toLowerCase() === 'available') && isCompatible;
-                                const isSelectable = isAvailable;
                                 const isSelected = selectedSlotId === slot._id;
-
                                 return (
                                   <TouchableOpacity
                                     key={slot._id}
                                     style={[styles.slot3DBoxContainer, { width: slotWidth, height: slotHeight }]}
-                                    onPress={() => handleSlotClick(slot, isSelectable, isCompatible)}
+                                    onPress={() => onSelectSlot(slot)}
                                     activeOpacity={0.8}
                                   >
-                                    <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D, !isSelectable && styles.faceTopDisabled3D]}>
+                                    <View style={[styles.faceTop3D, { top: -gapVal, left: gapVal }, isSelected && styles.faceTopSelected3D]}>
                                       <Text style={[styles.codeText3D, { fontSize: fontSize3D }]}>{slot.code}</Text>
-                                      {!isSelectable && <Text style={[styles.carSymbol3D, { fontSize: slotWidth < 60 ? 12 : 15 }]}>{getSlotSymbol(slot)}</Text>}
                                     </View>
-                                    <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D, !isSelectable && styles.faceLeftDisabled3D]} />
-                                    <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D, !isSelectable && styles.faceRightDisabled3D]} />
+                                    <View style={[styles.faceLeft3D, { width: gapVal }, isSelected && styles.faceLeftSelected3D]} />
+                                    <View style={[styles.faceRight3D, { height: gapVal }, isSelected && styles.faceRightSelected3D]} />
                                   </TouchableOpacity>
                                 );
                               })}
