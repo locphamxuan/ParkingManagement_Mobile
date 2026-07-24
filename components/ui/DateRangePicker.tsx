@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
-import { styles } from './DateRangePicker.styles';
+import { styles } from '@/styles/components/DateRangePicker.styles';
 
 export interface DateRangePickerProps {
   fromDate: Date | null;

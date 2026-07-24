@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { getWallet } from '../services/wallet';
 import { listParkingHistory } from '../services/history';
 import { listPackages, listSubscriptions } from '../services/longTerm';
-import { listNotifications, markNotificationRead } from '../services/notifications';
+import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notifications';
 import { useUIStore } from '../store/uiStore';
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notification } from '../types';
 
@@ -171,6 +171,18 @@ export function useHomeScreen() {
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    if (!session?.token) return;
+    try {
+      await markAllNotificationsRead(session.token);
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+      setBellAlertActive(false);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
   const handleNotificationTap = async (notif: Notification) => {
     if (!notif.isRead) await handleMarkAsRead(notif._id);
     setShowNotifications(false);
@@ -198,7 +210,7 @@ export function useHomeScreen() {
     showQR, setShowQR, notifications, unreadCount,
     showNotifications, setShowNotifications, bellAlertActive,
     heroStyle, pulseDotStyle, bellAnimatedStyle,
-    handleMarkAsRead, handleNotificationTap, handleBellPress, onRefresh,
+    handleMarkAsRead, handleMarkAllAsRead, handleNotificationTap, handleBellPress, onRefresh,
     plateCount,
   };
 }

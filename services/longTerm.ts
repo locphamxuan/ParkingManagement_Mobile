@@ -63,6 +63,9 @@ export async function cancelSubscription(
   return res?.data ?? {};
 }
 
+// BE endpoint có thật và FE web đã dùng (LongTermSubscriptionsPage) nhưng Mobile
+// chưa có UI gọi hàm này (packages.tsx chỉ có Cancel) — gap cần làm riêng, không
+// phải dead code.
 export async function renewSubscription(
   token: string,
   id: string

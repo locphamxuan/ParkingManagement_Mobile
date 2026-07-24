@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Colors, FontSize, Radius, Spacing } from '../../styles/common';
+import { Colors, FontSize, Radius, Spacing } from '../common';
 
 /** Styles specific to FeedbackModal. Shared scaffolding lives in styles/common + SheetModal. */
 export const styles = StyleSheet.create({

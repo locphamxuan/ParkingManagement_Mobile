@@ -57,7 +57,7 @@ export default function HomeScreen() {
     router, session, logout, wallet, activeReservations, refreshing, activeSession, packages,
     showQR, setShowQR, notifications, unreadCount, showNotifications, setShowNotifications,
     bellAlertActive, heroStyle, pulseDotStyle, bellAnimatedStyle,
-    handleMarkAsRead, handleNotificationTap, handleBellPress, onRefresh, plateCount,
+    handleMarkAsRead, handleMarkAllAsRead, handleNotificationTap, handleBellPress, onRefresh, plateCount,
   } = useHomeScreen();
 
   return (
@@ -497,6 +497,8 @@ export default function HomeScreen() {
           onClose={() => setShowNotifications(false)}
           notifications={notifications}
           onNotificationTap={handleNotificationTap}
+          unreadCount={unreadCount}
+          onMarkAllRead={handleMarkAllAsRead}
         />
       </View>
     </SafeAreaView>
