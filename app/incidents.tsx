@@ -21,6 +21,7 @@ import { Colors, Spacing } from '../constants/theme';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { styles } from '../styles/screens/incidents';
+import { PLATE_REGEX, normalizePlate } from '../utils/vehicle';
 
 const INCIDENT_TYPES = [
   { value: 'slot_occupied', label: 'Slot Occupied by someone else' },
@@ -89,13 +90,27 @@ export default function IncidentsScreen() {
       setError('Please provide a detailed description of the incident.');
       return;
     }
+
+    let normalizedViolatorPlate: string | undefined = undefined;
+    if (selectedType === 'slot_occupied') {
+      const trimmed = violatorPlate.trim();
+      if (trimmed) {
+        const norm = normalizePlate(trimmed);
+        if (!PLATE_REGEX.test(norm)) {
+          setError('Invalid license plate format (e.g. 59G2-038.80).');
+          return;
+        }
+        normalizedViolatorPlate = norm;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
     setSuccessMsg(null);
     try {
       await reportIncident(token, {
         type: selectedType,
-        violatorPlate: selectedType === 'slot_occupied' ? (violatorPlate.trim() || undefined) : undefined,
+        violatorPlate: normalizedViolatorPlate,
         note: note.trim(),
         buildingId: needsBuilding ? (selectedBuildingId || undefined) : undefined,
       });
