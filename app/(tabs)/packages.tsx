@@ -156,6 +156,9 @@ export default function PackagesScreen() {
           setCancelNote={cancellation.setCancelNote}
           cancelling={cancellation.cancelling}
           cancelErr={cancellation.cancelErr}
+          cancelSuccessMsg={cancellation.cancelSuccessMsg}
+          refundPreview={cancellation.refundPreview}
+          loadingPreview={cancellation.loadingPreview}
           onClose={cancellation.closeCancel}
           onConfirm={cancellation.handleConfirmCancel}
         />

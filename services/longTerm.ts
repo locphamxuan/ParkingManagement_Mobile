@@ -63,6 +63,21 @@ export async function cancelSubscription(
   return res?.data ?? {};
 }
 
+export interface RefundPreview {
+  refundPercent: number;
+  refundAmount: number;
+  packagePrice: number;
+}
+
+/** Preview refund %/amount BEFORE the user confirms cancellation — same calc BE uses on actual cancel. */
+export async function getRefundPreview(token: string, id: string): Promise<RefundPreview | null> {
+  const res = await apiRequest<ApiRes<RefundPreview>>(
+    `/users/long-term/subscriptions/${id}/refund-preview`,
+    { token },
+  );
+  return res?.data ?? null;
+}
+
 // BE endpoint có thật và FE web đã dùng (LongTermSubscriptionsPage) nhưng Mobile
 // chưa có UI gọi hàm này (packages.tsx chỉ có Cancel) — gap cần làm riêng, không
 // phải dead code.
