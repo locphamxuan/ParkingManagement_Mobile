@@ -14,8 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
-import { listMyIncidents, reportIncident, type MobileIncident } from '../services/incidents';
+import { listMyIncidents, reportIncident, getViolationTypes, type MobileIncident, type ViolationTypeOption } from '../services/incidents';
 import { listBuildings, type BuildingOption } from '../services/reservations';
+import { listParkingHistory } from '../services/history';
 import { ApiError } from '../services/api';
 import { Colors, Spacing } from '../constants/theme';
 import { Button } from '../components/ui/Button';
@@ -23,9 +24,9 @@ import { Badge } from '../components/ui/Badge';
 import { styles } from '../styles/screens/incidents';
 import { PLATE_REGEX, normalizePlate } from '../utils/vehicle';
 
-const INCIDENT_TYPES = [
-  { value: 'slot_occupied', label: 'Slot Occupied by someone else' },
-  { value: 'slot_blocked', label: 'Slot Blocked / Obstructed' },
+// Sự cố "tự thân" — cố định, không liên quan tới phạt 1 xe/biển số khác. Loại vi
+// phạm (report a violation) giờ lấy động từ bảng giá manager cấu hình cho building.
+const GENERAL_INCIDENT_TYPES = [
   { value: 'vehicle_damaged', label: 'Vehicle Damaged / Scratched' },
   { value: 'facility_issue', label: 'Facility Issue (broken lights/floors)' },
   { value: 'wrong_scan', label: 'Incorrect License Plate Scan' },
@@ -45,7 +46,7 @@ export default function IncidentsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Form State
-  const [selectedType, setSelectedType] = useState('slot_occupied');
+  const [selectedType, setSelectedType] = useState('other');
   const [violatorPlate, setViolatorPlate] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -57,6 +58,32 @@ export default function IncidentsScreen() {
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
   const [loadingBuildings, setLoadingBuildings] = useState(false);
+
+  // Loại vi phạm manager cấu hình cho building của phiên đang đỗ (nếu có).
+  const [violationTypes, setViolationTypes] = useState<ViolationTypeOption[]>([]);
+  const isViolationReport = violationTypes.some((v) => v.code === selectedType) || selectedType === 'other';
+
+  useEffect(() => {
+    if (!token) return;
+    listParkingHistory(token)
+      .then((sessions) => {
+        const active = sessions.find((s) => s.status === 'active');
+        const buildingId = active?.building?._id;
+        if (buildingId) return getViolationTypes(token, buildingId);
+        return [] as ViolationTypeOption[];
+      })
+      .then(setViolationTypes)
+      .catch(() => setViolationTypes([]));
+  }, [token]);
+
+  // Building được chọn tay ở bước fallback (needsBuilding) — cũng nạp lại bảng giá
+  // vi phạm theo đúng building đó thay vì building phiên đỗ (nếu có).
+  useEffect(() => {
+    if (!token || !selectedBuildingId) return;
+    getViolationTypes(token, selectedBuildingId)
+      .then(setViolationTypes)
+      .catch(() => setViolationTypes([]));
+  }, [token, selectedBuildingId]);
 
   const loadIncidents = useCallback(async () => {
     if (!token) return;
@@ -92,7 +119,7 @@ export default function IncidentsScreen() {
     }
 
     let normalizedViolatorPlate: string | undefined = undefined;
-    if (selectedType === 'slot_occupied') {
+    if (isViolationReport) {
       const trimmed = violatorPlate.trim();
       if (trimmed) {
         const norm = normalizePlate(trimmed);
@@ -225,7 +252,7 @@ export default function IncidentsScreen() {
             <View style={styles.card}>
               <Text style={styles.inputLabel}>Incident Type</Text>
               <View style={styles.pickerContainer}>
-                {INCIDENT_TYPES.map((t) => (
+                {[...violationTypes.map((v) => ({ value: v.code, label: v.label })), ...GENERAL_INCIDENT_TYPES].map((t) => (
                   <TouchableOpacity
                     key={t.value}
                     style={[
@@ -252,7 +279,7 @@ export default function IncidentsScreen() {
                 ))}
               </View>
 
-              {selectedType === 'slot_occupied' && (
+              {isViolationReport && (
                 <>
                   <Text style={styles.inputLabel}>Offending Vehicle Plate (Optional)</Text>
                   <TextInput
@@ -344,7 +371,9 @@ export default function IncidentsScreen() {
                   </View>
 
                   <Text style={styles.ticketType}>
-                    {INCIDENT_TYPES.find((t) => t.value === inc.type)?.label ?? inc.type}
+                    {GENERAL_INCIDENT_TYPES.find((t) => t.value === inc.type)?.label
+                      ?? violationTypes.find((v) => v.code === inc.type)?.label
+                      ?? inc.type}
                   </Text>
 
                   {!!inc.target && (
