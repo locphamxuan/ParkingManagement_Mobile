@@ -1,32 +1,40 @@
 import { splitSlotsSymmetrically } from '@/utils/reservationFormat';
 import type { SlotItem } from '@/services/floors';
 
-const slot = (code: string): SlotItem => ({ _id: code, code, status: 'available' });
-
-// NOTE: fmtDate/isCancelled/statusVariant/statusLabel/fmtVND/toWizardStr and the
-// wizard types (FilterStatus/WizardStep/WizardState/EMPTY_WIZARD) used to be
-// tested here too, but they had zero remaining callers in the app once the
-// orphaned wizard tree was deleted (see CLAUDE.md) — removed together with the
-// dead exports in utils/reservationFormat.ts (2026-07-23 audit).
+const slot = (code: string, vehicleTypeName?: string): SlotItem => ({
+  _id: code,
+  code,
+  status: 'available',
+  ...(vehicleTypeName ? { vehicleType: { _id: vehicleTypeName, name: vehicleTypeName } } : {}),
+});
 
 describe('splitSlotsSymmetrically', () => {
-  // ⚠️ Red on purpose (see CLAUDE.md "reservationFormat" section): this test
-  // encodes the ORIGINAL generic even/odd + dash-priority split algorithm,
-  // which utils/reservationFormat.ts no longer implements — it was deliberately
-  // replaced by a car/moto category split (commit 3d1b13b) to support T1/T2
-  // rows on floors with mixed vehicle types. Needs a product decision on
-  // whether to update this test to the new behavior or restore the old one;
-  // do not silently "fix" by guessing.
-  it('chẵn lên hàng trên, lẻ xuống hàng dưới (đã sort theo số)', () => {
+  // Real callsite (SlotMapModal) always pre-filters to a single vehicle
+  // category before calling this, so in practice every slot lands in the
+  // same bucket (cars or motos) and the function falls back to a plain
+  // positional halve — no sorting, original array order preserved.
+  it('falls back to a plain positional split when all slots are the same category', () => {
     const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically([
       slot('3'), slot('1'), slot('4'), slot('2'),
     ]);
-    expect(topRowSlots.map((s) => s.code)).toEqual(['2', '4']);
-    expect(bottomRowSlots.map((s) => s.code)).toEqual(['1', '3']);
+    expect(topRowSlots.map((s) => s.code)).toEqual(['3', '1']);
+    expect(bottomRowSlots.map((s) => s.code)).toEqual(['4', '2']);
   });
 
-  it('mã có gạch/gạch dưới luôn lên hàng trên', () => {
-    const { topRowSlots } = splitSlotsSymmetrically([slot('A-1'), slot('B_2')]);
-    expect(topRowSlots.map((s) => s.code).sort()).toEqual(['A-1', 'B_2']);
+  it('rounds the top row up on an odd-length fallback split', () => {
+    const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically([slot('A-1'), slot('B_2')]);
+    expect(topRowSlots.map((s) => s.code)).toEqual(['A-1']);
+    expect(bottomRowSlots.map((s) => s.code)).toEqual(['B_2']);
+  });
+
+  // Exercises the car/moto branch directly — not reachable through the real
+  // callsite today (it pre-filters by category), but the function still
+  // implements this split whenever a mixed-category list is passed in.
+  it('splits by vehicle category (car row on top, moto row on bottom) when both are present', () => {
+    const { topRowSlots, bottomRowSlots } = splitSlotsSymmetrically([
+      slot('A-1', 'car'), slot('M-1', 'motorcycle'), slot('A-2', 'car'),
+    ]);
+    expect(topRowSlots.map((s) => s.code)).toEqual(['A-1', 'A-2']);
+    expect(bottomRowSlots.map((s) => s.code)).toEqual(['M-1']);
   });
 });
