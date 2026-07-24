@@ -208,14 +208,14 @@ export default function IncidentsScreen() {
       >
         {activeTab === 'report' ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {successMsg && (
+            {!!successMsg && (
               <View style={[styles.msgCard, styles.successCard]}>
                 <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
                 <Text style={styles.successText}>{successMsg}</Text>
               </View>
             )}
 
-            {error && (
+            {!!error && (
               <View style={[styles.msgCard, styles.errorCard]}>
                 <Ionicons name="alert-circle" size={16} color={Colors.error} />
                 <Text style={styles.errorText}>{error}</Text>
@@ -347,7 +347,7 @@ export default function IncidentsScreen() {
                     {INCIDENT_TYPES.find((t) => t.value === inc.type)?.label ?? inc.type}
                   </Text>
 
-                  {inc.target && (
+                  {!!inc.target && (
                     <Text style={styles.ticketTarget}>
                       Target: <Text style={{ fontWeight: 'bold' }}>{inc.target}</Text>
                     </Text>
@@ -365,7 +365,7 @@ export default function IncidentsScreen() {
                     Reported At: {new Date(inc.createdAt).toLocaleString('vi-VN')}
                   </Text>
 
-                  {inc.resolutionNote && (
+                  {!!inc.resolutionNote && (
                     <View style={styles.resolutionBox}>
                       <Text style={styles.resolutionTitle}>Security Response:</Text>
                       <Text style={styles.resolutionText}>{inc.resolutionNote}</Text>
