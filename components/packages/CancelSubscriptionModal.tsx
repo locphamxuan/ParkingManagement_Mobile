@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity, TextInput, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { sheet } from '../../styles/screens/packages';
 import { fmtDateOnly } from '../../utils/packageHelpers';
 import type { LongTermSubscription } from '../../types';
+import type { RefundPreview } from '../../services/longTerm';
 
 const CANCEL_REASONS = [
   { key: 'no_longer_needed', label: 'No longer needed' },
@@ -21,14 +22,17 @@ interface CancelSubscriptionModalProps {
   setCancelNote: (v: string) => void;
   cancelling: boolean;
   cancelErr: string | null;
+  cancelSuccessMsg?: string | null;
+  refundPreview?: RefundPreview | null;
+  loadingPreview?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-/** Bottom-sheet: confirm cancelling an active subscription (reason + refund note). */
+/** Bottom-sheet: confirm cancelling an active subscription (reason + refund preview). */
 export function CancelSubscriptionModal({
   sub, cancelReason, setCancelReason, cancelNote, setCancelNote,
-  cancelling, cancelErr, onClose, onConfirm,
+  cancelling, cancelErr, cancelSuccessMsg, refundPreview, loadingPreview, onClose, onConfirm,
 }: CancelSubscriptionModalProps) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -48,6 +52,22 @@ export function CancelSubscriptionModal({
             Are you sure you want to cancel this long-term parking subscription?
             This action will release your reserved parking slot and refund the balance back to your wallet according to the building's policies.
           </Text>
+
+          {loadingPreview ? (
+            <View style={[sheet.infoRow, { justifyContent: 'center', gap: 8 }]}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={sheet.infoLabel}>Calculating your refund...</Text>
+            </View>
+          ) : refundPreview ? (
+            <View style={sheet.infoCard}>
+              <View style={sheet.infoRow}>
+                <Text style={sheet.infoLabel}>Refund Amount</Text>
+                <Text style={sheet.infoValPrimary}>
+                  {refundPreview.refundPercent}% ({refundPreview.refundAmount.toLocaleString('en-US')} VND)
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           <View style={sheet.infoCard}>
             <View style={sheet.infoRow}>
@@ -104,6 +124,12 @@ export function CancelSubscriptionModal({
             </View>
           )}
 
+          {cancelSuccessMsg && (
+            <View style={sheet.successBox}>
+              <Text style={sheet.successBoxText}>✅ {cancelSuccessMsg}</Text>
+            </View>
+          )}
+
           {cancelErr && (
             <View style={sheet.errorBoxSharp}>
               <Text style={sheet.errorBoxSharpText}>⚠️ {cancelErr}</Text>
@@ -116,8 +142,8 @@ export function CancelSubscriptionModal({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onConfirm}
-              disabled={cancelling}
-              style={[sheet.dangerBtn, cancelling && sheet.dangerBtnDisabled]}
+              disabled={cancelling || !!cancelSuccessMsg}
+              style={[sheet.dangerBtn, (cancelling || !!cancelSuccessMsg) && sheet.dangerBtnDisabled]}
             >
               <Text style={sheet.primaryBtnText}>
                 {cancelling ? 'Processing...' : 'Confirm Cancel'}

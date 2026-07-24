@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cancelSubscription } from '../services/longTerm';
+import { cancelSubscription, getRefundPreview, type RefundPreview } from '../services/longTerm';
 import type { LongTermSubscription } from '../types';
 
 interface UsePackageCancellationParams {
@@ -14,12 +14,22 @@ export function usePackageCancellation({ token, onCancelled }: UsePackageCancell
   const [cancelNote, setCancelNote] = useState<string>('');
   const [cancelling, setCancelling] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
+  const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string | null>(null);
+  const [refundPreview, setRefundPreview] = useState<RefundPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const openCancel = (sub: LongTermSubscription) => {
     setCancellingSub(sub);
     setCancelReason('no_longer_needed');
     setCancelNote('');
     setCancelErr(null);
+    setCancelSuccessMsg(null);
+    setRefundPreview(null);
+    setLoadingPreview(true);
+    getRefundPreview(token, sub._id)
+      .then(setRefundPreview)
+      .catch(() => setRefundPreview(null))
+      .finally(() => setLoadingPreview(false));
   };
 
   const closeCancel = () => setCancellingSub(null);
@@ -33,11 +43,18 @@ export function usePackageCancellation({ token, onCancelled }: UsePackageCancell
     setCancelling(true);
     setCancelErr(null);
     try {
-      await cancelSubscription(token, cancellingSub._id, cancelReason, cancelNote);
-      setCancellingSub(null);
-      setCancelReason('no_longer_needed');
-      setCancelNote('');
-      onCancelled();
+      const result = await cancelSubscription(token, cancellingSub._id, cancelReason, cancelNote);
+      setCancelSuccessMsg(
+        `Package cancelled! ${result.refundPercent ?? 0}% refund (${(result.refundAmount ?? 0).toLocaleString('en-US')} VND) credited to your wallet.`
+      );
+      setTimeout(() => {
+        setCancellingSub(null);
+        setCancelReason('no_longer_needed');
+        setCancelNote('');
+        setCancelSuccessMsg(null);
+        setRefundPreview(null);
+        onCancelled();
+      }, 1500);
     } catch (err) {
       setCancelErr(err instanceof Error ? err.message : 'Failed to cancel package');
     } finally {
@@ -47,7 +64,8 @@ export function usePackageCancellation({ token, onCancelled }: UsePackageCancell
 
   return {
     cancellingSub, cancelReason, setCancelReason, cancelNote, setCancelNote,
-    cancelling, cancelErr, setCancelErr,
+    cancelling, cancelErr, setCancelErr, cancelSuccessMsg,
+    refundPreview, loadingPreview,
     openCancel, closeCancel, handleConfirmCancel,
   };
 }

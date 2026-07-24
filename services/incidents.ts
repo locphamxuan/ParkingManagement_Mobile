@@ -30,6 +30,21 @@ export async function listMyIncidents(token: string): Promise<MobileIncident[]> 
   return (data as any)?.items ?? (data as any)?.incidents ?? [];
 }
 
+export interface ViolationTypeOption {
+  _id: string;
+  code: string;
+  label: string;
+}
+
+/** Loại vi phạm manager cấu hình cho building — chỉ label/code, KHÔNG có phí (nội bộ). */
+export async function getViolationTypes(token: string, buildingId: string): Promise<ViolationTypeOption[]> {
+  const res = await apiRequest<ApiRes<{ items?: ViolationTypeOption[] }>>(
+    `/users/buildings/${buildingId}/violation-types`,
+    { token }
+  );
+  return res?.data?.items ?? [];
+}
+
 export async function reportIncident(
   token: string,
   payload: {
