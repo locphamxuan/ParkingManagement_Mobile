@@ -95,9 +95,9 @@ export function SlotMapModal({
           {/* Header */}
           <View style={styles.mapModalHeader}>
             <View>
-              <Text style={styles.mapModalTitle}>BẢN ĐỒ CHỌN SLOT ĐỖ XE</Text>
+              <Text style={styles.mapModalTitle}>PARKING SLOT MAP</Text>
               <Text style={styles.mapModalSubtitle}>
-                {selectedFloor?.name ? `${selectedFloor.name} — ${vtCategory === 'car' ? 'Slot Ô tô 🚗' : 'Slot Xe máy 🏍️'}` : 'Sơ đồ Tầng đỗ xe'}
+                {selectedFloor?.name ? `${selectedFloor.name} — ${vtCategory === 'car' ? 'Car Slot 🚗' : 'Motorcycle Slot 🏍️'}` : 'Floor Parking Map'}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose}>
@@ -107,7 +107,7 @@ export function SlotMapModal({
 
           {/* View Mode Toggle */}
           <View style={styles.mapToggleRow}>
-            <Text style={styles.mapSelectHint}>Chạm vào slot để chọn vị trí</Text>
+            <Text style={styles.mapSelectHint}>Tap a slot to select a position</Text>
             <View style={styles.toggleBtnGroup}>
               <TouchableOpacity
                 style={[styles.toggleBtn, viewMode === '2D' && styles.toggleBtnActive]}
@@ -130,15 +130,15 @@ export function SlotMapModal({
           <View style={styles.legendRow2D}>
             <View style={styles.legendItem2D}>
               <View style={[styles.legendDot2D, { borderColor: 'rgba(16, 185, 129, 0.5)', backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} />
-              <Text style={styles.legendText2D}>Trống (Available)</Text>
+              <Text style={styles.legendText2D}>Available</Text>
             </View>
             <View style={styles.legendItem2D}>
               <View style={[styles.legendDot2D, { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.2)' }]} />
-              <Text style={styles.legendText2D}>Đang chọn (Selected)</Text>
+              <Text style={styles.legendText2D}>Selected</Text>
             </View>
             <View style={styles.legendItem2D}>
               <View style={[styles.legendDot2D, { borderColor: 'rgba(255,255,255,0.25)', borderStyle: 'dashed', backgroundColor: 'transparent' }]} />
-              <Text style={styles.legendText2D}>Đã đỗ / Khóa</Text>
+              <Text style={styles.legendText2D}>Occupied / Locked</Text>
             </View>
           </View>
 
@@ -157,7 +157,7 @@ export function SlotMapModal({
               if (filteredSlots.length === 0) {
                 return (
                   <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                    <Text style={styles.hintText}>Không có slot đỗ {vtCategory === 'car' ? 'ô tô' : 'xe máy'} nào trên tầng này.</Text>
+                    <Text style={styles.hintText}>No {vtCategory === 'car' ? 'car' : 'motorcycle'} parking slots on this floor.</Text>
                   </View>
                 );
               }
@@ -197,7 +197,7 @@ export function SlotMapModal({
                         {/* ROW HEADER FOR CAR SLOTS */}
                         <View style={styles.rowHeaderRow2D}>
                           <Text style={styles.rowHeader2D}>
-                            {vtCategory === 'car' ? 'DÃY VỊ TRÍ ĐỖ Ô TÔ 🏎️' : 'DÃY VỊ TRÍ ĐỖ XE MÁY 🏍️'}
+                            {vtCategory === 'car' ? 'CAR PARKING ROW 🏎️' : 'MOTORCYCLE PARKING ROW 🏍️'}
                           </Text>
                         </View>
                         <View style={styles.parkingLane2D}>
