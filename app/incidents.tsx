@@ -21,6 +21,7 @@ import { Colors, Spacing } from '../constants/theme';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { styles } from '../styles/screens/incidents';
+import { PLATE_REGEX, normalizePlate } from '../utils/vehicle';
 
 const INCIDENT_TYPES = [
   { value: 'slot_occupied', label: 'Slot Occupied by someone else' },
@@ -89,13 +90,27 @@ export default function IncidentsScreen() {
       setError('Please provide a detailed description of the incident.');
       return;
     }
+
+    let normalizedViolatorPlate: string | undefined = undefined;
+    if (selectedType === 'slot_occupied') {
+      const trimmed = violatorPlate.trim();
+      if (trimmed) {
+        const norm = normalizePlate(trimmed);
+        if (!PLATE_REGEX.test(norm)) {
+          setError('Invalid license plate format (e.g. 59G2-038.80).');
+          return;
+        }
+        normalizedViolatorPlate = norm;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
     setSuccessMsg(null);
     try {
       await reportIncident(token, {
         type: selectedType,
-        violatorPlate: selectedType === 'slot_occupied' ? (violatorPlate.trim() || undefined) : undefined,
+        violatorPlate: normalizedViolatorPlate,
         note: note.trim(),
         buildingId: needsBuilding ? (selectedBuildingId || undefined) : undefined,
       });
@@ -193,14 +208,14 @@ export default function IncidentsScreen() {
       >
         {activeTab === 'report' ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {successMsg && (
+            {!!successMsg && (
               <View style={[styles.msgCard, styles.successCard]}>
                 <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
                 <Text style={styles.successText}>{successMsg}</Text>
               </View>
             )}
 
-            {error && (
+            {!!error && (
               <View style={[styles.msgCard, styles.errorCard]}>
                 <Ionicons name="alert-circle" size={16} color={Colors.error} />
                 <Text style={styles.errorText}>{error}</Text>
@@ -332,7 +347,7 @@ export default function IncidentsScreen() {
                     {INCIDENT_TYPES.find((t) => t.value === inc.type)?.label ?? inc.type}
                   </Text>
 
-                  {inc.target && (
+                  {!!inc.target && (
                     <Text style={styles.ticketTarget}>
                       Target: <Text style={{ fontWeight: 'bold' }}>{inc.target}</Text>
                     </Text>
@@ -350,7 +365,7 @@ export default function IncidentsScreen() {
                     Reported At: {new Date(inc.createdAt).toLocaleString('vi-VN')}
                   </Text>
 
-                  {inc.resolutionNote && (
+                  {!!inc.resolutionNote && (
                     <View style={styles.resolutionBox}>
                       <Text style={styles.resolutionTitle}>Security Response:</Text>
                       <Text style={styles.resolutionText}>{inc.resolutionNote}</Text>
