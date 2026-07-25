@@ -89,3 +89,17 @@ export async function resetPassword(token: string, newPassword: string): Promise
     body: { token, newPassword },
   });
 }
+
+export async function requestPasswordResetSms(phone: string): Promise<void> {
+  await apiRequest('/users/auth/forgot-password-sms', {
+    method: 'POST',
+    body: { phone },
+  });
+}
+
+export async function resetPasswordSms(phone: string, otp: string, newPassword: string): Promise<void> {
+  await apiRequest('/users/auth/reset-password-sms', {
+    method: 'POST',
+    body: { phone, otp, newPassword },
+  });
+}
