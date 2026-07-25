@@ -17,6 +17,7 @@ import { useAuthStore } from '../store/authStore';
 import { listMyIncidents, reportIncident, getViolationTypes, type MobileIncident, type ViolationTypeOption } from '../services/incidents';
 import { listBuildings, type BuildingOption } from '../services/reservations';
 import { listParkingHistory } from '../services/history';
+import { listSubscriptions } from '../services/longTerm';
 import { ApiError } from '../services/api';
 import { Colors, Spacing } from '../constants/theme';
 import { Button } from '../components/ui/Button';
@@ -63,17 +64,39 @@ export default function IncidentsScreen() {
   const [violationTypes, setViolationTypes] = useState<ViolationTypeOption[]>([]);
   const isViolationReport = violationTypes.some((v) => v.code === selectedType) || selectedType === 'other';
 
+  // Building của phiên đang đỗ (nếu có) → nếu không, building của gói dài hạn đang
+  // active (subscriber không nhất thiết đang có xe trong bãi) — mirror đúng thứ tự
+  // suy luận building mà BE dùng ở createIncident, để user luôn thấy ĐỦ số loại vi
+  // phạm manager đang cấu hình cho building của họ, không chỉ khi đang có xe đỗ.
   useEffect(() => {
     if (!token) return;
-    listParkingHistory(token)
-      .then((sessions) => {
-        const active = sessions.find((s) => s.status === 'active');
-        const buildingId = active?.building?._id;
-        if (buildingId) return getViolationTypes(token, buildingId);
-        return [] as ViolationTypeOption[];
-      })
-      .then(setViolationTypes)
-      .catch(() => setViolationTypes([]));
+    let cancelled = false;
+    (async () => {
+      let buildingId: string | undefined;
+      try {
+        const sessions = await listParkingHistory(token);
+        buildingId = sessions.find((s) => s.status === 'active')?.building?._id;
+      } catch {
+        // ignore — fall through to subscription lookup below
+      }
+      if (!buildingId) {
+        try {
+          const subs = await listSubscriptions(token);
+          buildingId = subs.find((s) => s.status === 'active')?.building?._id;
+        } catch {
+          // ignore — no session/subscription found, leave violationTypes empty
+        }
+      }
+      try {
+        const types = buildingId ? await getViolationTypes(token, buildingId) : [];
+        if (!cancelled) setViolationTypes(types);
+      } catch {
+        if (!cancelled) setViolationTypes([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   // Building được chọn tay ở bước fallback (needsBuilding) — cũng nạp lại bảng giá
