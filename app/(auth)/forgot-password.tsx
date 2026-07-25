@@ -121,6 +121,16 @@ export default function ForgotPasswordScreen() {
             />
 
             <TouchableOpacity
+              onPress={() => router.push("/(auth)/forgot-password-sms")}
+              style={styles.link}
+            >
+              <Text style={styles.linkText}>
+                Prefer SMS?{" "}
+                <Text style={styles.linkHighlight}>Reset via SMS instead</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() => router.push("/(auth)/login")}
               style={styles.link}
             >
