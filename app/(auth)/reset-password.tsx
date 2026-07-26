@@ -136,10 +136,6 @@ export default function ResetPasswordScreen() {
             size="lg"
             style={styles.submitBtn}
           />
-
-          <Text style={styles.note}>
-            Token preview: {token ? `${token.slice(0, 8)}...` : "missing"}
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
