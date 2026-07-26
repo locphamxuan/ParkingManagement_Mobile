@@ -16,11 +16,13 @@ export function usePackages() {
   const plates: LicensePlate[] = session?.licensePlates ?? [];
 
   const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
-  // buildingId/plateNumber: passed by app/buildings.tsx's "Book Now" button and
-  // useHomeScreen.ts's notification tap via router.push('/(tabs)/reservations', {...})
-  // — reservations.tsx redirects here, but params used to be silently dropped.
-  const params = useLocalSearchParams<{ tab?: string; buildingId?: string; plateNumber?: string }>();
+  // buildingId/plateNumber/packageId: passed by app/buildings.tsx's "Book Now"
+  // button and index.tsx's package card tap via
+  // router.push('/(tabs)/reservations', {...}) — reservations.tsx redirects
+  // here, forwarding these params along (see reservations.tsx).
+  const params = useLocalSearchParams<{ tab?: string; buildingId?: string; plateNumber?: string; packageId?: string }>();
   const prefillPlateNumber = params.plateNumber || '';
+  const prefillPackageId = params.packageId || '';
   const [prefillApplied, setPrefillApplied] = useState(false);
 
   useEffect(() => {
@@ -142,7 +144,7 @@ export function usePackages() {
   return {
     token, plates, session,
     activeTab, setActiveTab,
-    prefillPlateNumber,
+    prefillPlateNumber, prefillPackageId,
     packages, subscriptions, loading, refreshing, error,
     expandedBuildings, setExpandedBuildings,
     searchQuery, setSearchQuery,
