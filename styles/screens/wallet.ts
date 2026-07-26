@@ -7,6 +7,19 @@ export const styles = StyleSheet.create({
   pageTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.errorBg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.errorBorder, padding: Spacing.md },
   errorText: { flex: 1, color: Colors.error, fontSize: FontSize.sm, fontWeight: '600' },
+  pendingTopupCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.warningBg,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.warningBorder,
+    padding: Spacing.md,
+  },
+  pendingTopupCopy: { flex: 1, gap: 3 },
+  pendingTopupTitle: { color: Colors.warning, fontSize: FontSize.sm, fontWeight: '800' },
+  pendingTopupText: { color: Colors.textMuted, fontSize: FontSize.xs, lineHeight: 17 },
   balanceCard: {
     backgroundColor: '#e0f2fe', // light sky-blue to stand out
     borderRadius: Radius.xl,
