@@ -9,7 +9,8 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { Colors, FontSize, Radius } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 
 interface InputProps {
   label?: string;
@@ -27,6 +28,8 @@ interface InputProps {
   inputStyle?: TextStyle;
   hint?: string;
   autoCorrect?: boolean;
+  /** Optional leading Ionicon (mail-outline, lock-closed-outline, …). */
+  icon?: keyof typeof Ionicons.glyphMap;
 }
 
 export function Input({
@@ -45,26 +48,39 @@ export function Input({
   inputStyle,
   hint,
   autoCorrect = false,
+  icon,
 }: InputProps) {
   const [visible, setVisible] = useState(false);
+  const [focused, setFocused] = useState(false);
   const isSecure = secureTextEntry && !visible;
 
   return (
     <View style={[styles.wrapper, style]}>
-      {label ? (
-        <Text style={styles.label}>{label}</Text>
-      ) : null}
+      {label ? <Text style={styles.label}>{label}</Text> : null}
 
       <View
         style={[
           styles.inputRow,
+          multiline && styles.inputRowMultiline,
+          focused && styles.inputFocused,
           !editable && styles.disabled,
           error ? styles.inputError : null,
         ]}
       >
+        {icon ? (
+          <Ionicons
+            name={icon}
+            size={18}
+            color={focused ? Colors.primary : Colors.textDim}
+            style={styles.leadingIcon}
+          />
+        ) : null}
+
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder={placeholder}
           placeholderTextColor={Colors.textDim}
           secureTextEntry={isSecure}
@@ -74,20 +90,33 @@ export function Input({
           multiline={multiline}
           numberOfLines={numberOfLines}
           autoCorrect={autoCorrect}
+          accessibilityLabel={label ?? placeholder}
           style={[
             styles.input,
             multiline && { height: (numberOfLines ?? 3) * 22, textAlignVertical: 'top', paddingTop: 12 },
             inputStyle,
           ]}
         />
+
         {secureTextEntry ? (
-          <TouchableOpacity onPress={() => setVisible((v) => !v)} style={styles.eyeBtn}>
-            <Text style={styles.eyeText}>{visible ? '🙈' : '👁'}</Text>
+          <TouchableOpacity
+            onPress={() => setVisible((v) => !v)}
+            style={styles.eyeBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.textDim} />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.messageRow}>
+          <Ionicons name="alert-circle" size={13} color={Colors.error} />
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      ) : null}
       {hint && !error ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
@@ -98,31 +127,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FontSize.xs,
     fontWeight: '800',
-    color: Colors.textDim,
+    color: Colors.primary,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.input,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
-    minHeight: 48,
+    minHeight: 52,
   },
-  disabled: { opacity: 0.5 },
-  inputError: { borderColor: Colors.errorBorder },
+  inputRowMultiline: { alignItems: 'flex-start', paddingVertical: 4 },
+  inputFocused: { borderColor: Colors.primary, backgroundColor: Colors.primaryTint },
+  disabled: { backgroundColor: Colors.cardAlt, opacity: 0.7 },
+  inputError: { borderColor: Colors.error, backgroundColor: Colors.errorBg },
+  leadingIcon: { marginRight: Spacing.sm },
   input: {
     flex: 1,
     color: Colors.text,
     fontSize: FontSize.base,
     paddingVertical: 0,
   },
-  eyeBtn: { paddingLeft: 8, paddingVertical: 4 },
-  eyeText: { fontSize: 16 },
+  eyeBtn: { paddingLeft: Spacing.sm, paddingVertical: 4 },
+  messageRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   error: {
+    flex: 1,
     fontSize: FontSize.xs,
     color: Colors.error,
     fontWeight: '600',

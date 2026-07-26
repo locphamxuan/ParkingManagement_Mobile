@@ -8,9 +8,10 @@ import {
   type StyleProp,
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { Colors, Radius, FontSize } from '../../constants/theme';
+import { Colors, Gradients, Radius, FontSize } from '../../constants/theme';
+import { GradientView } from './GradientView';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
+type Variant = 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline';
 type Size = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -23,12 +24,17 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   fullWidth?: boolean;
+  /** Overrides the label for screen readers (defaults to `label`). */
+  accessibilityLabel?: string;
 }
 
 const variantStyle: Record<Variant, { bg: string; border: string; text: string }> = {
-  primary: { bg: Colors.primary, border: 'transparent', text: '#ffffff' },
+  // `primary` paints a blue → indigo gradient over this base colour.
+  primary: { bg: Colors.primary, border: 'transparent', text: Colors.onPrimary },
+  accent: { bg: Colors.orange, border: 'transparent', text: Colors.onPrimary },
   secondary: { bg: Colors.cardAlt, border: Colors.border, text: Colors.text },
   ghost: { bg: 'transparent', border: Colors.border, text: Colors.textMuted },
+  outline: { bg: Colors.card, border: Colors.primary, text: Colors.primary },
   danger: { bg: Colors.errorBg, border: Colors.errorBorder, text: Colors.error },
   success: { bg: Colors.successBg, border: Colors.successBorder, text: Colors.success },
 };
@@ -49,10 +55,13 @@ export function Button({
   style,
   textStyle,
   fullWidth = false,
+  accessibilityLabel,
 }: ButtonProps) {
   const vs = variantStyle[variant];
   const ss = sizeStyle[size];
   const isDisabled = disabled || loading;
+  const gradientColors = variant === 'accent' ? Gradients.orange : Gradients.primary;
+  const isGradient = (variant === 'primary' || variant === 'accent') && !isDisabled;
 
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -72,12 +81,10 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={isDisabled}
-      style={[
-        {
-          alignSelf: fullWidth ? 'stretch' : 'flex-start',
-        },
-        style,
-      ]}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      style={[{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }, style]}
     >
       <Animated.View
         style={[
@@ -93,16 +100,18 @@ export function Button({
           animatedStyle,
         ]}
       >
+        {isGradient ? (
+          <GradientView
+            colors={gradientColors}
+            direction="horizontal"
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        ) : null}
         {loading ? (
           <ActivityIndicator size="small" color={vs.text} />
         ) : (
-          <Text
-            style={[
-              styles.label,
-              { color: vs.text, fontSize: ss.fontSize },
-              textStyle,
-            ]}
-          >
+          <Text style={[styles.label, { color: vs.text, fontSize: ss.fontSize }, textStyle]} numberOfLines={1}>
             {label}
           </Text>
         )}
@@ -113,11 +122,12 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: Radius.full,
+    borderRadius: Radius.md,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   label: {
     fontWeight: '800',

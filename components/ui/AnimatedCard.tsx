@@ -13,6 +13,7 @@ export function AnimatedPressable({
   style,
   contentStyle,
   fullWidth = true,
+  accessibilityLabel,
 }: {
   children: React.ReactNode;
   onPress: () => void;
@@ -20,6 +21,7 @@ export function AnimatedPressable({
   /** Style áp lên Animated.View bên trong (bản local cũ ở Home có prop này). */
   contentStyle?: any;
   fullWidth?: boolean;
+  accessibilityLabel?: string;
 }) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -34,7 +36,14 @@ export function AnimatedPressable({
   };
 
   return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={style}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
       <Animated.View style={[
         { alignItems: 'center', justifyContent: 'center' },
         fullWidth && { width: '100%' },
