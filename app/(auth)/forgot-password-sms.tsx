@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
+import { AuthHeader } from "../../components/auth/AuthHeader";
 import { commonStyles } from "../../styles/common";
 import { styles } from "../../styles/screens/authForm";
 import { requestPasswordResetSms } from "../../services/auth";
@@ -55,7 +56,7 @@ export default function ForgotPasswordSmsScreen() {
   };
 
   return (
-    <SafeAreaView style={commonStyles.screen}>
+    <SafeAreaView style={commonStyles.screenWhite} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -65,58 +66,43 @@ export default function ForgotPasswordSmsScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-          >
-            <Text style={styles.backText}>← Back</Text>
-          </TouchableOpacity>
+          <AuthHeader
+            backLabel="Back"
+            onBack={() => router.back()}
+            title="Reset via SMS"
+            subtitle="Enter your phone number and we'll text you a 6-digit code."
+          />
 
-          <View style={styles.brand}>
-            <View style={styles.logoBox}>
-              <Text style={styles.logoEmoji}>P</Text>
-            </View>
-            <Text style={styles.brandLabel}>PBMS</Text>
-          </View>
-
-          <View style={commonStyles.card}>
-            <Text style={styles.cardTitle}>Forgot password (SMS)</Text>
-            <Text style={styles.cardSub}>
-              Enter your phone number to receive an OTP
-            </Text>
-
-            <View style={styles.fields}>
-              <Input
-                label="Phone number"
-                placeholder="0901234567"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                error={error ?? undefined}
-                editable={!loading}
-                hint="We'll send a 6-digit OTP to this phone number via SMS."
-              />
-            </View>
-
-            <Button
-              label="Send OTP"
-              onPress={handleSubmit}
-              loading={loading}
-              fullWidth
-              size="lg"
-              style={styles.submitBtn}
+          <View style={styles.fields}>
+            <Input
+              label="Phone number"
+              icon="call-outline"
+              placeholder="0901234567"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              error={error ?? undefined}
+              editable={!loading}
+              hint="We'll send a 6-digit OTP to this phone number via SMS."
             />
-
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/login")}
-              style={styles.link}
-            >
-              <Text style={styles.linkText}>
-                Remembered your password?{" "}
-                <Text style={styles.linkHighlight}>Sign in</Text>
-              </Text>
-            </TouchableOpacity>
           </View>
+
+          <Button
+            label="Send OTP"
+            onPress={handleSubmit}
+            loading={loading}
+            fullWidth
+            size="lg"
+            style={styles.submitBtn}
+          />
+
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/login")}
+            style={styles.link}
+            accessibilityRole="button"
+          >
+            <Text style={styles.linkHighlight}>Back to sign in</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

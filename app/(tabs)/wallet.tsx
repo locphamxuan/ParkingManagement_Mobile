@@ -11,14 +11,6 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withDelay,
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -27,7 +19,8 @@ import { useAuthStore } from '../../store/authStore';
 import { getWallet, topup, listTransactions, verifyTopup } from '../../services/wallet';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { Colors, FontSize, Gradients, Radius } from '../../constants/theme';
+import { GradientView } from '../../components/ui/GradientView';
 import { styles } from '../../styles/screens/wallet';
 import { fmtMoney, fmtDate, txVariant, txSign, txLabel } from '../../utils/walletHelpers';
 import { WalletDialog } from '../../components/wallet/WalletDialog';
@@ -120,31 +113,6 @@ export default function WalletScreen() {
   }, []);
 
 
-
-  // Floating animation for wallet card
-  const walletFloat = useSharedValue(0);
-  useEffect(() => {
-    walletFloat.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200 }),
-        withTiming(0, { duration: 2200 })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const cardAnimatedStyle = useAnimatedStyle(() => {
-    const floatY = -5 * walletFloat.value;
-    return {
-      transform: [
-        { perspective: 1000 },
-        { translateY: floatY },
-        { rotateX: `${1.2 * walletFloat.value}deg` },
-        { rotateY: `${-1.2 * walletFloat.value}deg` }
-      ],
-    };
-  });
 
   const getBankName = (bin?: string) => {
     if (!bin) return '—';
@@ -314,6 +282,39 @@ export default function WalletScreen() {
     }
   };
 
+  const dismissPendingTopup = useCallback(async () => {
+    if (!orderCode) return;
+
+    setVerifying(true);
+    try {
+      // Check once before dropping the local reminder, so a payment completed in
+      // another banking app is credited before the user starts another top-up.
+      await reconcileOrder(orderCode, false);
+    } catch {
+      // A connection issue must not leave the wallet locked. The bank order is
+      // unaffected; this action only removes the reminder stored on this device.
+    } finally {
+      await clearPendingOrder();
+      setVerifying(false);
+    }
+  }, [clearPendingOrder, orderCode, reconcileOrder]);
+
+  const requestDismissPendingTopup = () => {
+    setDialog({
+      visible: true,
+      title: 'Dismiss pending top-up?',
+      message: 'We will check the payment once more, then remove this reminder from this device. This does not cancel a bank transfer that was already created.',
+      type: 'confirm',
+      confirmText: 'Dismiss reminder',
+      cancelText: 'Keep waiting',
+      onConfirm: () => {
+        setDialog((current) => ({ ...current, visible: false }));
+        void dismissPendingTopup();
+      },
+      onCancel: () => setDialog((current) => ({ ...current, visible: false })),
+    });
+  };
+
   const closePaymentInfo = async () => {
     // Best-effort reconcile in case the user already paid.
     if (orderCode) {
@@ -351,34 +352,56 @@ export default function WalletScreen() {
             <View style={styles.pendingTopupCopy}>
               <Text style={styles.pendingTopupTitle}>Pending wallet top-up</Text>
               <Text style={styles.pendingTopupText}>
-                Order #{orderCode} is saved on this device and can be reconciled safely.
+                Order #{orderCode} is waiting for payment. You can verify it or dismiss this device reminder.
               </Text>
             </View>
-            <Button
-              label={verifying ? 'Verifying...' : 'Verify'}
-              onPress={handleVerify}
-              loading={verifying}
-              size="md"
-            />
+            <View style={styles.pendingTopupActions}>
+              <Button
+                label={verifying ? 'Checking...' : 'Verify'}
+                onPress={handleVerify}
+                loading={verifying}
+                size="sm"
+              />
+              <TouchableOpacity
+                style={styles.dismissPendingButton}
+                onPress={requestDismissPendingTopup}
+                disabled={verifying}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss pending top-up reminder"
+                accessibilityState={{ disabled: verifying }}
+              >
+                <Text style={styles.dismissPendingText}>Dismiss</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : null}
 
         {/* Balance card */}
-        <Animated.View style={[styles.balanceCard, cardAnimatedStyle]}>
-          <View style={styles.cardBody}>
-            <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
-            <Text style={styles.balanceValue}>
+        <View>
+          <GradientView colors={Gradients.navy} direction="diagonal" borderRadius={Radius.xl} style={styles.balanceCard}>
+            <View style={styles.cardTopRow}>
+              <View style={styles.cardChip}>
+                <Ionicons name="card-outline" size={18} color={Colors.navy} />
+              </View>
+              <Text style={styles.balanceLabel}>Current balance</Text>
+            </View>
+
+            <Text style={styles.balanceValue} numberOfLines={1} adjustsFontSizeToFit>
               {wallet !== null ? fmtMoney(wallet.balance) : '—'}
             </Text>
-          </View>
 
-          <View style={styles.cardFooterRow}>
-            <View style={{ flex: 1, marginRight: 10 }}>
-              <Text style={styles.cardHolderLabel}>CARDHOLDER</Text>
-              <Text style={styles.cardHolderName} numberOfLines={1}>
-                {session?.displayName ? session.displayName.toUpperCase() : (session?.email ? session.email.split('@')[0].toUpperCase() : 'PBMS MEMBER')}
-              </Text>
+            <View style={styles.cardFooterRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardHolderLabel}>CARDHOLDER</Text>
+                <Text style={styles.cardHolderName} numberOfLines={1}>
+                  {session?.displayName ? session.displayName.toUpperCase() : (session?.email ? session.email.split('@')[0].toUpperCase() : 'PBMS MEMBER')}
+                </Text>
+              </View>
+              <View style={styles.brandBadge}>
+                <Text style={styles.brandText}>P</Text>
+              </View>
             </View>
+
             <Button
               label={orderCode ? 'Top-up pending' : 'Top Up'}
               onPress={() => {
@@ -387,22 +410,25 @@ export default function WalletScreen() {
                 setShowTopup(true);
               }}
               disabled={Boolean(orderCode)}
-              size="md"
-              style={[styles.topupBtn, { minHeight: 34, height: 34, paddingHorizontal: 16 }]}
+              variant="accent"
+              size="lg"
+              fullWidth
             />
-          </View>
-        </Animated.View>
+          </GradientView>
+        </View>
 
         {/* Transactions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Transaction History</Text>
 
-          <DateRangePicker
-            fromDate={fromDate}
-            toDate={toDate}
-            onFromChange={setFromDate}
-            onToChange={setToDate}
-          />
+          <View style={styles.filterCard}>
+            <DateRangePicker
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromChange={setFromDate}
+              onToChange={setToDate}
+            />
+          </View>
 
           {(() => {
             const filteredTransactions = transactions.filter((tx) => {
@@ -427,27 +453,35 @@ export default function WalletScreen() {
               );
             }
 
-            return filteredTransactions.map((tx, idx) => (
-              <AnimatedCard key={tx._id} index={idx}>
-                <View style={styles.txRow}>
-                  <View style={styles.txLeft}>
-                    <Text style={styles.txDesc}>
-                      {tx.description || tx.reason || txLabel(tx.type)}
-                    </Text>
-                    <Text style={styles.txDate}>{fmtDate(tx.createdAt)}</Text>
+            return filteredTransactions.map((tx, idx) => {
+              const isCredit = txSign(tx.type) === '+';
+              const amountColor = isCredit ? Colors.success : Colors.error;
+              return (
+                <AnimatedCard key={tx._id} index={idx}>
+                  <View style={styles.txRow}>
+                    <View style={[styles.txIcon, { backgroundColor: isCredit ? Colors.successBg : Colors.errorBg }]}>
+                      <Ionicons
+                        name={isCredit ? 'arrow-down' : 'arrow-up'}
+                        size={18}
+                        color={amountColor}
+                      />
+                    </View>
+                    <View style={styles.txLeft}>
+                      <Text style={styles.txDesc} numberOfLines={2}>
+                        {tx.description || tx.reason || txLabel(tx.type)}
+                      </Text>
+                      <Text style={styles.txDate}>{fmtDate(tx.createdAt)}</Text>
+                    </View>
+                    <View style={styles.txRight}>
+                      <Badge label={txLabel(tx.type)} variant={txVariant(tx.type)} />
+                      <Text style={[styles.txAmount, { color: amountColor }]}>
+                        {txSign(tx.type)}{fmtMoney(tx.amount)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.txRight}>
-                    <Badge label={txLabel(tx.type)} variant={txVariant(tx.type)} />
-                    <Text style={[
-                      styles.txAmount,
-                      { color: txSign(tx.type) === '+' ? Colors.success : Colors.error },
-                    ]}>
-                      {txSign(tx.type)}{fmtMoney(tx.amount)}
-                    </Text>
-                  </View>
-                </View>
-              </AnimatedCard>
-            ));
+                </AnimatedCard>
+              );
+            });
           })()}
         </View>
       </ScrollView>
@@ -465,8 +499,24 @@ export default function WalletScreen() {
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Top Up Wallet</Text>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalSubTitle}>WALLET TOP-UP</Text>
+                <Text style={styles.modalTitle}>Add funds</Text>
+                <Text style={styles.topupSubtitle}>Choose an amount, then create a secure PayOS payment QR.</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowTopup(false)}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close top-up"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
 
+            <Text style={styles.modalFieldLabel}>Popular amounts</Text>
             <View style={styles.presetRow}>
               {TOPUP_PRESETS.map((preset) => (
                 <TouchableOpacity
@@ -476,6 +526,8 @@ export default function WalletScreen() {
                     topupAmount === String(preset) && styles.presetBtnActive,
                   ]}
                   onPress={() => { setTopupAmount(String(preset)); setTopupError(null); }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: topupAmount === String(preset) }}
                 >
                   <Text style={[
                     styles.presetText,
@@ -488,13 +540,14 @@ export default function WalletScreen() {
             </View>
 
             <View style={styles.amountInputWrap}>
-              <Text style={styles.amountLabel}>Custom Amount (VND)</Text>
+              <Text style={styles.amountLabel}>Or enter a custom amount (VND)</Text>
               <TextInput
                 value={topupAmount}
                 onChangeText={(t) => { setTopupAmount(t.replace(/\D/g, '')); setTopupError(null); }}
                 placeholder={`Minimum ${fmtMoney(MIN_TOPUP)}`}
                 placeholderTextColor={Colors.textDim}
                 keyboardType="numeric"
+                accessibilityLabel="Custom top-up amount in VND"
                 style={styles.amountInput}
               />
             </View>
@@ -512,7 +565,7 @@ export default function WalletScreen() {
 
             <View style={styles.modalBtns}>
               <Button
-                label="Continue"
+                label="Create payment QR"
                 onPress={handleTopup}
                 loading={topupLoading}
                 size="lg"
@@ -538,7 +591,7 @@ export default function WalletScreen() {
         onRequestClose={closePaymentInfo}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, styles.paymentSheet]}>
             <View style={styles.modalHeaderRow}>
               <View>
                 <Text style={styles.modalSubTitle}>BANKING PAYMENT</Text>
@@ -549,6 +602,11 @@ export default function WalletScreen() {
               </TouchableOpacity>
             </View>
 
+            <ScrollView
+              style={styles.paymentScrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.paymentScroll}
+            >
             <Text style={styles.paymentInstructions}>
               Open your Banking app to scan the QR code below, or copy the transfer details to complete the transaction.
             </Text>
@@ -638,7 +696,7 @@ export default function WalletScreen() {
 
             <View style={styles.actionButtonsRow}>
               <Button
-                label={verifying ? 'Verifying...' : 'VERIFY PAYMENT'}
+                label={verifying ? 'Verifying...' : 'Check status'}
                 onPress={handleVerify}
                 loading={verifying}
                 size="md"
@@ -646,7 +704,7 @@ export default function WalletScreen() {
                 textStyle={{ fontSize: FontSize.xs }}
               />
               <Button
-                label="Cancel"
+                label="Close"
                 onPress={closePaymentInfo}
                 variant="secondary"
                 size="md"
@@ -654,6 +712,7 @@ export default function WalletScreen() {
                 textStyle={{ fontSize: FontSize.xs }}
               />
             </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>

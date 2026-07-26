@@ -7,10 +7,10 @@ const variantMap: Record<BadgeVariant, { bg: string; border: string; text: strin
   success: { bg: Colors.successBg, border: Colors.successBorder, text: Colors.success },
   error: { bg: Colors.errorBg, border: Colors.errorBorder, text: Colors.error },
   warning: { bg: Colors.warningBg, border: Colors.warningBorder, text: Colors.warning },
-  info: { bg: Colors.blueBg, border: 'rgba(59,130,246,0.25)', text: Colors.blue },
+  info: { bg: Colors.blueBg, border: 'rgba(37,99,237,0.25)', text: Colors.blue },
   default: { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.25)', text: Colors.textMuted },
-  orange: { bg: 'rgba(14,165,233,0.12)', border: 'rgba(14,165,233,0.25)', text: Colors.primary },
-  purple: { bg: Colors.purpleBg, border: 'rgba(168,85,247,0.25)', text: Colors.purple },
+  orange: { bg: 'rgba(234,88,12,0.10)', border: 'rgba(234,88,12,0.25)', text: Colors.orangeDark },
+  purple: { bg: Colors.purpleBg, border: 'rgba(124,58,237,0.25)', text: Colors.purple },
 };
 
 interface BadgeProps {

@@ -39,9 +39,9 @@ export function BrowsePackagesList({
         return (
           <View key={buildingId} style={styles.buildingGroup}>
             <View style={styles.buildingHeader}>
-              <Ionicons name="business-outline" size={15} color={Colors.primary} />
+              <Ionicons name="business-outline" size={17} color={Colors.primary} style={{ marginTop: 2 }} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.buildingName}>
+                <Text style={styles.buildingName} numberOfLines={2}>
                   {group.building?.name ?? 'Unknown Building'}
                 </Text>
                 {group.building?.code ? (
@@ -54,7 +54,9 @@ export function BrowsePackagesList({
                 ) : null}
               </View>
               <View style={styles.countBadge}>
-                <Text style={styles.countText}>{group.packages.length} pkg{group.packages.length !== 1 ? 's' : ''}</Text>
+                <Text style={styles.countText}>
+                  {group.packages.length} package{group.packages.length !== 1 ? 's' : ''} available
+                </Text>
               </View>
             </View>
 

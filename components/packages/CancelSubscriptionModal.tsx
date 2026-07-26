@@ -126,13 +126,13 @@ export function CancelSubscriptionModal({
 
           {cancelSuccessMsg && (
             <View style={sheet.successBox}>
-              <Text style={sheet.successBoxText}>✅ {cancelSuccessMsg}</Text>
+              <Text style={sheet.successBoxText}>{cancelSuccessMsg}</Text>
             </View>
           )}
 
           {cancelErr && (
             <View style={sheet.errorBoxSharp}>
-              <Text style={sheet.errorBoxSharpText}>⚠️ {cancelErr}</Text>
+              <Text style={sheet.errorBoxSharpText}>{cancelErr}</Text>
             </View>
           )}
 

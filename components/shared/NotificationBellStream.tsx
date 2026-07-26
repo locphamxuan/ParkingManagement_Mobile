@@ -19,6 +19,8 @@ import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 interface NotificationBellStreamProps {
   token: string;
   onOpenItem?: (item: FeedbackInboxItem) => void;
+  /** Keeps the entry visually quiet when it sits on a coloured screen header. */
+  headerVariant?: boolean;
 }
 
 function formatDateTime(value?: string): string {
@@ -41,7 +43,7 @@ function resolvePlate(item: FeedbackInboxItem): string {
   return item.parkingSession?.plateNumber || 'No plate';
 }
 
-export default function NotificationBellStream({ token, onOpenItem }: NotificationBellStreamProps) {
+export default function NotificationBellStream({ token, onOpenItem, headerVariant = false }: NotificationBellStreamProps) {
   const [visible, setVisible] = useState(false);
   const { items, readIds, unreadCount, loading, error, reload, markRead } = useNotificationStream(token);
 
@@ -59,13 +61,15 @@ export default function NotificationBellStream({ token, onOpenItem }: Notificati
   return (
     <>
       <TouchableOpacity
-        style={styles.bellButton}
+        style={[styles.bellButton, headerVariant && styles.bellButtonOnHeader]}
         onPress={handleOpenStream}
         activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel={unreadCount > 0 ? `Feedback inbox, ${unreadCount} unread` : 'Feedback inbox'}
       >
-        <Inbox size={20} color={unreadCount > 0 ? Colors.primary : Colors.textMuted} strokeWidth={2.2} />
+        <Inbox size={20} color={headerVariant ? '#ffffff' : unreadCount > 0 ? Colors.primary : Colors.textMuted} strokeWidth={2.2} />
         {unreadCount > 0 ? (
-          <View style={styles.countBadge}>
+          <View style={[styles.countBadge, headerVariant && styles.countBadgeOnHeader]}>
             <Text style={styles.countBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
           </View>
         ) : null}

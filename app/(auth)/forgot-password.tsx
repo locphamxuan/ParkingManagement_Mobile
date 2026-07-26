@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { SuccessBanner } from "../../components/ui/SuccessBanner";
+import { AuthHeader } from "../../components/auth/AuthHeader";
 import { commonStyles } from "../../styles/common";
 import { styles, modalStyles } from "../../styles/screens/authForm";
 import { forgotPassword } from "../../services/auth";
@@ -65,7 +66,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={commonStyles.screen}>
+    <SafeAreaView style={commonStyles.screenWhite} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -75,71 +76,54 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-          >
-            <Text style={styles.backText}>← Back</Text>
-          </TouchableOpacity>
+          <AuthHeader
+            backLabel="Back"
+            onBack={() => router.back()}
+            title="Forgot password"
+            subtitle="Enter your email and we'll send a reset link."
+          />
 
-          <View style={styles.brand}>
-            <View style={styles.logoBox}>
-              <Text style={styles.logoEmoji}>P</Text>
-            </View>
-            <Text style={styles.brandLabel}>PBMS</Text>
-          </View>
-
-          <View style={commonStyles.card}>
-            <Text style={styles.cardTitle}>Forgot password</Text>
-            <Text style={styles.cardSub}>
-              Enter your email to receive a reset link
-            </Text>
-
-            <View style={styles.fields}>
-              <Input
-                label="Email"
-                placeholder="you@email.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={error ?? undefined}
-                editable={!loading}
-                hint="We'll send a token-based reset link to this email address."
-              />
-            </View>
-
-            <SuccessBanner message={success} />
-
-            <Button
-              label="Send reset link"
-              onPress={handleSubmit}
-              loading={loading}
-              fullWidth
-              size="lg"
-              style={styles.submitBtn}
+          <View style={styles.fields}>
+            <Input
+              label="Email"
+              icon="mail-outline"
+              placeholder="you@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={error ?? undefined}
+              editable={!loading}
+              hint="We'll send a token-based reset link to this email address."
             />
-
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/forgot-password-sms")}
-              style={styles.link}
-            >
-              <Text style={styles.linkText}>
-                Prefer SMS?{" "}
-                <Text style={styles.linkHighlight}>Reset via SMS instead</Text>
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/login")}
-              style={styles.link}
-            >
-              <Text style={styles.linkText}>
-                Remembered your password?{" "}
-                <Text style={styles.linkHighlight}>Sign in</Text>
-              </Text>
-            </TouchableOpacity>
           </View>
+
+          <SuccessBanner message={success} />
+
+          <Button
+            label="Send reset link"
+            onPress={handleSubmit}
+            loading={loading}
+            fullWidth
+            size="lg"
+            style={styles.submitBtn}
+          />
+
+          <Button
+            label="Reset via SMS instead"
+            onPress={() => router.push("/(auth)/forgot-password-sms")}
+            variant="outline"
+            fullWidth
+            size="lg"
+          />
+
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/login")}
+            style={styles.link}
+            accessibilityRole="button"
+          >
+            <Text style={styles.linkHighlight}>Back to sign in</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -162,12 +146,14 @@ export default function ForgotPasswordScreen() {
               <TouchableOpacity
                 style={[modalStyles.btn, modalStyles.btnCancel]}
                 onPress={() => setPendingEmail(null)}
+                accessibilityRole="button"
               >
                 <Text style={modalStyles.btnCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[modalStyles.btn, modalStyles.btnConfirm]}
                 onPress={handleConfirm}
+                accessibilityRole="button"
               >
                 <Text style={modalStyles.btnConfirmText}>Confirm & Send</Text>
               </TouchableOpacity>

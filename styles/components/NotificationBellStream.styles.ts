@@ -13,6 +13,12 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  bellButtonOnHeader: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
   countBadge: {
     position: 'absolute',
     top: -4,
@@ -26,6 +32,9 @@ export const styles = StyleSheet.create({
     borderColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  countBadgeOnHeader: {
+    borderColor: '#0b6fe6',
   },
   countBadgeText: {
     color: '#FFFFFF',
@@ -75,9 +84,9 @@ export const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: Radius.md,
-    backgroundColor: 'rgba(14,165,233,0.12)',
+    backgroundColor: 'rgba(11,111,230,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(14,165,233,0.25)',
+    borderColor: 'rgba(11,111,230,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -167,8 +176,8 @@ export const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   messageCardUnread: {
-    borderColor: 'rgba(14,165,233,0.3)',
-    backgroundColor: 'rgba(14,165,233,0.08)',
+    borderColor: 'rgba(11,111,230,0.3)',
+    backgroundColor: 'rgba(11,111,230,0.08)',
   },
   messageHeaderRow: {
     flexDirection: 'row',
@@ -179,7 +188,7 @@ export const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Radius.md,
-    backgroundColor: 'rgba(14,165,233,0.12)',
+    backgroundColor: 'rgba(11,111,230,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },

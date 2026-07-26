@@ -1,34 +1,33 @@
 import { StyleSheet } from 'react-native';
 import { Colors, FontSize, Radius, Spacing } from '../common';
 
-/** Register-screen-specific styles. Shared card/error live in styles/common. */
+/**
+ * Shared styles for the white "daylight" authentication pages
+ * (register, forgot password, forgot password via SMS, reset password, OTP).
+ * Login has its own gradient-header layout in ./login.
+ */
 export const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing['2xl'],
+    paddingHorizontal: Spacing['2xl'],
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing['3xl'],
     gap: Spacing.xl,
   },
-  backBtn: { alignSelf: 'flex-start' },
-  backText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: '700' },
-  brand: { alignItems: 'center', gap: Spacing.sm },
-  logoBox: {
-    width: 60,
-    height: 60,
-    borderRadius: Radius.lg,
-    backgroundColor: 'rgba(14,165,233,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(14,165,233,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 44, paddingRight: Spacing.md },
+  backText: { color: Colors.primary, fontSize: FontSize.base, fontWeight: '700' },
+  brand: { alignItems: 'center', gap: Spacing.md },
+  cardTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text, textAlign: 'center' },
+  cardSub: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: Spacing.md,
   },
-  logoEmoji: { fontSize: 30, color: Colors.primary, fontWeight: '900' },
-  brandLabel: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text, letterSpacing: 4 },
-  cardTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
-  cardSub: { fontSize: FontSize.sm, color: Colors.textMuted, marginTop: -Spacing.sm },
-  fields: { gap: Spacing.md },
+  fields: { gap: Spacing.lg },
   submitBtn: { marginTop: Spacing.xs },
-  link: { alignItems: 'center' },
+  link: { alignItems: 'center', minHeight: 44, justifyContent: 'center' },
   linkText: { color: Colors.textMuted, fontSize: FontSize.sm },
   linkHighlight: { color: Colors.primary, fontWeight: '700' },
   note: { color: Colors.textDim, fontSize: FontSize.xs, textAlign: 'center' },
@@ -38,7 +37,7 @@ export const styles = StyleSheet.create({
 export const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing['2xl'],
@@ -48,12 +47,18 @@ export const modalStyles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing['2xl'],
     width: '100%',
+    maxWidth: 380,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 10,
   },
   title: {
     fontSize: FontSize.md,
-    fontWeight: '800',
+    fontWeight: '900',
     color: Colors.text,
     marginBottom: Spacing.md,
     textAlign: 'center',
@@ -75,7 +80,8 @@ export const modalStyles = StyleSheet.create({
   },
   btn: {
     flex: 1,
-    paddingVertical: Spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: Radius.md,
     alignItems: 'center',
   },
@@ -93,7 +99,7 @@ export const modalStyles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   btnConfirmText: {
-    color: '#ffffff',
+    color: Colors.onPrimary,
     fontSize: FontSize.sm,
     fontWeight: '700',
   },

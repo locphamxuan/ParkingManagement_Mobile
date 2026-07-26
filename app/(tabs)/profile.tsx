@@ -6,18 +6,18 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withDelay,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { updateProfile, changePassword } from '../../services/profile';
-import { addPlate, removePlate, setDefaultPlate } from '../../services/plates';
+import { addPlate, listPlates, removePlate, setDefaultPlate } from '../../services/plates';
 import { PLATE_TYPE_LABELS, VEHICLE_CATEGORIES, CAR_BRANDS, MOTO_BRANDS } from '../../constants/vehiclePresets';
 import { Dropdown } from '../../components/ui/Dropdown';
 import { Input } from '../../components/ui/Input';
@@ -26,22 +26,22 @@ import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/profile';
 import { ProfilePasswordTab } from '../../components/profile/ProfilePasswordTab';
 import { ProfilePlateModals } from '../../components/profile/ProfilePlateModals';
-import { ProfileQrCard } from '../../components/profile/ProfileQrCard';
 import type { LicensePlate } from '../../types';
 import { useUIStore } from '../../store/uiStore';
 import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
 import { resolveErrorMessage } from '../../utils/apiErrors';
-import { AnimatedCard, AnimatedPressable } from '../../components/ui/AnimatedCard';
+import { AnimatedCard } from '../../components/ui/AnimatedCard';
 
 
 
-const MAX_PLATES = 3;
+const MAX_PLATES = 5;
 
 type Tab = 'info' | 'plates' | 'password';
 
 export default function ProfileScreen() {
   const { session, updateProfile: updateLocal, logout } = useAuthStore();
   const token = session?.token ?? '';
+  const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
 
   const [tab, setTab] = useState<Tab>('info');
 
@@ -75,6 +75,29 @@ export default function ProfileScreen() {
   const plates = session?.licensePlates ?? [];
 
   const setTabBarHidden = useUIStore((state) => state.setTabBarHidden);
+
+  useEffect(() => {
+    if (requestedTab === 'info' || requestedTab === 'plates' || requestedTab === 'password') {
+      setTab(requestedTab);
+    }
+  }, [requestedTab]);
+
+  useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+
+    void listPlates(token)
+      .then((updatedPlates) => {
+        if (isMounted) updateLocal({ licensePlates: updatedPlates });
+      })
+      .catch(() => {
+        // Keep the session data when the refresh is temporarily unavailable.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, updateLocal]);
 
   useEffect(() => {
     const isModalActive = plateToRemove !== null || plateQrToShow !== null;
@@ -230,24 +253,24 @@ export default function ProfileScreen() {
                 {(session?.displayName?.[0] ?? 'U').toUpperCase()}
               </Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{session?.displayName}</Text>
-              <Text style={styles.email}>{session?.email}</Text>
-            </View>
+            <Text style={styles.name} numberOfLines={2}>{session?.displayName}</Text>
+            <Text style={styles.email} numberOfLines={1}>{session?.email}</Text>
           </Animated.View>
 
           {/* Tabs */}
-          <View style={styles.tabRow}>
+          <View style={styles.tabRow} accessibilityRole="tablist">
             {(['info', 'plates', 'password'] as Tab[]).map((t) => (
-              <AnimatedPressable
+              <TouchableOpacity
                 key={t}
-                style={[styles.tabBtn, tab === t && styles.tabBtnActive, { flex: 1 }]}
+                style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
                 onPress={() => setTab(t)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === t }}
               >
                 <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
                   {t === 'info' ? 'Info' : t === 'plates' ? 'Plates' : 'Password'}
                 </Text>
-              </AnimatedPressable>
+              </TouchableOpacity>
             ))}
           </View>
 
@@ -266,7 +289,10 @@ export default function ProfileScreen() {
                         setInfoError(null);
                         setIsEditingInfo(true);
                       }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit personal info"
                     >
+                      <Ionicons name="create-outline" size={14} color={Colors.primary} />
                       <Text style={styles.editBtnText}>Edit</Text>
                     </TouchableOpacity>
                   )}
@@ -327,9 +353,9 @@ export default function ProfileScreen() {
                       { label: 'Full Name', value: session?.displayName },
                       { label: 'Email', value: session?.email },
                       { label: 'Phone', value: session?.phone || '— Not set —' },
-                    ].map((item, idx) => (
+                    ].map((item, idx, list) => (
                       <AnimatedCard key={item.label} index={idx}>
-                        <View style={styles.infoRow}>
+                        <View style={[styles.infoRow, idx === list.length - 1 && styles.infoRowLast]}>
                           <Text style={styles.infoLabel}>{item.label}</Text>
                           <Text style={styles.infoValue}>{item.value}</Text>
                         </View>
@@ -339,7 +365,6 @@ export default function ProfileScreen() {
                 )}
               </View>
 
-              <ProfileQrCard role={session?.role} userId={session?.userId} />
             </>
           )}
 
@@ -368,6 +393,11 @@ export default function ProfileScreen() {
 
               {/* Plate list */}
               <View style={styles.plateList}>
+                {plates.length > 0 ? (
+                  <Text style={styles.plateQrHint}>
+                    Every vehicle has its own QR code. Show the matching code at the gate.
+                  </Text>
+                ) : null}
                 {plates.length === 0 ? (
                   <Text style={styles.emptyText}>
                     No license plates linked yet.
@@ -381,7 +411,7 @@ export default function ProfileScreen() {
                           plate.isDefault && styles.plateItemDefault,
                         ]}
                       >
-                        <View style={{ flex: 1 }}>
+                        <View style={styles.plateInfo}>
                           <Text
                             style={[
                               styles.plateNumber,
@@ -400,11 +430,13 @@ export default function ProfileScreen() {
                         <View style={styles.plateBtns}>
                           {plate.qrCode && (
                             <TouchableOpacity
-                              style={styles.plateAction}
+                              style={[styles.plateAction, styles.plateQrAction]}
                               onPress={() => setPlateQrToShow(plate)}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Show QR code for ${plate.plateNumber}`}
                             >
-                              <Text style={styles.plateActionText}>⊞ QR</Text>
+                              <Ionicons name="qr-code-outline" size={13} color={Colors.primary} />
+                              <Text style={styles.plateQrActionText}>Vehicle QR</Text>
                             </TouchableOpacity>
                           )}
 
@@ -413,10 +445,12 @@ export default function ProfileScreen() {
                               style={styles.plateAction}
                               onPress={() => handleSetDefault(plate)}
                               disabled={loadingPlate === plate._id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set ${plate.plateNumber} as default plate`}
+                              accessibilityState={{ disabled: loadingPlate === plate._id }}
                             >
-                              <Text style={styles.plateActionText}>
-                                ★ Set default
-                              </Text>
+                              <Ionicons name="star-outline" size={13} color={Colors.warning} />
+                              <Text style={styles.plateActionText}>Set default</Text>
                             </TouchableOpacity>
                           )}
 
@@ -425,8 +459,11 @@ export default function ProfileScreen() {
                               style={[styles.plateAction, styles.plateActionDelete]}
                               onPress={() => handleRemovePlate(plate)}
                               disabled={loadingPlate === plate._id}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Remove plate ${plate.plateNumber}`}
+                              accessibilityState={{ disabled: loadingPlate === plate._id }}
                             >
+                              <Ionicons name="trash-outline" size={13} color={Colors.error} />
                               <Text style={styles.plateActionDeleteText}>Remove</Text>
                             </TouchableOpacity>
                           )}

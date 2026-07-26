@@ -2,7 +2,6 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { styles } from '../../styles/screens/packages';
-import { AnimatedPressable } from '../ui/AnimatedCard';
 
 type ExpandedFilter = 'vehicle' | 'duration' | 'status' | null;
 
@@ -32,24 +31,28 @@ export function PackageFilterBar({
 }: PackageFilterBarProps) {
   return (
     <>
-      {/* Top Tab Section */}
-      <View style={styles.tabSection}>
-        <AnimatedPressable
+      {/* Segmented control */}
+      <View style={styles.tabSection} accessibilityRole="tablist">
+        <TouchableOpacity
           style={[styles.topTab, activeTab === 'browse' && styles.topTabActive]}
           onPress={() => setActiveTab('browse')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'browse' }}
         >
           <Text style={[styles.topTabText, activeTab === 'browse' && styles.topTabTextActive]}>
             Browse Packages
           </Text>
-        </AnimatedPressable>
-        <AnimatedPressable
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.topTab, activeTab === 'my' && styles.topTabActive]}
           onPress={() => setActiveTab('my')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'my' }}
         >
           <Text style={[styles.topTabText, activeTab === 'my' && styles.topTabTextActive]}>
             My Packages
           </Text>
-        </AnimatedPressable>
+        </TouchableOpacity>
       </View>
 
       {/* Search & Collapsible Filters */}

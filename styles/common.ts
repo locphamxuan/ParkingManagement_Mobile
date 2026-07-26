@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
+import { Colors, FontSize, Radius, Shadow, Spacing } from '../constants/theme';
 
 /**
  * Shared, reusable style fragments used across many screens and components.
@@ -14,6 +14,8 @@ import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 export const commonStyles = StyleSheet.create({
   // ── Surfaces ───────────────────────────────────────────────────────────────
   screen: { flex: 1, backgroundColor: Colors.bg },
+  /** Pure-white page — used by the authentication stack. */
+  screenWhite: { flex: 1, backgroundColor: Colors.bgWhite },
   card: {
     backgroundColor: Colors.card,
     borderRadius: Radius.xl,
@@ -21,6 +23,7 @@ export const commonStyles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing['2xl'],
     gap: Spacing.lg,
+    ...Shadow.card,
   },
   cardAlt: {
     backgroundColor: Colors.cardAlt,
@@ -39,6 +42,38 @@ export const commonStyles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  /** Large navy screen title (Wallet, Profile, …). */
+  pageTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text, letterSpacing: -0.3 },
+  /** Small blue uppercase eyebrow shown above a page title. */
+  eyebrow: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.4,
+  },
+
+  // ── Segmented control (Packages tabs, Profile tabs) ──────────────────────────
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: Colors.cardAlt,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 4,
+    gap: 4,
+  },
+  segment: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  segmentActive: { backgroundColor: Colors.primary },
+  segmentText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textMuted },
+  segmentTextActive: { color: Colors.onPrimary, fontWeight: '800' },
 
   // ── Error banner ─────────────────────────────────────────────────────────────
   errorBox: {
@@ -76,7 +111,7 @@ export const commonStyles = StyleSheet.create({
 
   // ── Bottom-sheet modal scaffold ──────────────────────────────────────────────
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
-  sheetBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(2,6,23,0.7)' },
+  sheetBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.55)' },
   sheetContainer: { maxHeight: '85%' },
   sheetScroll: { flexGrow: 1 },
   sheet: {
@@ -96,4 +131,4 @@ export const commonStyles = StyleSheet.create({
 });
 
 // Re-export tokens so screens can import styling primitives from one place.
-export { Colors, FontSize, Radius, Spacing } from '../constants/theme';
+export { Colors, FontSize, Gradients, HIT_TARGET, Radius, Shadow, Spacing } from '../constants/theme';

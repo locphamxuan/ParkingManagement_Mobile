@@ -61,7 +61,7 @@ export function RenewSubscriptionModal({
 
           {renewErr && (
             <View style={sheet.errorBoxSharp}>
-              <Text style={sheet.errorBoxSharpText}>⚠️ {renewErr}</Text>
+              <Text style={sheet.errorBoxSharpText}>{renewErr}</Text>
             </View>
           )}
 
