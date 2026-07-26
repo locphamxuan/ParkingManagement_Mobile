@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { listPackages, listSubscriptions } from '../services/longTerm';
+import { resolveErrorMessage } from '../utils/apiErrors';
 import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../types';
 import { vtCode, groupByBuilding } from '../utils/packageHelpers';
 
@@ -53,7 +54,7 @@ export function usePackages() {
         setPackages(pkgData);
         setSubscriptions(subData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load packages');
+        setError(resolveErrorMessage(err, 'Failed to load packages.'));
       } finally {
         setLoading(false);
         setRefreshing(false);

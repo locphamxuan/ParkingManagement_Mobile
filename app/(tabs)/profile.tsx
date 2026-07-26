@@ -30,6 +30,7 @@ import { ProfileQrCard } from '../../components/profile/ProfileQrCard';
 import type { LicensePlate } from '../../types';
 import { useUIStore } from '../../store/uiStore';
 import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
+import { resolveErrorMessage } from '../../utils/apiErrors';
 import { AnimatedCard, AnimatedPressable } from '../../components/ui/AnimatedCard';
 
 
@@ -107,7 +108,7 @@ export default function ProfileScreen() {
       setInfoSuccess('Profile updated!');
       setTimeout(() => setInfoSuccess(null), 3000);
     } catch (err) {
-      setInfoError(err instanceof Error ? err.message : 'Failed to update profile');
+      setInfoError(resolveErrorMessage(err, 'Failed to update profile.'));
     } finally {
       setSavingInfo(false);
     }
@@ -126,7 +127,7 @@ export default function ProfileScreen() {
       setPwSuccess('Password changed successfully!');
       setTimeout(() => setPwSuccess(null), 3000);
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : 'Failed to change password');
+      setPwError(resolveErrorMessage(err, 'Failed to change password.'));
     } finally {
       setSavingPw(false);
     }
@@ -159,7 +160,7 @@ export default function ProfileScreen() {
       setPlateSuccess(`Added "${normalized}" successfully!`);
       setTimeout(() => setPlateSuccess(null), 2500);
     } catch (err) {
-      setPlateError(err instanceof Error ? err.message : 'Failed to add plate');
+      setPlateError(resolveErrorMessage(err, 'Failed to add plate.'));
     } finally {
       setLoadingPlate(null);
     }
@@ -176,7 +177,7 @@ export default function ProfileScreen() {
       setPlateSuccess(`Removed "${plate.plateNumber}" successfully!`);
       setTimeout(() => setPlateSuccess(null), 2500);
     } catch (err) {
-      setPlateError(err instanceof Error ? err.message : 'Failed to remove plate');
+      setPlateError(resolveErrorMessage(err, 'Failed to remove plate.'));
     } finally {
       setLoadingPlate(null);
     }
@@ -205,7 +206,7 @@ export default function ProfileScreen() {
       const updated = await setDefaultPlate(token, plate._id);
       updateLocal({ licensePlates: updated });
     } catch (err) {
-      setPlateError(err instanceof Error ? err.message : 'Failed to set default');
+      setPlateError(resolveErrorMessage(err, 'Failed to set default plate.'));
     } finally {
       setLoadingPlate(null);
     }

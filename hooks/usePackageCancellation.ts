@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cancelSubscription, getRefundPreview, type RefundPreview } from '../services/longTerm';
+import { resolveErrorMessage } from '../utils/apiErrors';
 import type { LongTermSubscription } from '../types';
 
 interface UsePackageCancellationParams {
@@ -56,7 +57,7 @@ export function usePackageCancellation({ token, onCancelled }: UsePackageCancell
         onCancelled();
       }, 1500);
     } catch (err) {
-      setCancelErr(err instanceof Error ? err.message : 'Failed to cancel package');
+      setCancelErr(resolveErrorMessage(err, 'Failed to cancel package.'));
     } finally {
       setCancelling(false);
     }

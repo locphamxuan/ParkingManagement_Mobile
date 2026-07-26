@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { subscribe } from '../services/longTerm';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { vtCode } from '../utils/packageHelpers';
+import { isSlotSelectionError, resolveSubscriptionErrorMessage } from '../utils/apiErrors';
 import type { LongTermPackage, LicensePlate } from '../types';
 
 interface UsePackageSubscriptionParams {
@@ -15,7 +16,7 @@ interface UsePackageSubscriptionParams {
 
 /**
  * State + handlers for the "Subscribe to package" bottom sheet (plate pick, floor pick,
- * dedicated slot map, purchase). Tách khỏi packages.tsx để component chỉ giữ JSX.
+ * optional fixed-slot map, purchase). Tách khỏi packages.tsx để component chỉ giữ JSX.
  */
 export function usePackageSubscription({ token, plates, prefillPlateNumber, onSubscribed }: UsePackageSubscriptionParams) {
   const [selectedPkg, setSelectedPkg] = useState<LongTermPackage | null>(null);
@@ -30,6 +31,7 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseErr, setPurchaseErr] = useState<string | null>(null);
   const [purchaseSuccessMsg, setPurchaseSuccessMsg] = useState<string | null>(null);
+  const loadRequestId = useRef(0);
 
   const isCarPackage = (pkg: LongTermPackage) => {
     const code = vtCode(pkg.vehicleType) || '';
@@ -45,15 +47,27 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
   };
 
   const closeModal = () => {
+    loadRequestId.current += 1;
     setSelectedPkg(null);
+    setSelectedPlate('');
     setSelectedSlot(null);
+    setShowMapModal(false);
+    setFloors([]);
+    setSelectedFloorId('');
+    setSlots([]);
+    setFetchingSlots(false);
     setPurchaseErr(null);
     setPurchaseSuccessMsg(null);
   };
 
   const handleOpenSubscribe = async (pkg: LongTermPackage) => {
+    const requestId = ++loadRequestId.current;
     setSelectedPkg(pkg);
     setSelectedSlot(null);
+    setShowMapModal(false);
+    setFloors([]);
+    setSelectedFloorId('');
+    setSlots([]);
     setPurchaseErr(null);
     setPurchaseSuccessMsg(null);
     const matched = matchedPlatesFor(pkg);
@@ -66,6 +80,7 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
 
     const bldId = pkg.building?._id || '';
     if (bldId && token) {
+      setFetchingSlots(true);
       try {
         const pkgVtId = String(typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType._id : pkg.vehicleType);
         const flList = await getBuildingFloors(token, bldId, pkgVtId);
@@ -86,34 +101,53 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
           });
         });
 
+        if (requestId !== loadRequestId.current) return;
         setFloors(compatibleFloors);
 
         if (compatibleFloors.length > 0) {
           setSelectedFloorId(compatibleFloors[0]._id);
           const slList = await getFloorSlots(token, bldId, compatibleFloors[0]._id, 'subscriber');
+          if (requestId !== loadRequestId.current) return;
           setSlots(slList);
         } else {
           setSelectedFloorId('');
           setSlots([]);
         }
       } catch {
-        // best-effort prefill; user can still subscribe without a dedicated slot
+        if (requestId !== loadRequestId.current) return;
+        setFloors([]);
+        setSelectedFloorId('');
+        setSlots([]);
+        setPurchaseErr(
+          'Optional fixed slots could not be loaded. You can continue without selecting one.',
+        );
+      } finally {
+        if (requestId === loadRequestId.current) setFetchingSlots(false);
       }
     }
   };
 
   const handleSelectFloor = async (floorId: string) => {
     if (!selectedPkg) return;
+    const requestId = ++loadRequestId.current;
     setSelectedFloorId(floorId);
     setSelectedSlot(null);
+    setSlots([]);
+    setPurchaseErr(null);
     setFetchingSlots(true);
     try {
       const slList = await getFloorSlots(token, selectedPkg.building?._id || '', floorId, 'subscriber');
-      setSlots(slList);
+      if (requestId === loadRequestId.current) setSlots(slList);
     } catch {
-      // keep previous slots on failure
+      if (requestId === loadRequestId.current) {
+        setSlots([]);
+        setPurchaseErr(
+          'Slots for this floor could not be loaded. Try again or continue without a fixed slot.',
+        );
+      }
+    } finally {
+      if (requestId === loadRequestId.current) setFetchingSlots(false);
     }
-    setFetchingSlots(false);
   };
 
   const handleConfirmSubscribe = async () => {
@@ -128,13 +162,36 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
         selectedPkg.building?._id || '',
         selectedSlot?._id || undefined,
       );
-      setPurchaseSuccessMsg('Successfully subscribed & locked your dedicated slot!');
+      setPurchaseSuccessMsg(
+        selectedSlot
+          ? `Successfully subscribed and reserved slot ${selectedSlot.code}!`
+          : 'Successfully subscribed! A parking slot will be assigned at check-in.',
+      );
       setTimeout(() => {
         closeModal();
         onSubscribed();
       }, 1200);
     } catch (err) {
-      setPurchaseErr(err instanceof Error ? err.message : 'Subscription failed. Please check your wallet balance.');
+      setPurchaseErr(resolveSubscriptionErrorMessage(err));
+      if (isSlotSelectionError(err)) {
+        const requestId = ++loadRequestId.current;
+        setSelectedSlot(null);
+        setShowMapModal(false);
+        setFetchingSlots(true);
+        try {
+          const refreshed = await getFloorSlots(
+            token,
+            selectedPkg.building?._id || '',
+            selectedFloorId,
+            'subscriber',
+          );
+          if (requestId === loadRequestId.current) setSlots(refreshed);
+        } catch {
+          if (requestId === loadRequestId.current) setSlots([]);
+        } finally {
+          if (requestId === loadRequestId.current) setFetchingSlots(false);
+        }
+      }
     } finally {
       setPurchasing(false);
     }

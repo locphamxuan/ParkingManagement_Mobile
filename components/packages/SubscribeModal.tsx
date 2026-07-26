@@ -31,7 +31,7 @@ interface SubscribeModalProps {
   onConfirm: () => void;
 }
 
-/** Bottom-sheet: confirm subscribing to a package (plate, floor, dedicated slot). */
+/** Bottom-sheet: confirm subscribing to a package (plate, floor, optional fixed slot). */
 export function SubscribeModal({
   pkg, token, matchedPlates, selectedPlate, setSelectedPlate,
   floors, selectedFloorId, onSelectFloor, slots, fetchingSlots,
@@ -127,9 +127,9 @@ export function SubscribeModal({
             </View>
           )}
 
-          {/* Dedicated Slot Selection (Choose specific spot on 2D/3D map) */}
+          {/* Optional fixed-slot selection (omit it for assignment at check-in). */}
           <View style={{ gap: 6 }}>
-            <Text style={sheet.sectionLabel}>Dedicated Reserved Slot:</Text>
+            <Text style={sheet.sectionLabel}>Optional Fixed Slot:</Text>
             {selectedSlot ? (
               <View style={sheet.slotChosenRow}>
                 <View style={sheet.slotChosenInfo}>
@@ -146,9 +146,14 @@ export function SubscribeModal({
             ) : (
               <TouchableOpacity onPress={() => setShowMapModal(true)} style={sheet.slotPickBtn}>
                 <Ionicons name="map-outline" size={18} color={Colors.primary} />
-                <Text style={sheet.slotPickBtnText}>📍 Click to Pick Specific Slot on 2D/3D Map</Text>
+                <Text style={sheet.slotPickBtnText}>📍 Pick a fixed slot (optional)</Text>
               </TouchableOpacity>
             )}
+            {!selectedSlot ? (
+              <Text style={sheet.bodyText}>
+                Skip this step to have staff assign an available slot when you check in.
+              </Text>
+            ) : null}
           </View>
 
           {/* Interactive Map Picker Modal */}

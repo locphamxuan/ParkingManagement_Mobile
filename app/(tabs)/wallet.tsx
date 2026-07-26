@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,13 @@ import type { WalletInfo, WalletTransaction, TopupResult } from '../../types';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { useUIStore } from '../../store/uiStore';
 import { AnimatedCard } from '../../components/ui/AnimatedCard';
+import {
+  clearPendingTopupOrder,
+  getPendingTopupOrder,
+  isTerminalTopupStatus,
+  savePendingTopupOrder,
+} from '../../services/pendingTopup';
+import { resolveErrorMessage } from '../../utils/apiErrors';
 
 
 
@@ -49,6 +56,7 @@ const TOPUP_PRESETS = [50_000, 100_000, 200_000, 500_000];
 export default function WalletScreen() {
   const { session } = useAuthStore();
   const token = session?.token ?? '';
+  const userId = session?.userId ?? '';
 
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -71,6 +79,7 @@ export default function WalletScreen() {
   const [orderCode, setOrderCode] = useState<number | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [topupResult, setTopupResult] = useState<TopupResult | null>(null);
+  const autoReconciledOrder = useRef<number | null>(null);
 
   const setTabBarHidden = useUIStore((state) => state.setTabBarHidden);
 
@@ -160,11 +169,86 @@ export default function WalletScreen() {
       setWallet(w);
       setTransactions(txs);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load wallet data');
+      setLoadError(resolveErrorMessage(err, 'Failed to load wallet data.'));
     }
   }, [token]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  const clearPendingOrder = useCallback(async () => {
+    if (userId) {
+      try {
+        await clearPendingTopupOrder(userId);
+      } catch {
+        // Re-verifying an idempotent terminal order on the next restore is safe.
+      }
+    }
+    autoReconciledOrder.current = null;
+    setShowPaymentInfo(false);
+    setOrderCode(null);
+    setTopupResult(null);
+  }, [userId]);
+
+  const reconcileOrder = useCallback(async (
+    pendingOrderCode: number,
+    notifyUser: boolean,
+  ) => {
+    const result = await verifyTopup(token, pendingOrderCode);
+
+    if (isTerminalTopupStatus(result.status)) {
+      await clearPendingOrder();
+    } else {
+      setOrderCode(pendingOrderCode);
+    }
+
+    if (result.status === 'success') {
+      await load();
+      if (notifyUser) {
+        showCustomAlert(
+          'Top-up Successful',
+          `Your wallet has been credited.\nNew balance: ${fmtMoney(result.balance)}.`,
+          undefined,
+          'success',
+        );
+      }
+    } else if (result.status === 'cancelled' || result.status === 'expired') {
+      if (notifyUser) {
+        showCustomAlert(
+          'Payment Not Completed',
+          `This payment was ${result.status}. Please start a new top-up.`,
+          undefined,
+          'error',
+        );
+      }
+    } else if (notifyUser) {
+      showCustomAlert(
+        'Payment Pending',
+        'We have not received your payment yet. If you just paid, wait a few seconds and verify again.',
+        undefined,
+        'alert',
+      );
+    }
+
+    return result;
+  }, [clearPendingOrder, load, showCustomAlert, token]);
+
+  const restorePendingOrder = useCallback(async () => {
+    if (!token || !userId) return;
+    try {
+      const storedOrderCode = await getPendingTopupOrder(userId);
+      if (!storedOrderCode) return;
+      setOrderCode(storedOrderCode);
+
+      if (autoReconciledOrder.current === storedOrderCode) return;
+      autoReconciledOrder.current = storedOrderCode;
+      await reconcileOrder(storedOrderCode, false);
+    } catch {
+      // Keep the order stored for a later retry after temporary storage/network failures.
+    }
+  }, [reconcileOrder, token, userId]);
+
+  useFocusEffect(useCallback(() => {
+    void load();
+    void restorePendingOrder();
+  }, [load, restorePendingOrder]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -192,9 +276,21 @@ export default function WalletScreen() {
       setTopupAmount('');
       setTopupResult(result);
       setOrderCode(result.orderCode);
+      if (userId) {
+        try {
+          await savePendingTopupOrder(userId, result.orderCode);
+        } catch {
+          showCustomAlert(
+            'Recovery Warning',
+            'The payment was created, but this device could not save it for automatic recovery. Keep this screen open until payment is verified.',
+            undefined,
+            'alert',
+          );
+        }
+      }
       setShowPaymentInfo(true);
     } catch (err) {
-      setTopupError(err instanceof Error ? err.message : 'Failed to create top-up request');
+      setTopupError(resolveErrorMessage(err, 'Failed to create top-up request.'));
     } finally {
       setTopupLoading(false);
     }
@@ -205,25 +301,14 @@ export default function WalletScreen() {
     if (!orderCode) return;
     setVerifying(true);
     try {
-      const res = await verifyTopup(token, orderCode);
-      if (res.status === 'success') {
-        setShowPaymentInfo(false);
-        setOrderCode(null);
-        setTopupResult(null);
-        await load();
-        showCustomAlert('Top-up Successful', `Your wallet has been credited.\nNew balance: ${fmtMoney(res.balance)}.`, undefined, 'success');
-      } else if (res.status === 'cancelled' || res.status === 'expired') {
-        showCustomAlert('Payment Not Completed', `This payment was ${res.status}. Please start a new top-up.`, undefined, 'error');
-      } else {
-        showCustomAlert(
-          'Payment Pending',
-          'We haven’t received your payment yet. If you just paid, wait a few seconds and tap verify again.',
-          undefined,
-          'alert'
-        );
-      }
+      await reconcileOrder(orderCode, true);
     } catch (err) {
-      showCustomAlert('Verification Failed', err instanceof Error ? err.message : 'Could not verify payment.', undefined, 'error');
+      showCustomAlert(
+        'Verification Failed',
+        resolveErrorMessage(err, 'Could not verify payment.'),
+        undefined,
+        'error',
+      );
     } finally {
       setVerifying(false);
     }
@@ -232,10 +317,13 @@ export default function WalletScreen() {
   const closePaymentInfo = async () => {
     // Best-effort reconcile in case the user already paid.
     if (orderCode) {
-      try { await verifyTopup(token, orderCode); } catch { /* ignore — manual verify still available */ }
+      try {
+        await reconcileOrder(orderCode, false);
+      } catch {
+        // Keep the persisted order so the user can verify it later.
+      }
     }
     setShowPaymentInfo(false);
-    setOrderCode(null);
     setTopupResult(null);
     await load();
   };
@@ -258,6 +346,23 @@ export default function WalletScreen() {
           </View>
         ) : null}
 
+        {orderCode && !showPaymentInfo ? (
+          <View style={styles.pendingTopupCard}>
+            <View style={styles.pendingTopupCopy}>
+              <Text style={styles.pendingTopupTitle}>Pending wallet top-up</Text>
+              <Text style={styles.pendingTopupText}>
+                Order #{orderCode} is saved on this device and can be reconciled safely.
+              </Text>
+            </View>
+            <Button
+              label={verifying ? 'Verifying...' : 'Verify'}
+              onPress={handleVerify}
+              loading={verifying}
+              size="md"
+            />
+          </View>
+        ) : null}
+
         {/* Balance card */}
         <Animated.View style={[styles.balanceCard, cardAnimatedStyle]}>
           <View style={styles.cardBody}>
@@ -275,12 +380,13 @@ export default function WalletScreen() {
               </Text>
             </View>
             <Button
-              label="Top Up"
+              label={orderCode ? 'Top-up pending' : 'Top Up'}
               onPress={() => {
                 setTopupAmount('');
                 setTopupError(null);
                 setShowTopup(true);
               }}
+              disabled={Boolean(orderCode)}
               size="md"
               style={[styles.topupBtn, { minHeight: 34, height: 34, paddingHorizontal: 16 }]}
             />

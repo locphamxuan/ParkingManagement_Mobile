@@ -97,7 +97,6 @@ export interface LongTermPackage {
   durationDays: number;
   price: number;
   description?: string;
-  allowDedicatedSlot?: boolean;
   maxHoursPerDay?: number;
   graceDays?: number;
   vehicleType?: { _id: string; name: string; code: string } | 'car' | 'motorcycle' | 'all' | null;

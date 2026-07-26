@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { renewSubscription } from '../services/longTerm';
+import { requiresReplacementSlot, resolveErrorMessage } from '../utils/apiErrors';
 import type { LongTermSubscription } from '../types';
 
 interface UsePackageRenewalParams {
@@ -16,13 +17,19 @@ export function usePackageRenewal({ token, onRenewed }: UsePackageRenewalParams)
   const [renewingSub, setRenewingSub] = useState<LongTermSubscription | null>(null);
   const [renewing, setRenewing] = useState(false);
   const [renewErr, setRenewErr] = useState<string | null>(null);
+  const [renewNeedsReplacement, setRenewNeedsReplacement] = useState(false);
 
   const openRenew = (sub: LongTermSubscription) => {
     setRenewingSub(sub);
     setRenewErr(null);
+    setRenewNeedsReplacement(false);
   };
 
-  const closeRenew = () => setRenewingSub(null);
+  const closeRenew = () => {
+    setRenewingSub(null);
+    setRenewErr(null);
+    setRenewNeedsReplacement(false);
+  };
 
   const handleConfirmRenew = async () => {
     if (!renewingSub) return;
@@ -33,11 +40,20 @@ export function usePackageRenewal({ token, onRenewed }: UsePackageRenewalParams)
       setRenewingSub(null);
       onRenewed();
     } catch (err) {
-      setRenewErr(err instanceof Error ? err.message : 'Failed to renew package');
+      setRenewNeedsReplacement(requiresReplacementSlot(err));
+      setRenewErr(resolveErrorMessage(err, 'Failed to renew package.'));
     } finally {
       setRenewing(false);
     }
   };
 
-  return { renewingSub, renewing, renewErr, openRenew, closeRenew, handleConfirmRenew };
+  return {
+    renewingSub,
+    renewing,
+    renewErr,
+    renewNeedsReplacement,
+    openRenew,
+    closeRenew,
+    handleConfirmRenew,
+  };
 }

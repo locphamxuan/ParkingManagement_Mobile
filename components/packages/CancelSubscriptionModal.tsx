@@ -76,7 +76,7 @@ export function CancelSubscriptionModal({
             </View>
             {sub.slot && (
               <View style={sheet.infoRow}>
-                <Text style={sheet.infoLabel}>Dedicated Slot</Text>
+                <Text style={sheet.infoLabel}>Fixed Slot</Text>
                 <Text style={sheet.infoValPrimary}>Slot {sub.slot.code}</Text>
               </View>
             )}

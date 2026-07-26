@@ -54,3 +54,6 @@ claude.md
 
 # OpenSpec — chi dung local, khong push len remote
 openspec/
+
+# Local reports and working documents — keep outside commits
+/docs/
