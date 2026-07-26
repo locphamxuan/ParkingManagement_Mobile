@@ -121,7 +121,7 @@ export const styles = StyleSheet.create({
     borderRadius: Radius.sm,
   },
   typeOptionActive: {
-    backgroundColor: 'rgba(14,165,233,0.06)',
+    backgroundColor: 'rgba(11,111,230,0.06)',
   },
   typeOptionText: {
     fontSize: FontSize.sm,
