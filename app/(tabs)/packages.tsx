@@ -170,8 +170,13 @@ export default function PackagesScreen() {
           sub={renewal.renewingSub}
           renewing={renewal.renewing}
           renewErr={renewal.renewErr}
+          needsReplacement={renewal.renewNeedsReplacement}
           onClose={renewal.closeRenew}
           onConfirm={renewal.handleConfirmRenew}
+          onChooseReplacement={() => {
+            renewal.closeRenew();
+            setActiveTab('browse');
+          }}
         />
       )}
     </SafeAreaView>

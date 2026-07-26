@@ -77,7 +77,7 @@ export function SubscriptionCard({ sub, index, onCancel, onRenew }: Subscription
 
         {hasDedicatedSlot && (
           <View style={[styles.subDetailItem, { minWidth: '100%', marginTop: 4 }]}>
-            <Text style={styles.subDetailLabel}>DEDICATED SLOT</Text>
+            <Text style={styles.subDetailLabel}>FIXED SLOT</Text>
             <Text style={[styles.subDetailVal, { color: Colors.primary, fontWeight: '800' }]}>
               Slot {sub.slot?.code} · Floor {typeof sub.slot?.floor === 'object' ? (sub.slot.floor?.name || sub.slot.floor?.code) : sub.slot?.floor}
             </Text>

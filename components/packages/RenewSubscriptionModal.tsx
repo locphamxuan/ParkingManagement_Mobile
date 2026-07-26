@@ -9,12 +9,22 @@ interface RenewSubscriptionModalProps {
   sub: LongTermSubscription;
   renewing: boolean;
   renewErr: string | null;
+  needsReplacement: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onChooseReplacement: () => void;
 }
 
 /** Bottom-sheet: confirm renewing an active/expired subscription (deducts wallet, extends endDate). */
-export function RenewSubscriptionModal({ sub, renewing, renewErr, onClose, onConfirm }: RenewSubscriptionModalProps) {
+export function RenewSubscriptionModal({
+  sub,
+  renewing,
+  renewErr,
+  needsReplacement,
+  onClose,
+  onConfirm,
+  onChooseReplacement,
+}: RenewSubscriptionModalProps) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContent: 'flex-end' }}>
@@ -60,12 +70,16 @@ export function RenewSubscriptionModal({ sub, renewing, renewErr, onClose, onCon
               <Text style={sheet.secondaryBtnText}>Close</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={onConfirm}
+              onPress={needsReplacement ? onChooseReplacement : onConfirm}
               disabled={renewing}
               style={[sheet.renewBtn, renewing && sheet.renewBtnDisabled]}
             >
               <Text style={sheet.primaryBtnText}>
-                {renewing ? 'Processing...' : 'Confirm Renew'}
+                {renewing
+                  ? 'Processing...'
+                  : needsReplacement
+                    ? 'Browse Packages'
+                    : 'Confirm Renew'}
               </Text>
             </TouchableOpacity>
           </View>

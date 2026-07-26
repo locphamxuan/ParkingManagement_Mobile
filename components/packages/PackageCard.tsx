@@ -64,9 +64,7 @@ export function PackageCard({ pkg, index, onSubscribe }: PackageCardProps) {
         </View>
         <View style={styles.tag}>
           <Ionicons name="grid-outline" size={12} color={Colors.textDim} />
-          <Text style={styles.tagText}>
-            {pkg.allowDedicatedSlot ? 'Dedicated Slot' : 'Flexible Slot'}
-          </Text>
+          <Text style={styles.tagText}>Optional Fixed Slot</Text>
         </View>
       </View>
       <View style={styles.pkgBottomRow}>
