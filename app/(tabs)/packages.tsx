@@ -66,12 +66,17 @@ export default function PackagesScreen() {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerCopy}>
             <Text style={styles.headerLabel}>Long-term Packages</Text>
-            <Text style={styles.headerTitle}>All Buildings</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>All Buildings</Text>
           </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={() => load(true)}>
-            <Ionicons name="refresh" size={18} color={Colors.textMuted} />
+          <TouchableOpacity
+            style={styles.refreshBtn}
+            onPress={() => load(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh packages"
+          >
+            <Ionicons name="refresh" size={20} color={Colors.primary} />
           </TouchableOpacity>
         </View>
 

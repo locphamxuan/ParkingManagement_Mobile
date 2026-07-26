@@ -1,8 +1,9 @@
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/theme';
+import { Colors, Gradients } from '../../constants/theme';
 import { styles } from '../../styles/screens/packages';
 import { AnimatedPressable, AnimatedCard } from '../ui/AnimatedCard';
+import { GradientView } from '../ui/GradientView';
 import { fmtMoney, vtCode } from '../../utils/packageHelpers';
 import type { LongTermPackage } from '../../types';
 
@@ -21,66 +22,52 @@ export function PackageCard({ pkg, index, onSubscribe }: PackageCardProps) {
   const tagLabel = isWeekly ? 'Weekly' : isMonthly ? 'Monthly' : 'Yearly';
 
   const themeColor = isWeekly ? Colors.primary : isMonthly ? Colors.blue : Colors.purple;
-  const themeBg = isWeekly ? 'rgba(14,165,233,0.12)' : isMonthly ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)';
-  const borderThemeColor = isWeekly ? 'rgba(14,165,233,0.18)' : isMonthly ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)';
+  const themeBg = isWeekly ? 'rgba(11,111,230,0.10)' : isMonthly ? 'rgba(37,99,237,0.10)' : 'rgba(124,58,237,0.10)';
+  const vehicleColor = isCar ? Colors.blue : Colors.success;
 
   return (
-    <AnimatedCard
-      index={index}
-      style={[
-        styles.pkgCard,
-        {
-          borderColor: borderThemeColor,
-          borderLeftColor: themeColor,
-          shadowColor: themeColor,
-        },
-      ]}
-    >
+    <AnimatedCard index={index} style={[styles.pkgCard, { borderLeftColor: themeColor }]}>
       <View style={styles.pkgHeaderRow}>
         <Text style={[styles.pkgTagBadge, { backgroundColor: themeBg, color: themeColor }]}>{tagLabel}</Text>
-        <View style={[
-          styles.pkgVehicleBadge,
-          {
-            borderColor: isCar ? 'rgba(59,130,246,0.12)' : 'rgba(16,185,129,0.12)',
-            backgroundColor: isCar ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)',
-          },
-        ]}>
-          <Ionicons name={isCar ? 'car' : 'bicycle'} size={10} color={isCar ? Colors.blue : Colors.success} />
-          <Text style={[styles.pkgVehicleText, { color: isCar ? Colors.blue : Colors.success }]}>
+        <View style={[styles.pkgVehicleBadge, { borderColor: vehicleColor }]}>
+          <Ionicons name={isCar ? 'car-outline' : 'bicycle-outline'} size={12} color={vehicleColor} />
+          <Text style={[styles.pkgVehicleText, { color: vehicleColor }]}>
             {isCar ? 'Car' : 'Motorcycle'}
           </Text>
         </View>
       </View>
+
       <Text style={styles.pkgName}>{pkg.name}</Text>
       {pkg.description ? (
         <Text style={styles.pkgDesc} numberOfLines={2}>
           {pkg.description}
         </Text>
       ) : null}
+
       <View style={styles.pkgMetaRow}>
         <View style={styles.tag}>
-          <Ionicons name="time-outline" size={12} color={Colors.textDim} />
+          <Ionicons name="time-outline" size={13} color={Colors.textDim} />
           <Text style={styles.tagText}>{pkg.durationDays} Days</Text>
         </View>
         <View style={styles.tag}>
-          <Ionicons name="grid-outline" size={12} color={Colors.textDim} />
+          <Ionicons name="grid-outline" size={13} color={Colors.textDim} />
           <Text style={styles.tagText}>Optional Fixed Slot</Text>
         </View>
       </View>
+
       <View style={styles.pkgBottomRow}>
         <View>
-          <Text style={styles.pkgPriceLabel}>PRICE</Text>
+          <Text style={styles.pkgPriceLabel}>Price</Text>
           <Text style={styles.pkgPriceText}>{fmtMoney(pkg.price)}</Text>
         </View>
         <AnimatedPressable
-          style={[styles.pkgActionBtn, { backgroundColor: themeColor }]}
-          fullWidth={false}
           onPress={() => onSubscribe(pkg)}
+          accessibilityLabel={`Subscribe to ${pkg.name}`}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="card-outline" size={14} color="#ffffff" />
+          <GradientView colors={Gradients.primary} direction="horizontal" style={styles.pkgActionBtn}>
+            <Ionicons name="card-outline" size={16} color="#ffffff" />
             <Text style={styles.pkgActionBtnText}>Subscribe Now</Text>
-          </View>
+          </GradientView>
         </AnimatedPressable>
       </View>
     </AnimatedCard>

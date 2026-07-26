@@ -63,7 +63,7 @@ export function SubscribeModal({
             </View>
             <View style={sheet.infoRow}>
               <Text style={sheet.infoLabel}>Vehicle Type</Text>
-              <Text style={[sheet.infoVal, { color: isCar ? Colors.blue : Colors.success }]}>{isCar ? 'Car 🚗' : 'Motorcycle 🏍️'}</Text>
+              <Text style={[sheet.infoVal, { color: isCar ? Colors.blue : Colors.success }]}>{isCar ? 'Car' : 'Motorcycle'}</Text>
             </View>
             <View style={sheet.infoRow}>
               <Text style={sheet.infoLabel}>Duration</Text>
@@ -78,7 +78,7 @@ export function SubscribeModal({
           {/* Vehicle License Plate Selection */}
           <View style={{ gap: 6 }}>
             <Text style={sheet.sectionLabel}>
-              Select {isCar ? 'Car 🚗' : 'Motorcycle 🏍️'} License Plate:
+              Select {isCar ? 'Car' : 'Motorcycle'} License Plate:
             </Text>
             {matchedPlates.length > 0 ? (
               <View style={sheet.chipsRow}>
@@ -91,7 +91,7 @@ export function SubscribeModal({
                       style={[sheet.chip, isSel && sheet.chipActive]}
                     >
                       <Text style={isSel ? sheet.chipTextActive : sheet.chipText}>
-                        {isCar ? '🚗' : '🏍️'} {p.plateNumber}
+                        {p.plateNumber}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -100,7 +100,7 @@ export function SubscribeModal({
             ) : (
               <View style={sheet.warnBox}>
                 <Text style={sheet.warnBoxText}>
-                  ⚠️ You don't have any registered {isCar ? 'Car' : 'Motorcycle'} license plates in your account. Please add a vehicle plate in Profile first.
+                  You don't have any registered {isCar ? 'Car' : 'Motorcycle'} license plates in your account. Please add a vehicle plate in Profile first.
                 </Text>
               </View>
             )}
@@ -146,7 +146,7 @@ export function SubscribeModal({
             ) : (
               <TouchableOpacity onPress={() => setShowMapModal(true)} style={sheet.slotPickBtn}>
                 <Ionicons name="map-outline" size={18} color={Colors.primary} />
-                <Text style={sheet.slotPickBtnText}>📍 Pick a fixed slot (optional)</Text>
+                <Text style={sheet.slotPickBtnText}>Pick a fixed slot (optional)</Text>
               </TouchableOpacity>
             )}
             {!selectedSlot ? (
@@ -177,8 +177,6 @@ export function SubscribeModal({
               }}
               selectedSlotId={selectedSlot?._id || ''}
               vtCategory={isCar ? 'car' : 'motorcycle'}
-              vehicleTypes={[]}
-              selectedVehicleTypeId=""
               onSelectSlot={(slot) => {
                 onSelectSlot(slot);
                 setShowMapModal(false);
@@ -195,7 +193,7 @@ export function SubscribeModal({
 
           {purchaseSuccessMsg && (
             <View style={sheet.successBox}>
-              <Text style={sheet.successBoxText}>✓ {purchaseSuccessMsg}</Text>
+              <Text style={sheet.successBoxText}>{purchaseSuccessMsg}</Text>
             </View>
           )}
 
