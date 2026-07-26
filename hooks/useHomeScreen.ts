@@ -13,6 +13,7 @@ import { getWallet } from '../services/wallet';
 import { listParkingHistory } from '../services/history';
 import { listPackages, listSubscriptions } from '../services/longTerm';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notifications';
+import { listPlates } from '../services/plates';
 import { useUIStore } from '../store/uiStore';
 import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notification } from '../types';
 
@@ -22,30 +23,30 @@ import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notifica
  */
 export function useHomeScreen() {
   const router = useRouter();
-  const { session, logout } = useAuthStore();
+  const { session, logout, updateProfile } = useAuthStore();
 
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [activeReservations, setActiveReservations] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
-  const [showQR, setShowQR] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showVehicleQr, setShowVehicleQr] = useState(false);
+  const [loadingVehicleQr, setLoadingVehicleQr] = useState(false);
   const [bellAlertActive, setBellAlertActive] = useState(false);
 
   const setTabBarHidden = useUIStore((state) => state.setTabBarHidden);
 
   useEffect(() => {
-    setTabBarHidden(showQR || showNotifications);
+    setTabBarHidden(showNotifications || showVehicleQr);
     return () => setTabBarHidden(false);
-  }, [showQR, showNotifications, setTabBarHidden]);
+  }, [showNotifications, showVehicleQr, setTabBarHidden]);
 
   // Animations Shared Values
   const heroOpacity = useSharedValue(0);
   const heroTranslateY = useSharedValue(15);
-  const floatValue = useSharedValue(0);
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.8);
   const bellRotation = useSharedValue(0);
@@ -54,11 +55,6 @@ export function useHomeScreen() {
   useEffect(() => {
     heroOpacity.value = withTiming(1, { duration: 600 });
     heroTranslateY.value = withTiming(0, { duration: 600 });
-    floatValue.value = withRepeat(
-      withSequence(withTiming(1, { duration: 2500 }), withTiming(0, { duration: 2500 })),
-      -1,
-      true,
-    );
     pulseScale.value = withRepeat(
       withSequence(withTiming(1.6, { duration: 1000 }), withTiming(1, { duration: 1000 })),
       -1,
@@ -103,15 +99,9 @@ export function useHomeScreen() {
   }, [bellAlertActive]);
 
   const heroStyle = useAnimatedStyle(() => {
-    const floatY = -5 * floatValue.value;
     return {
       opacity: heroOpacity.value,
-      transform: [
-        { perspective: 1000 },
-        { translateY: heroTranslateY.value + floatY },
-        { rotateX: `${1.2 * floatValue.value}deg` },
-        { rotateY: `${-1.2 * floatValue.value}deg` },
-      ],
+      transform: [{ translateY: heroTranslateY.value }],
     };
   });
 
@@ -194,6 +184,22 @@ export function useHomeScreen() {
     setBellAlertActive(false);
   };
 
+  const handleOpenVehicleQr = async () => {
+    setShowVehicleQr(true);
+    if (!session?.token) return;
+
+    setLoadingVehicleQr(true);
+    try {
+      // Refresh on entry so a recently-added vehicle and its own QR are never stale.
+      const licensePlates = await listPlates(session.token);
+      updateProfile({ licensePlates });
+    } catch {
+      // The sheet can still show the vehicle list already held in the session.
+    } finally {
+      setLoadingVehicleQr(false);
+    }
+  };
+
   useEffect(() => { load(); }, [session?.token]);
 
   const onRefresh = async () => {
@@ -207,10 +213,10 @@ export function useHomeScreen() {
   return {
     router, session, logout,
     wallet, activeReservations, refreshing, activeSession, packages,
-    showQR, setShowQR, notifications, unreadCount,
-    showNotifications, setShowNotifications, bellAlertActive,
+    notifications, unreadCount,
+    showNotifications, setShowNotifications, showVehicleQr, setShowVehicleQr, loadingVehicleQr, bellAlertActive,
     heroStyle, pulseDotStyle, bellAnimatedStyle,
-    handleMarkAsRead, handleMarkAllAsRead, handleNotificationTap, handleBellPress, onRefresh,
+    handleMarkAsRead, handleMarkAllAsRead, handleNotificationTap, handleBellPress, handleOpenVehicleQr, onRefresh,
     plateCount,
   };
 }
