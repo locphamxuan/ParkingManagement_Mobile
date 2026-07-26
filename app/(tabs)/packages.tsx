@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +20,7 @@ export default function PackagesScreen() {
   const {
     token, plates,
     activeTab, setActiveTab,
-    prefillPlateNumber,
+    prefillPlateNumber, prefillPackageId,
     packages, subscriptions, loading, refreshing, error,
     expandedBuildings, setExpandedBuildings,
     searchQuery, setSearchQuery, vehicleFilter, setVehicleFilter,
@@ -47,6 +48,20 @@ export default function PackagesScreen() {
     token,
     onRenewed: () => load(true),
   });
+
+  // Auto-open the Subscribe modal for a specific package when navigated here
+  // with ?packageId=... (Home screen's package card tap) instead of just
+  // landing on the generic Browse tab with the tap having no visible effect.
+  const packageAutoOpened = useRef(false);
+  useEffect(() => {
+    if (packageAutoOpened.current || !prefillPackageId || packages.length === 0) return;
+    const match = packages.find((pkg) => pkg._id === prefillPackageId);
+    if (match) {
+      setActiveTab('browse');
+      subscription.handleOpenSubscribe(match);
+    }
+    packageAutoOpened.current = true;
+  }, [prefillPackageId, packages, subscription, setActiveTab]);
 
   const isBrowseTab = activeTab === 'browse';
   const isEmpty = isBrowseTab ? packages.length === 0 : subscriptions.length === 0;
