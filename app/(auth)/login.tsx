@@ -20,13 +20,6 @@ import { Gradients } from "../../constants/theme";
 import { useFocusedStatusBarStyle } from "../../hooks/useFocusedStatusBarStyle";
 import { styles } from "../../styles/screens/login";
 
-const SOCIAL_PROVIDERS = [
-  { name: "logo-google", color: "#ea4335", label: "Google" },
-  { name: "logo-facebook", color: "#1877f2", label: "Facebook" },
-  { name: "logo-github", color: "#24292e", label: "GitHub" },
-  { name: "logo-linkedin", color: "#0a66c2", label: "LinkedIn" },
-] as const;
-
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -140,25 +133,6 @@ export default function LoginScreen() {
               size="lg"
               style={styles.submitBtn}
             />
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or login with social platforms</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <View style={styles.socialRow}>
-              {SOCIAL_PROVIDERS.map((provider) => (
-                <TouchableOpacity
-                  key={provider.label}
-                  style={styles.socialBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Continue with ${provider.label}`}
-                >
-                  <Ionicons name={provider.name} size={22} color={provider.color} />
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
