@@ -8,16 +8,31 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
+import { BrandMark } from "../../components/ui/BrandMark";
+import { GradientView } from "../../components/ui/GradientView";
+import { Gradients } from "../../constants/theme";
+import { useFocusedStatusBarStyle } from "../../hooks/useFocusedStatusBarStyle";
+import { styles } from "../../styles/screens/login";
+
+const SOCIAL_PROVIDERS = [
+  { name: "logo-google", color: "#ea4335", label: "Google" },
+  { name: "logo-facebook", color: "#1877f2", label: "Facebook" },
+  { name: "logo-github", color: "#24292e", label: "GitHub" },
+  { name: "logo-linkedin", color: "#0a66c2", label: "LinkedIn" },
+] as const;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { login } = useAuthStore();
+
+  useFocusedStatusBarStyle("light");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,78 +63,74 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f8fafc" }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={["bottom", "left", "right"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Curved Card */}
-          <View style={{
-            backgroundColor: "#0369a1", // Sky-700 deep royal cyan-blue
-            borderBottomLeftRadius: 80,
-            borderBottomRightRadius: 80,
-            paddingTop: 50,
-            paddingBottom: 40,
-            paddingHorizontal: 24,
-            alignItems: "center",
-            shadowColor: "#0369a1",
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.25,
-            shadowRadius: 10,
-            elevation: 6,
-          }}>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff", letterSpacing: 0.5 }}>Hello, Welcome</Text>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "rgba(255, 255, 255, 0.75)", marginTop: 4 }}>Don't have an Account?</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/register")}
-              style={{
-                marginTop: 14,
-                borderWidth: 1.5,
-                borderColor: "#ffffff",
-                borderRadius: 20,
-                paddingHorizontal: 24,
-                paddingVertical: 8,
-              }}
-            >
-              <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>Register</Text>
-            </TouchableOpacity>
-          </View>
+          <GradientView
+            colors={Gradients.header}
+            direction="diagonal"
+            style={[styles.hero, { paddingTop: insets.top + 24 }]}
+          >
+            <View style={styles.heroRow}>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle} accessibilityRole="header">Hello, Welcome</Text>
+                <Text style={styles.heroSub}>Don&apos;t have an account?</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push("/(auth)/register")}
+                style={styles.heroCta}
+                accessibilityRole="button"
+                accessibilityLabel="Create an account"
+              >
+                <Text style={styles.heroCtaText}>Register</Text>
+              </TouchableOpacity>
+            </View>
+          </GradientView>
 
-          {/* Bottom Form Section */}
-          <View style={{ paddingHorizontal: 24, paddingVertical: 32, gap: 20, flex: 1, justifyContent: "center" }}>
-            <Text style={{ fontSize: 26, fontWeight: "900", color: "#0f172a", textAlign: "center", marginBottom: 4 }}>Login</Text>
+          <View style={styles.form}>
+            <View style={styles.brand}>
+              <BrandMark size={60} />
+              <Text style={styles.title}>Login</Text>
+            </View>
 
-            <View style={{ gap: 16 }}>
+            <View style={styles.fields}>
               <Input
                 label="Email"
+                icon="mail-outline"
                 placeholder="you@email.com"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!loading}
               />
               <Input
                 label="Password"
-                placeholder="••••••••"
+                icon="lock-closed-outline"
+                placeholder="Enter your password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                editable={!loading}
               />
             </View>
 
             <TouchableOpacity
               onPress={() => router.push("/(auth)/forgot-password")}
-              style={{ alignSelf: "flex-end", marginTop: -6 }}
+              style={styles.forgotLink}
+              accessibilityRole="button"
             >
-              <Text style={{ color: "#0ea5e9", fontSize: 12, fontWeight: "700" }}>Forgot password?</Text>
+              <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
-            <ErrorBanner message={error} hideIcon />
+            <ErrorBanner message={error} />
 
             <Button
               label="Login"
@@ -127,28 +138,26 @@ export default function LoginScreen() {
               loading={loading}
               fullWidth
               size="lg"
-              style={{ marginTop: 6 }}
+              style={styles.submitBtn}
             />
 
-            <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: "#e2e8f0" }} />
-              <Text style={{ marginHorizontal: 12, fontSize: 11, fontWeight: "700", color: "#94a3b8", textTransform: "uppercase" }}>or login with social platforms</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: "#e2e8f0" }} />
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or login with social platforms</Text>
+              <View style={styles.dividerLine} />
             </View>
 
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 16 }}>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#cbd5e1", backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-google" size={20} color="#ea4335" />
-              </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#cbd5e1", backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-facebook" size={20} color="#1877f2" />
-              </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#cbd5e1", backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-github" size={20} color="#24292e" />
-              </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: "#cbd5e1", backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-linkedin" size={20} color="#0a66c2" />
-              </TouchableOpacity>
+            <View style={styles.socialRow}>
+              {SOCIAL_PROVIDERS.map((provider) => (
+                <TouchableOpacity
+                  key={provider.label}
+                  style={styles.socialBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Continue with ${provider.label}`}
+                >
+                  <Ionicons name={provider.name} size={22} color={provider.color} />
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </ScrollView>

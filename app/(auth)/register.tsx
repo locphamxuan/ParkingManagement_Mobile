@@ -9,12 +9,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ErrorBanner } from '../../components/ui/ErrorBanner';
-import { Colors } from '../../constants/theme';
+import { AuthHeader } from '../../components/auth/AuthHeader';
+import { commonStyles } from '../../styles/common';
+import { styles } from '../../styles/screens/authForm';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -48,129 +49,92 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={commonStyles.screenWhite} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Form Section */}
-          <View style={{ paddingHorizontal: 24, paddingTop: 30, paddingBottom: 20, gap: 20 }}>
-            {/* Back button */}
-            <TouchableOpacity onPress={() => router.back()} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
-              <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '700' }}>← Back</Text>
-            </TouchableOpacity>
+          <AuthHeader
+            backLabel="Back"
+            onBack={() => router.back()}
+            title="Create your account"
+          />
 
-            <Text style={{ fontSize: 26, fontWeight: '900', color: Colors.text, textAlign: 'center', marginBottom: 4 }}>Register</Text>
-
-            <View style={{ gap: 14 }}>
-              <Input
-                label="Full Name"
-                placeholder="Nguyen Van A"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-              <Input
-                label="Email"
-                placeholder="you@email.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <Input
-                label="Phone (optional)"
-                placeholder="0901234567"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
-              <Input
-                label="Password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-              <Input
-                label="Confirm Password"
-                placeholder="Repeat password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
-            </View>
-
-            <ErrorBanner message={error} hideIcon />
-
-            <Button
-              label="Create Account"
-              onPress={handleRegister}
-              loading={loading}
-              fullWidth
-              size="lg"
-              style={{ marginTop: 6 }}
+          <View style={styles.fields}>
+            <Input
+              label="Full Name"
+              icon="person-outline"
+              placeholder="Nguyen Van A"
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+              editable={!loading}
             />
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 12 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
-              <Text style={{ marginHorizontal: 12, fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>or register with social platforms</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-google" size={20} color="#ea4335" />
-              </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-facebook" size={20} color="#1877f2" />
-              </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-github" size={20} color="#24292e" />
-              </TouchableOpacity>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderAlt, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-                <Ionicons name="logo-linkedin" size={20} color="#0a66c2" />
-              </TouchableOpacity>
-            </View>
+            <Input
+              label="Email"
+              icon="mail-outline"
+              placeholder="you@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+            />
+            <Input
+              label="Phone (optional)"
+              icon="call-outline"
+              placeholder="0901234567"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              editable={!loading}
+            />
+            <Input
+              label="Password"
+              icon="lock-closed-outline"
+              placeholder="At least 6 characters"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              editable={!loading}
+            />
+            <Input
+              label="Confirm Password"
+              icon="lock-closed-outline"
+              placeholder="Repeat password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              editable={!loading}
+            />
           </View>
 
-          {/* Bottom Curved Card */}
-          <View style={{
-            backgroundColor: Colors.primaryDark, // Sky-700 deep royal cyan-blue
-            borderTopLeftRadius: 80,
-            borderTopRightRadius: 80,
-            paddingTop: 40,
-            paddingBottom: 50,
-            paddingHorizontal: 24,
-            alignItems: 'center',
-            marginTop: 'auto',
-            shadowColor: Colors.primaryDark,
-            shadowOffset: { width: 0, height: -6 },
-            shadowOpacity: 0.25,
-            shadowRadius: 10,
-            elevation: 6,
-          }}>
-            <Text style={{ fontSize: 24, fontWeight: '900', color: '#ffffff', letterSpacing: 0.5 }}>Welcome Back!</Text>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255, 255, 255, 0.75)', marginTop: 4 }}>Already have an Account?</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(auth)/login')}
-              style={{
-                marginTop: 14,
-                borderWidth: 1.5,
-                borderColor: '#ffffff',
-                borderRadius: 20,
-                paddingHorizontal: 24,
-                paddingVertical: 8,
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 12 }}>Login</Text>
-            </TouchableOpacity>
-          </View>
+          <ErrorBanner message={error} />
+
+          <Button
+            label="Create Account"
+            onPress={handleRegister}
+            loading={loading}
+            fullWidth
+            size="lg"
+            style={styles.submitBtn}
+          />
+
+          <TouchableOpacity
+            onPress={() => router.push('/(auth)/login')}
+            style={styles.link}
+            accessibilityRole="button"
+            accessibilityLabel="Already have an account? Sign in"
+          >
+            <Text style={styles.linkText}>
+              Already have an account? <Text style={styles.linkHighlight}>Login</Text>
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
