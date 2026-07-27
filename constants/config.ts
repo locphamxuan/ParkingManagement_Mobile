@@ -20,7 +20,7 @@ function resolveDevHost(): string {
 
 export function getMobileFrontendUrl(): string {
   if (!__DEV__) {
-    return 'parkingmobile://reset-password';
+    return 'pbms://reset-password';
   }
   if (Platform.OS === 'web') {
     return `http://${resolveDevHost()}:5173`;

@@ -4,12 +4,19 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getApiBase = () => {
+  const configuredBase = process.env.EXPO_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, '');
+  if (configuredBase) return configuredBase;
+
+  if (!__DEV__) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL must be configured for a production mobile build.');
+  }
+
   if (Platform.OS === 'web') {
     const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     return `http://${hostname}:5000/api`;
   }
 
-  // Fallback defaults for Native (Android emulator uses 10.0.2.2, iOS emulator uses localhost/127.0.0.1)
+  // Development fallback only: Android emulator uses 10.0.2.2, iOS uses localhost.
   let host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
 
   // If running in development with Expo Go, get the actual machine IP dynamically from hostUri
