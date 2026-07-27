@@ -1,0 +1,574 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
+import { useAuthStore } from '../../store/authStore';
+import { updateProfile, changePassword } from '../../services/profile';
+import { addPlate, listPlates, removePlate, setDefaultPlate } from '../../services/plates';
+import { PLATE_TYPE_LABELS, VEHICLE_CATEGORIES, CAR_BRANDS, MOTO_BRANDS } from '../../constants/vehiclePresets';
+import { Dropdown } from '../../components/ui/Dropdown';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
+import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
+import { styles } from '../../styles/screens/profile';
+import { ProfilePasswordTab } from '../../components/profile/ProfilePasswordTab';
+import { ProfilePlateModals } from '../../components/profile/ProfilePlateModals';
+import type { LicensePlate } from '../../types';
+import { useUIStore } from '../../store/uiStore';
+import { PLATE_REGEX, normalizePlate } from '../../utils/vehicle';
+import { resolveErrorMessage } from '../../utils/apiErrors';
+import { AnimatedCard } from '../../components/ui/AnimatedCard';
+
+
+
+const MAX_PLATES = 5;
+
+type Tab = 'info' | 'plates' | 'password';
+
+export default function ProfileScreen() {
+  const { session, updateProfile: updateLocal, logout } = useAuthStore();
+  const token = session?.token ?? '';
+  const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
+
+  const [tab, setTab] = useState<Tab>('info');
+
+  // Profile edit
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [fullName, setFullName] = useState(session?.displayName ?? '');
+  const [phone, setPhone] = useState(session?.phone ?? '');
+  const [infoError, setInfoError] = useState<string | null>(null);
+  const [infoSuccess, setInfoSuccess] = useState<string | null>(null);
+  const [savingInfo, setSavingInfo] = useState(false);
+
+  // Password change
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState<string | null>(null);
+  const [savingPw, setSavingPw] = useState(false);
+
+  // Plates
+  const [plateInput, setPlateInput] = useState('');
+  const [category, setCategory] = useState<'car' | 'motorcycle' | 'other'>('motorcycle');
+  const [brand, setBrand] = useState('');
+  const [customType, setCustomType] = useState('');
+  const [plateError, setPlateError] = useState<string | null>(null);
+  const [plateSuccess, setPlateSuccess] = useState<string | null>(null);
+  const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
+  const [plateToRemove, setPlateToRemove] = useState<LicensePlate | null>(null);
+  const [plateQrToShow, setPlateQrToShow] = useState<LicensePlate | null>(null);
+
+  const plates = session?.licensePlates ?? [];
+
+  const setTabBarHidden = useUIStore((state) => state.setTabBarHidden);
+
+  useEffect(() => {
+    if (requestedTab === 'info' || requestedTab === 'plates' || requestedTab === 'password') {
+      setTab(requestedTab);
+    }
+  }, [requestedTab]);
+
+  useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+
+    void listPlates(token)
+      .then((updatedPlates) => {
+        if (isMounted) updateLocal({ licensePlates: updatedPlates });
+      })
+      .catch(() => {
+        // Keep the session data when the refresh is temporarily unavailable.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, updateLocal]);
+
+  useEffect(() => {
+    const isModalActive = plateToRemove !== null || plateQrToShow !== null;
+    setTabBarHidden(isModalActive);
+    return () => setTabBarHidden(false);
+  }, [plateToRemove, plateQrToShow, setTabBarHidden]);
+
+  // Header animation shared values
+  const headerY = useSharedValue(-15);
+  const headerOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    headerY.value = withTiming(0, { duration: 400 });
+    headerOpacity.value = withTiming(1, { duration: 400 });
+  }, []);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerY.value }],
+  }));
+
+  // ── Profile Info save ─────────────────────────────────────────────────────
+  const handleSaveInfo = async () => {
+    setInfoError(null);
+    if (!fullName.trim()) { setInfoError('Full name is required.'); return; }
+    try {
+      setSavingInfo(true);
+      await updateProfile(token, { fullName: fullName.trim(), phone: phone.trim() });
+      updateLocal({ displayName: fullName.trim(), phone: phone.trim() });
+      setIsEditingInfo(false);
+      setInfoSuccess('Profile updated!');
+      setTimeout(() => setInfoSuccess(null), 3000);
+    } catch (err) {
+      setInfoError(resolveErrorMessage(err, 'Failed to update profile.'));
+    } finally {
+      setSavingInfo(false);
+    }
+  };
+
+  // ── Password change ────────────────────────────────────────────────────────
+  const handleChangePassword = async () => {
+    setPwError(null);
+    if (!currentPw) { setPwError('Current password is required.'); return; }
+    if (newPw.length < 6) { setPwError('New password must be at least 6 characters.'); return; }
+    if (newPw !== confirmPw) { setPwError('Passwords do not match.'); return; }
+    try {
+      setSavingPw(true);
+      await changePassword(token, currentPw, newPw);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      setPwSuccess('Password changed successfully!');
+      setTimeout(() => setPwSuccess(null), 3000);
+    } catch (err) {
+      setPwError(resolveErrorMessage(err, 'Failed to change password.'));
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
+  // ── Plates ─────────────────────────────────────────────────────────────────
+  const handleAddPlate = async () => {
+    setPlateError(null);
+    if (plates.length >= MAX_PLATES) {
+      setPlateError(`Maximum ${MAX_PLATES} plates allowed.`);
+      return;
+    }
+    const normalized = normalizePlate(plateInput);
+    if (!PLATE_REGEX.test(normalized)) {
+      setPlateError('Invalid format. Examples: 51F-970.22 · 51F1-2345 · 29AB-226.58');
+      return;
+    }
+    if (plates.some((p) => p.plateNumber.toUpperCase() === normalized)) {
+      setPlateError('This plate is already added.');
+      return;
+    }
+    try {
+      setLoadingPlate('add');
+      const finalBrand = category === 'other' ? customType.trim() : brand.trim();
+      const updated = await addPlate(token, normalized, category, finalBrand || null);
+      updateLocal({ licensePlates: updated });
+      setPlateInput('');
+      setBrand('');
+      setCustomType('');
+      setPlateSuccess(`Added "${normalized}" successfully!`);
+      setTimeout(() => setPlateSuccess(null), 2500);
+    } catch (err) {
+      setPlateError(resolveErrorMessage(err, 'Failed to add plate.'));
+    } finally {
+      setLoadingPlate(null);
+    }
+  };
+
+  const executeRemovePlate = async (plate: LicensePlate) => {
+    if (!plate._id) return;
+    setPlateError(null);
+    setPlateSuccess(null);
+    try {
+      setLoadingPlate(plate._id);
+      const updated = await removePlate(token, plate._id);
+      updateLocal({ licensePlates: updated });
+      setPlateSuccess(`Removed "${plate.plateNumber}" successfully!`);
+      setTimeout(() => setPlateSuccess(null), 2500);
+    } catch (err) {
+      setPlateError(resolveErrorMessage(err, 'Failed to remove plate.'));
+    } finally {
+      setLoadingPlate(null);
+    }
+  };
+
+  const handleRemovePlate = (plate: LicensePlate) => {
+    if (!plate._id) return;
+    setPlateToRemove(plate);
+  };
+
+  const closeRemoveModal = () => {
+    if (plateToRemove && loadingPlate === plateToRemove._id) return;
+    setPlateToRemove(null);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!plateToRemove) return;
+    await executeRemovePlate(plateToRemove);
+    setPlateToRemove(null);
+  };
+
+  const handleSetDefault = async (plate: LicensePlate) => {
+    if (!plate._id || plate.isDefault) return;
+    try {
+      setLoadingPlate(plate._id);
+      const updated = await setDefaultPlate(token, plate._id);
+      updateLocal({ licensePlates: updated });
+    } catch (err) {
+      setPlateError(resolveErrorMessage(err, 'Failed to set default plate.'));
+    } finally {
+      setLoadingPlate(null);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <Animated.View style={[styles.header, headerStyle]}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(session?.displayName?.[0] ?? 'U').toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.name} numberOfLines={2}>{session?.displayName}</Text>
+            <Text style={styles.email} numberOfLines={1}>{session?.email}</Text>
+          </Animated.View>
+
+          {/* Tabs */}
+          <View style={styles.tabRow} accessibilityRole="tablist">
+            {(['info', 'plates', 'password'] as Tab[]).map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
+                onPress={() => setTab(t)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === t }}
+              >
+                <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
+                  {t === 'info' ? 'Info' : t === 'plates' ? 'Plates' : 'Password'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ── Tab: Info ─────────────────────────────────────────────────── */}
+          {tab === 'info' && (
+            <>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>Personal Info</Text>
+                  {!isEditingInfo && (
+                    <TouchableOpacity
+                      style={styles.editBtn}
+                      onPress={() => {
+                        setFullName(session?.displayName ?? '');
+                        setPhone(session?.phone ?? '');
+                        setInfoError(null);
+                        setIsEditingInfo(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit personal info"
+                    >
+                      <Ionicons name="create-outline" size={14} color={Colors.primary} />
+                      <Text style={styles.editBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {infoSuccess ? (
+                  <View style={styles.successBox}>
+                    <Text style={styles.successText}>{ infoSuccess}</Text>
+                  </View>
+                ) : null}
+
+                {isEditingInfo ? (
+                  <View style={styles.formFields}>
+                    <Input
+                      label="Full Name"
+                      value={fullName}
+                      onChangeText={setFullName}
+                      autoCapitalize="words"
+                      error={infoError && infoError.includes('name') ? infoError : undefined}
+                    />
+                    <Input
+                      label="Phone"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      hint="Format: 0901234567"
+                    />
+                    <Input
+                      label="Email"
+                      value={session?.email ?? ''}
+                      onChangeText={() => {}}
+                      editable={false}
+                      hint="Email cannot be changed"
+                    />
+                    {infoError ? (
+                      <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>{ infoError}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.btnRow}>
+                      <Button
+                        label="Save"
+                        onPress={handleSaveInfo}
+                        loading={savingInfo}
+                        size="md"
+                      />
+                      <Button
+                        label="Cancel"
+                        onPress={() => setIsEditingInfo(false)}
+                        variant="secondary"
+                        size="md"
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.infoList}>
+                    {[
+                      { label: 'Full Name', value: session?.displayName },
+                      { label: 'Email', value: session?.email },
+                      { label: 'Phone', value: session?.phone || '— Not set —' },
+                    ].map((item, idx, list) => (
+                      <AnimatedCard key={item.label} index={idx}>
+                        <View style={[styles.infoRow, idx === list.length - 1 && styles.infoRowLast]}>
+                          <Text style={styles.infoLabel}>{item.label}</Text>
+                          <Text style={styles.infoValue}>{item.value}</Text>
+                        </View>
+                      </AnimatedCard>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+            </>
+          )}
+
+          {/* ── Tab: Plates ───────────────────────────────────────────────── */}
+          {tab === 'plates' && (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>License Plates</Text>
+                <Text style={styles.plateCount}>
+                  {plates.length}/{MAX_PLATES}
+                </Text>
+              </View>
+
+              {/* Capacity bar */}
+              <View style={styles.capacityRow}>
+                {Array.from({ length: MAX_PLATES }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.capacityBar,
+                      i < plates.length && styles.capacityBarFilled,
+                    ]}
+                  />
+                ))}
+              </View>
+
+              {/* Plate list */}
+              <View style={styles.plateList}>
+                {plates.length > 0 ? (
+                  <Text style={styles.plateQrHint}>
+                    Every vehicle has its own QR code. Show the matching code at the gate.
+                  </Text>
+                ) : null}
+                {plates.length === 0 ? (
+                  <Text style={styles.emptyText}>
+                    No license plates linked yet.
+                  </Text>
+                ) : (
+                  plates.map((plate, idx) => (
+                    <AnimatedCard key={plate.plateNumber} index={idx}>
+                      <View
+                        style={[
+                          styles.plateItem,
+                          plate.isDefault && styles.plateItemDefault,
+                        ]}
+                      >
+                        <View style={styles.plateInfo}>
+                          <Text
+                            style={[
+                              styles.plateNumber,
+                              plate.isDefault && { color: Colors.amber },
+                            ]}
+                          >
+                            {plate.plateNumber}
+                          </Text>
+
+                          <Text style={styles.plateType}>
+                            {PLATE_TYPE_LABELS[plate.vehicleType] ?? plate.vehicleType}
+                            {plate.isDefault ? ' · Default' : ''}
+                          </Text>
+                        </View>
+
+                        <View style={styles.plateBtns}>
+                          {plate.qrCode && (
+                            <TouchableOpacity
+                              style={[styles.plateAction, styles.plateQrAction]}
+                              onPress={() => setPlateQrToShow(plate)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Show QR code for ${plate.plateNumber}`}
+                            >
+                              <Ionicons name="qr-code-outline" size={13} color={Colors.primary} />
+                              <Text style={styles.plateQrActionText}>Vehicle QR</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {!plate.isDefault && plate._id && (
+                            <TouchableOpacity
+                              style={styles.plateAction}
+                              onPress={() => handleSetDefault(plate)}
+                              disabled={loadingPlate === plate._id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set ${plate.plateNumber} as default plate`}
+                              accessibilityState={{ disabled: loadingPlate === plate._id }}
+                            >
+                              <Ionicons name="star-outline" size={13} color={Colors.warning} />
+                              <Text style={styles.plateActionText}>Set default</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {plate._id && (
+                            <TouchableOpacity
+                              style={[styles.plateAction, styles.plateActionDelete]}
+                              onPress={() => handleRemovePlate(plate)}
+                              disabled={loadingPlate === plate._id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Remove plate ${plate.plateNumber}`}
+                              accessibilityState={{ disabled: loadingPlate === plate._id }}
+                            >
+                              <Ionicons name="trash-outline" size={13} color={Colors.error} />
+                              <Text style={styles.plateActionDeleteText}>Remove</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    </AnimatedCard>
+                  ))
+                )}
+              </View>
+
+              {/* Add plate form */}
+              {plates.length < MAX_PLATES && (
+                <View style={styles.addPlateForm}>
+                  <Text style={styles.addPlateTitle}>Add Plate</Text>
+
+                  {/* Loại xe: Ô tô / Xe máy / Khác. Ô tô-Xe máy → chọn hãng; Khác → nhập tay. */}
+                  <View style={{ gap: 12, marginBottom: 14 }}>
+                    <Dropdown
+                      label="Vehicle type"
+                      value={category}
+                      options={VEHICLE_CATEGORIES}
+                      onSelect={(v) => {
+                        setCategory(v as 'car' | 'motorcycle' | 'other');
+                        setBrand('');
+                        setCustomType('');
+                      }}
+                    />
+                    {category === 'other' ? (
+                      <Input
+                        placeholder="Enter vehicle type / description"
+                        value={customType}
+                        onChangeText={setCustomType}
+                      />
+                    ) : (
+                      <Dropdown
+                        label="Brand"
+                        value={brand || null}
+                        placeholder="Select brand"
+                        options={(category === 'car' ? CAR_BRANDS : MOTO_BRANDS).map((b) => ({ value: b, label: b }))}
+                        onSelect={setBrand}
+                      />
+                    )}
+                  </View>
+
+                  <Input
+                    placeholder="e.g. 29A-12345"
+                    value={plateInput}
+                    onChangeText={(t) => { setPlateInput(t.toUpperCase()); setPlateError(null); }}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    error={plateError ?? undefined}
+                    hint="Format: 2 digits + 1-2 letters + dash + 3-5 digits"
+                  />
+
+                  {plateSuccess ? (
+                    <View style={styles.successBox}>
+                      <Text style={styles.successText}>{ plateSuccess}</Text>
+                    </View>
+                  ) : null}
+
+                  <Button
+                    label="Add Plate"
+                    onPress={handleAddPlate}
+                    loading={loadingPlate === 'add'}
+                    size="md"
+                  />
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── Tab: Password ─────────────────────────────────────────────── */}
+          {tab === 'password' && (
+            <ProfilePasswordTab
+              currentPw={currentPw}
+              setCurrentPw={setCurrentPw}
+              newPw={newPw}
+              setNewPw={setNewPw}
+              confirmPw={confirmPw}
+              setConfirmPw={setConfirmPw}
+              pwError={pwError}
+              pwSuccess={pwSuccess}
+              savingPw={savingPw}
+              onSubmit={handleChangePassword}
+            />
+          )}
+
+          {/* Sign out */}
+          <Button
+            label="Sign Out"
+            onPress={() => logout()}
+            variant="danger"
+            fullWidth
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <ProfilePlateModals
+        plateToRemove={plateToRemove}
+        loadingPlate={loadingPlate}
+        onCloseRemove={closeRemoveModal}
+        onConfirmRemove={handleConfirmRemove}
+        plateQrToShow={plateQrToShow}
+        onCloseQr={() => setPlateQrToShow(null)}
+      />
+    </SafeAreaView>
+  );
+}
