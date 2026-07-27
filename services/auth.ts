@@ -17,7 +17,7 @@ interface ApiUser {
   }>;
 }
 
-function mapUser(user: ApiUser, token: string): AuthSession {
+export function mapUser(user: ApiUser, token: string): AuthSession {
   const licensePlates: LicensePlate[] = (user.licensePlates ?? [])
     .map((p) => ({
       _id: p._id,

@@ -1,8 +1,6 @@
 import type { WalletTransaction } from '../types';
 
-export function fmtMoney(n: number) {
-  return `${n.toLocaleString('en-US')} VND`;
-}
+export { fmtMoney } from './money';
 
 export function fmtDate(s: string) {
   return new Date(s).toLocaleString('vi-VN', {

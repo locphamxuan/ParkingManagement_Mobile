@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { setToken, getToken } from '../services/api';
-import { login as apiLogin, register as apiRegister } from '../services/auth';
-import type { AuthSession, LicensePlate } from '../types';
+import { login as apiLogin, register as apiRegister, getMe, mapUser } from '../services/auth';
+import type { AuthSession } from '../types';
 
 interface AuthState {
   session: AuthSession | null;
@@ -43,25 +43,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       // Validate token by calling /me
-      const { getMe } = await import('../services/auth');
       const user = await getMe(token);
-      const session: AuthSession = {
-        token,
-        userId: String(user._id),
-        role: user.role,
-        email: user.email,
-        displayName: user.fullName,
-        phone: user.phone ?? '',
-        licensePlates: (user.licensePlates ?? [])
-          .map((p: any): LicensePlate => ({
-            _id: p._id,
-            plateNumber: p.plateNumber ?? '',
-            vehicleType: (p.vehicleType === 'motorcycle' ? 'motorcycle' : 'car') as 'car' | 'motorcycle',
-            isDefault: p.isDefault ?? false,
-            qrCode: p.qrCode,
-          }))
-          .filter((p: LicensePlate) => Boolean(p.plateNumber)),
-      };
+      const session: AuthSession = mapUser(user, token);
       set({ session, isLoading: false });
     } catch {
       await setToken(null);
