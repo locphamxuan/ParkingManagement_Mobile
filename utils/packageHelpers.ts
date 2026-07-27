@@ -1,8 +1,6 @@
 import type { LongTermPackage } from '../types';
 
-export function fmtMoney(n: number) {
-  return `${n.toLocaleString('en-US')} VND`;
-}
+export { fmtMoney } from './money';
 
 export function fmtDateOnly(s: string) {
   if (!s) return '—';

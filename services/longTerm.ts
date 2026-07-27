@@ -78,9 +78,7 @@ export async function getRefundPreview(token: string, id: string): Promise<Refun
   return res?.data ?? null;
 }
 
-// BE endpoint có thật và FE web đã dùng (LongTermSubscriptionsPage) nhưng Mobile
-// chưa có UI gọi hàm này (packages.tsx chỉ có Cancel) — gap cần làm riêng, không
-// phải dead code.
+/** BE endpoint có thật, FE web đã dùng (LongTermSubscriptionsPage); Mobile gọi qua `usePackageRenewal`. */
 export async function renewSubscription(
   token: string,
   id: string

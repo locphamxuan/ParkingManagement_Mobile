@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { styles } from '../../styles/screens/reservations';
 
-export type DialogType = 'alert' | 'confirm' | 'error' | 'success';
+type DialogType = 'alert' | 'confirm' | 'error' | 'success';
 
 export interface DialogState {
   visible: boolean;
