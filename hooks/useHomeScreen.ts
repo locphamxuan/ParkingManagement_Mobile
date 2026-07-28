@@ -133,7 +133,9 @@ export function useHomeScreen() {
         setActiveSession(active ?? null);
       }
       if (pkgs.status === 'fulfilled') {
-        setPackages(pkgs.value.filter((p) => p.isActive));
+        setPackages(
+          pkgs.value.filter((p) => p.isActive && Boolean(p.building?._id && p.building?.name)),
+        );
       }
       if (notifs.status === 'fulfilled') {
         setNotifications(notifs.value.items);

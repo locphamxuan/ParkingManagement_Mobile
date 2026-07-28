@@ -20,6 +20,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email, password) => {
     const session = await apiLogin(email, password);
+    if (session.role !== 'user') {
+      await setToken(null);
+      throw new Error(
+        'The PBMS mobile app is for customer accounts. Please use the web portal for admin, manager, or staff access.',
+      );
+    }
     await setToken(session.token);
     set({ session });
   },
@@ -45,6 +51,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Validate token by calling /me
       const user = await getMe(token);
       const session: AuthSession = mapUser(user, token);
+      if (session.role !== 'user') {
+        await setToken(null);
+        set({ session: null, isLoading: false });
+        return;
+      }
       set({ session, isLoading: false });
     } catch {
       await setToken(null);

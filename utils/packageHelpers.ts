@@ -31,9 +31,10 @@ export function vtCode(vt: LongTermPackage['vehicleType']): string | null {
 export function groupByBuilding(packages: LongTermPackage[]) {
   const map = new Map<string, { building: LongTermPackage['building']; packages: LongTermPackage[] }>();
   for (const pkg of packages) {
-    const key = pkg.building?._id ?? '__unknown__';
+    if (!pkg.building?._id || !pkg.building.name) continue;
+    const key = pkg.building._id;
     if (!map.has(key)) {
-      map.set(key, { building: pkg.building ?? null, packages: [] });
+      map.set(key, { building: pkg.building, packages: [] });
     }
     map.get(key)!.packages.push(pkg);
   }

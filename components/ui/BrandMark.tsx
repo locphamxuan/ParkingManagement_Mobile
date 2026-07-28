@@ -10,7 +10,7 @@ export function BrandMark({ size = 56 }: BrandMarkProps) {
   return (
     <View style={[styles.mark, { width: size, height: size }]}>
       <Image
-        source={require('../../assets/pbms-mark-tight.png')}
+        source={require('../../assets/pbms-mark-tight-small.png')}
         style={styles.image}
         resizeMode="contain"
         accessibilityLabel="PBMS"

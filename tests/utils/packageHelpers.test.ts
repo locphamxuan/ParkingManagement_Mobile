@@ -62,9 +62,8 @@ describe('groupByBuilding', () => {
     expect(g1?.packages.map((p) => p._id)).toEqual(['p1', 'p2']);
   });
 
-  it('gói thiếu building gom vào nhóm __unknown__', () => {
+  it('bỏ qua gói thiếu building vì không thể mua an toàn', () => {
     const groups = groupByBuilding([pkg({ _id: 'p9' })]);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].building).toBeNull();
+    expect(groups).toHaveLength(0);
   });
 });

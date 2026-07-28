@@ -53,7 +53,7 @@ export function usePackages() {
           listPackages(token),
           listSubscriptions(token),
         ]);
-        setPackages(pkgData);
+        setPackages(pkgData.filter((pkg) => Boolean(pkg.building?._id && pkg.building?.name)));
         setSubscriptions(subData);
       } catch (err) {
         setError(resolveErrorMessage(err, 'Failed to load packages.'));
