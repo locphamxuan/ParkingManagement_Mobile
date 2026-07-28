@@ -16,6 +16,13 @@ interface ApiUser {
   }>;
 }
 
+export interface RegistrationInput {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
 export function mapUser(user: ApiUser, token: string): AuthSession {
   const licensePlates: LicensePlate[] = (user.licensePlates ?? [])
     .map((p) => ({
@@ -49,19 +56,21 @@ export async function login(email: string, password: string): Promise<AuthSessio
   return mapUser(user, token);
 }
 
-export async function register(
-  fullName: string,
-  email: string,
-  password: string,
-  phone?: string,
-): Promise<AuthSession> {
+export async function requestRegistration(input: RegistrationInput): Promise<void> {
+  await apiRequest('/users/auth/register-request', {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export async function verifyRegistration(email: string, otp: string): Promise<AuthSession> {
   const res = await apiRequest<{ data?: { token?: string; user?: ApiUser } }>(
-    '/users/auth/register',
-    { method: 'POST', body: { fullName, email, password, phone } },
+    '/users/auth/register-verify',
+    { method: 'POST', body: { email, otp } },
   );
   const token = res?.data?.token;
   const user = res?.data?.user;
-  if (!token || !user) throw new Error('Invalid register response');
+  if (!token || !user) throw new Error('Invalid registration verification response');
   return mapUser(user, token);
 }
 

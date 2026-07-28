@@ -1,14 +1,24 @@
 import { create } from 'zustand';
 import { setToken, getToken } from '../services/api';
-import { login as apiLogin, register as apiRegister, getMe, mapUser } from '../services/auth';
+import {
+  login as apiLogin,
+  requestRegistration as apiRequestRegistration,
+  verifyRegistration as apiVerifyRegistration,
+  getMe,
+  mapUser,
+} from '../services/auth';
+import type { RegistrationInput } from '../services/auth';
 import type { AuthSession } from '../types';
 
 interface AuthState {
   session: AuthSession | null;
+  pendingRegistration: RegistrationInput | null;
   isLoading: boolean;
   // Actions
   login: (email: string, password: string) => Promise<void>;
-  register: (fullName: string, email: string, password: string, phone?: string) => Promise<void>;
+  requestRegistration: (fullName: string, email: string, password: string, phone?: string) => Promise<void>;
+  verifyRegistration: (otp: string) => Promise<void>;
+  resendRegistrationCode: () => Promise<void>;
   logout: () => Promise<void>;
   loadSession: () => Promise<void>;
   updateProfile: (data: Partial<Pick<AuthSession, 'displayName' | 'phone' | 'licensePlates'>>) => void;
@@ -16,6 +26,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
+  pendingRegistration: null,
   isLoading: true,
 
   login: async (email, password) => {
@@ -24,15 +35,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ session });
   },
 
-  register: async (fullName, email, password, phone) => {
-    const session = await apiRegister(fullName, email, password, phone);
+  requestRegistration: async (fullName, email, password, phone) => {
+    const registration: RegistrationInput = { fullName, email, password, phone };
+    await apiRequestRegistration(registration);
+    set({ pendingRegistration: registration });
+  },
+
+  verifyRegistration: async (otp) => {
+    const registration = get().pendingRegistration;
+    if (!registration) {
+      throw new Error('Registration details are missing. Please start registration again.');
+    }
+
+    const session = await apiVerifyRegistration(registration.email, otp);
     await setToken(session.token);
-    set({ session });
+    set({ session, pendingRegistration: null });
+  },
+
+  resendRegistrationCode: async () => {
+    const registration = get().pendingRegistration;
+    if (!registration) {
+      throw new Error('Registration details are missing. Please start registration again.');
+    }
+
+    await apiRequestRegistration(registration);
   },
 
   logout: async () => {
     await setToken(null);
-    set({ session: null });
+    set({ session: null, pendingRegistration: null });
   },
 
   loadSession: async () => {
