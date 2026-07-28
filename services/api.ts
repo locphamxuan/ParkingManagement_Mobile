@@ -35,26 +35,26 @@ export const API_BASE = getApiBase();
 
 const TOKEN_KEY = 'pbms_token';
 
+export const isWeb = Platform.OS === 'web';
+
 /**
- * expo-secure-store does NOT support web.
- * On web we fall back to localStorage; on native we use SecureStore.
+ * Token persistence is NATIVE-ONLY.
+ *
+ * expo-secure-store does not support web, and the old localStorage fallback put
+ * a raw 7-day JWT somewhere any XSS payload could read. On web the session is
+ * the backend's httpOnly `pbms_token` cookie instead, which JavaScript cannot
+ * read and which every request below sends via `credentials: 'include'`.
+ *
+ * These are therefore deliberate no-ops on web — never reintroduce a browser
+ * storage write here.
  */
 export async function getToken(): Promise<string | null> {
-  if (Platform.OS === 'web') {
-    return localStorage.getItem(TOKEN_KEY);
-  }
+  if (isWeb) return null;
   return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
 export async function setToken(token: string | null): Promise<void> {
-  if (Platform.OS === 'web') {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-    return;
-  }
+  if (isWeb) return;
   if (token) {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
   } else {
@@ -95,13 +95,16 @@ export async function apiRequest<T = unknown>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (token) {
+  // Native carries a Bearer token from SecureStore; web has no readable token
+  // and authenticates with the httpOnly cookie sent by `credentials: 'include'`.
+  if (token && !isWeb) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
+    ...(isWeb ? { credentials: 'include' as const } : {}),
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 

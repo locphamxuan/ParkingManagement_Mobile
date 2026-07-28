@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { setToken, getToken } from '../services/api';
+import { setToken, getToken, isWeb } from '../services/api';
 import {
   login as apiLogin,
   requestRegistration as apiRequestRegistration,
   verifyRegistration as apiVerifyRegistration,
+  logout as apiLogout,
   getMe,
   mapUser,
 } from '../services/auth';
@@ -24,6 +25,13 @@ interface AuthState {
   updateProfile: (data: Partial<Pick<AuthSession, 'displayName' | 'phone' | 'licensePlates'>>) => void;
 }
 
+// On web the raw JWT must never be retained — the httpOnly cookie is the
+// session. Keep a non-secret marker so `session.token` stays truthy for the
+// "is someone signed in" checks without holding a usable credential.
+const WEB_SESSION_MARKER = 'cookie-session';
+const sessionForPlatform = (session: AuthSession): AuthSession =>
+  (isWeb ? { ...session, token: WEB_SESSION_MARKER } : session);
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   pendingRegistration: null,
@@ -38,7 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
     }
     await setToken(session.token);
-    set({ session });
+    set({ session: sessionForPlatform(session) });
   },
 
   requestRegistration: async (fullName, email, password, phone) => {
@@ -53,9 +61,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw new Error('Registration details are missing. Please start registration again.');
     }
 
-    const session = await apiVerifyRegistration(registration.email, otp);
+    // pendingRegistration lives only in this in-memory store (no `persist`
+    // middleware), so the password never touches device storage either.
+    const session = await apiVerifyRegistration(registration.email, otp, registration.password);
     await setToken(session.token);
-    set({ session, pendingRegistration: null });
+    set({ session: sessionForPlatform(session), pendingRegistration: null });
   },
 
   resendRegistrationCode: async () => {
@@ -68,20 +78,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    // Revoke server-side (tokenVersion bump + cookie clear) before dropping
+    // local state, so a copied token cannot outlive the logout.
+    try {
+      await apiLogout(isWeb ? null : await getToken());
+    } catch {
+      // Already-invalid session: clearing local state below is still correct.
+    }
     await setToken(null);
     set({ session: null, pendingRegistration: null });
   },
 
   loadSession: async () => {
     try {
+      // Native reads its Bearer token from SecureStore; web has none to read
+      // and lets the httpOnly cookie authenticate the /me call.
       const token = await getToken();
-      if (!token) {
+      if (!token && !isWeb) {
         set({ isLoading: false });
         return;
       }
-      // Validate token by calling /me
       const user = await getMe(token);
-      const session: AuthSession = mapUser(user, token);
+      const session = sessionForPlatform(mapUser(user, token ?? WEB_SESSION_MARKER));
       if (session.role !== 'user') {
         await setToken(null);
         set({ session: null, isLoading: false });
