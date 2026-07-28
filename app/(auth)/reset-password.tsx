@@ -16,6 +16,7 @@ import { AuthHeader } from "../../components/auth/AuthHeader";
 import { commonStyles } from "../../styles/common";
 import { styles } from "../../styles/screens/authForm";
 import { resetPassword } from "../../services/auth";
+import { findPasswordWeakness } from "../../utils/passwordPolicy";
 
 /** Which input an error belongs to — `form` renders a banner above the fields. */
 type ErrorField = "form" | "newPassword" | "confirmPassword";
@@ -56,8 +57,9 @@ export default function ResetPasswordScreen() {
       setError({ field: "newPassword", message: "New password is required." });
       return;
     }
-    if (newPassword.length < 6) {
-      setError({ field: "newPassword", message: "Password must be at least 6 characters." });
+    const weakness = findPasswordWeakness(newPassword);
+    if (weakness) {
+      setError({ field: "newPassword", message: weakness });
       return;
     }
     if (newPassword !== confirmPassword) {

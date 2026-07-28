@@ -15,6 +15,7 @@ import { AuthHeader } from "../../components/auth/AuthHeader";
 import { commonStyles } from "../../styles/common";
 import { styles } from "../../styles/screens/authForm";
 import { resetPasswordSms } from "../../services/auth";
+import { findPasswordWeakness } from "../../utils/passwordPolicy";
 
 const OTP_REGEX = /^\d{6}$/;
 
@@ -57,8 +58,9 @@ export default function ResetPasswordSmsScreen() {
       setError({ field: "newPassword", message: "New password is required." });
       return;
     }
-    if (newPassword.length < 6) {
-      setError({ field: "newPassword", message: "Password must be at least 6 characters." });
+    const weakness = findPasswordWeakness(newPassword);
+    if (weakness) {
+      setError({ field: "newPassword", message: weakness });
       return;
     }
     if (newPassword !== confirmPassword) {
