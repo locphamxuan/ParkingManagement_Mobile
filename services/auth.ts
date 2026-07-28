@@ -56,17 +56,27 @@ export async function login(email: string, password: string): Promise<AuthSessio
   return mapUser(user, token);
 }
 
+/**
+ * Step 1 — request the emailed OTP. The password is deliberately NOT sent: the
+ * backend stores only an OTP hash plus non-secret metadata at this point.
+ */
 export async function requestRegistration(input: RegistrationInput): Promise<void> {
+  const { password: _password, ...withoutPassword } = input;
   await apiRequest('/users/auth/register-request', {
     method: 'POST',
-    body: input,
+    body: withoutPassword,
   });
 }
 
-export async function verifyRegistration(email: string, otp: string): Promise<AuthSession> {
+/** Step 2 — the password travels only here, with the verified OTP. */
+export async function verifyRegistration(
+  email: string,
+  otp: string,
+  password: string,
+): Promise<AuthSession> {
   const res = await apiRequest<{ data?: { token?: string; user?: ApiUser } }>(
     '/users/auth/register-verify',
-    { method: 'POST', body: { email, otp } },
+    { method: 'POST', body: { email, otp, password } },
   );
   const token = res?.data?.token;
   const user = res?.data?.user;
@@ -74,7 +84,8 @@ export async function verifyRegistration(email: string, otp: string): Promise<Au
   return mapUser(user, token);
 }
 
-export async function getMe(token: string): Promise<ApiUser> {
+/** On web the token is undefined — the httpOnly cookie authenticates instead. */
+export async function getMe(token?: string | null): Promise<ApiUser> {
   const res = await apiRequest<{ data?: { user?: ApiUser } }>(
     '/users/auth/me',
     { token },
@@ -82,6 +93,14 @@ export async function getMe(token: string): Promise<ApiUser> {
   const user = res?.data?.user;
   if (!user) throw new Error('Unable to load user info');
   return user;
+}
+
+/**
+ * Revokes the session server-side (bumps tokenVersion) and clears the web
+ * cookie. Native passes its Bearer token; web relies on the cookie.
+ */
+export async function logout(token?: string | null): Promise<void> {
+  await apiRequest('/users/auth/logout', { method: 'POST', token });
 }
 
 export async function forgotPassword(email: string): Promise<void> {

@@ -16,6 +16,7 @@ import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import { AuthHeader } from '../../components/auth/AuthHeader';
 import { commonStyles } from '../../styles/common';
 import { styles } from '../../styles/screens/authForm';
+import { findPasswordWeakness } from '../../utils/passwordPolicy';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -35,7 +36,8 @@ export default function RegisterScreen() {
     if (!fullName.trim()) { setError('Full name is required.'); return; }
     if (!email.trim()) { setError('Email is required.'); return; }
     if (!password.trim()) { setError('Password is required.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    const weakness = findPasswordWeakness(password);
+    if (weakness) { setError(weakness); return; }
     if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
 
     try {
