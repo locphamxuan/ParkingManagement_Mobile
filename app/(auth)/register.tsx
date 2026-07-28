@@ -19,7 +19,7 @@ import { styles } from '../../styles/screens/authForm';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register } = useAuthStore();
+  const { requestRegistration } = useAuthStore();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -40,7 +40,8 @@ export default function RegisterScreen() {
 
     try {
       setLoading(true);
-      await register(fullName.trim(), email.trim().toLowerCase(), password, phone.trim() || undefined);
+      await requestRegistration(fullName.trim(), email.trim().toLowerCase(), password, phone.trim() || undefined);
+      router.push('/(auth)/verify-registration');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {
@@ -63,6 +64,7 @@ export default function RegisterScreen() {
             backLabel="Back"
             onBack={() => router.back()}
             title="Create your account"
+            subtitle="We'll email a verification code before creating your account."
           />
 
           <View style={styles.fields}>
@@ -117,7 +119,7 @@ export default function RegisterScreen() {
           <ErrorBanner message={error} />
 
           <Button
-            label="Create Account"
+            label="Send verification code"
             onPress={handleRegister}
             loading={loading}
             fullWidth
