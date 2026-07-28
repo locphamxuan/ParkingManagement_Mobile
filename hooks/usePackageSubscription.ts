@@ -60,6 +60,13 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
     setPurchaseSuccessMsg(null);
   };
 
+  const packageVehicleTypeId = (pkg: LongTermPackage) => {
+    const vehicleType = pkg.vehicleType;
+    return typeof vehicleType === 'string'
+      ? vehicleType
+      : String(vehicleType?._id || '');
+  };
+
   const handleOpenSubscribe = async (pkg: LongTermPackage) => {
     const requestId = ++loadRequestId.current;
     setSelectedPkg(pkg);
@@ -82,7 +89,7 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
     if (bldId && token) {
       setFetchingSlots(true);
       try {
-        const pkgVtId = String(typeof pkg.vehicleType === 'object' && pkg.vehicleType ? pkg.vehicleType._id : pkg.vehicleType);
+        const pkgVtId = packageVehicleTypeId(pkg);
         const flList = await getBuildingFloors(token, bldId, pkgVtId);
         const isCar = isCarPackage(pkg);
 
@@ -106,7 +113,13 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
 
         if (compatibleFloors.length > 0) {
           setSelectedFloorId(compatibleFloors[0]._id);
-          const slList = await getFloorSlots(token, bldId, compatibleFloors[0]._id, 'subscriber');
+          const slList = await getFloorSlots(
+            token,
+            bldId,
+            compatibleFloors[0]._id,
+            'subscriber',
+            pkgVtId,
+          );
           if (requestId !== loadRequestId.current) return;
           setSlots(slList);
         } else {
@@ -136,7 +149,13 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
     setPurchaseErr(null);
     setFetchingSlots(true);
     try {
-      const slList = await getFloorSlots(token, selectedPkg.building?._id || '', floorId, 'subscriber');
+      const slList = await getFloorSlots(
+        token,
+        selectedPkg.building?._id || '',
+        floorId,
+        'subscriber',
+        packageVehicleTypeId(selectedPkg),
+      );
       if (requestId === loadRequestId.current) setSlots(slList);
     } catch {
       if (requestId === loadRequestId.current) {
@@ -184,6 +203,7 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
             selectedPkg.building?._id || '',
             selectedFloorId,
             'subscriber',
+            packageVehicleTypeId(selectedPkg),
           );
           if (requestId === loadRequestId.current) setSlots(refreshed);
         } catch {

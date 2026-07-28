@@ -66,7 +66,7 @@ export async function submitParkingFeedback(
     method: 'POST',
     token,
     body: {
-      parkingSessionId: payload.parkingSessionId,
+      parkingSession: payload.parkingSessionId,
       rating: payload.rating,
       comment: payload.comment,
       portraitImageUrl: payload.portraitImageUrl?.trim() || null,
