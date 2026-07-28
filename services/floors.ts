@@ -40,8 +40,13 @@ export async function getFloorSlots(
   buildingId: string,
   floorId: string,
   usage: string = 'subscriber',
+  vehicleTypeId?: string,
 ): Promise<SlotItem[]> {
-  const query = usage ? `?usage=${usage}` : '';
+  const params = new URLSearchParams();
+  if (usage) params.set('usage', usage);
+  if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
+  const queryString = params.toString();
+  const query = queryString ? `?${queryString}` : '';
   const res = await apiRequest<ApiRes<{ items?: SlotItem[]; slots?: SlotItem[] }>>(
     `/users/buildings/${buildingId}/floors/${floorId}/slots${query}`,
     { token },
