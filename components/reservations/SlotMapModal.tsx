@@ -14,6 +14,7 @@ import { Colors } from '../../constants/theme';
 import { styles } from '../../styles/screens/reservations';
 import type { FloorWithAvailability, SlotItem } from '../../services/floors';
 import { splitSlotsSymmetrically } from '../../utils/reservationFormat';
+import { vehicleCategoryFromVehicleType } from '../../utils/vehicle';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -177,10 +178,11 @@ function InteractiveParkingDeck({
 }
 
 function getSlotCategory(slot: SlotItem): 'car' | 'motorcycle' {
-  const vtStr = (slot.vehicleType?.code || (typeof slot.vehicleType === 'string' ? slot.vehicleType : '')).toLowerCase();
-  if (vtStr.includes('moto') || vtStr.includes('xe máy')) return 'motorcycle';
-  if (vtStr.includes('car') || vtStr.includes('ô tô')) return 'car';
-  
+  // Dùng helper chuẩn khi vehicleType có dữ liệu (cover EBIKE, EMOTORBIKE, SUV, TRUCK...)
+  if (slot.vehicleType) {
+    return vehicleCategoryFromVehicleType(slot.vehicleType);
+  }
+  // Fallback: đoán qua slot.code khi vehicleType null/undefined (edge case)
   const slotCode = slot.code.toUpperCase();
   if (slotCode.includes('MOTO') || slotCode.includes('SMW') || slotCode.includes('SMR') || slotCode.startsWith('M')) {
     return 'motorcycle';

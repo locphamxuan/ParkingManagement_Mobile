@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { sheet } from '../../styles/screens/packages';
 import { SlotMapModal } from '../reservations/SlotMapModal';
-import { fmtMoney, vtCode } from '../../utils/packageHelpers';
+import { fmtMoney } from '../../utils/packageHelpers';
+import { vehicleCategoryFromVehicleType } from '../../utils/vehicle';
 import type { FloorWithAvailability, SlotItem } from '../../services/floors';
 import type { LongTermPackage, LicensePlate } from '../../types';
 
@@ -38,8 +39,7 @@ export function SubscribeModal({
   selectedSlot, onSelectSlot, showMapModal, setShowMapModal, viewMode, setViewMode,
   purchasing, purchaseErr, purchaseSuccessMsg, onClose, onConfirm,
 }: SubscribeModalProps) {
-  const code = vtCode(pkg.vehicleType) || '';
-  const isCar = code.toLowerCase().includes('car') || (typeof pkg.vehicleType === 'string' && pkg.vehicleType.toLowerCase().includes('car'));
+  const isCar = vehicleCategoryFromVehicleType(pkg.vehicleType) === 'car';
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
