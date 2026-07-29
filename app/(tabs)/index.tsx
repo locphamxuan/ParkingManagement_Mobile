@@ -18,6 +18,7 @@ import { HomeNotificationsModal } from '../../components/home/HomeNotificationsM
 import { VehicleQrModal } from '../../components/home/VehicleQrModal';
 import { AnimatedPressable } from '../../components/ui/AnimatedCard';
 import { GradientView } from '../../components/ui/GradientView';
+import { vehicleCategoryFromVehicleType } from '../../utils/vehicle';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -251,9 +252,7 @@ export default function HomeScreen() {
                   .sort((a, b) => a.price - b.price)
                   .slice(0, 4)
                   .map((pkg) => {
-                    const pkgTypeCode = typeof pkg.vehicleType === 'object' && pkg.vehicleType
-                      ? pkg.vehicleType.code : pkg.vehicleType;
-                    const isCar = String(pkgTypeCode).toLowerCase() === 'car';
+                    const isCar = vehicleCategoryFromVehicleType(pkg.vehicleType) === 'car';
                     const isWeekly = pkg.durationDays <= 7;
                     const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
                     const tagLabel = isWeekly ? 'Weekly' : isMonthly ? 'Monthly' : 'Yearly';

@@ -4,7 +4,8 @@ import { Colors, Gradients } from '../../constants/theme';
 import { styles } from '../../styles/screens/packages';
 import { AnimatedPressable, AnimatedCard } from '../ui/AnimatedCard';
 import { GradientView } from '../ui/GradientView';
-import { fmtMoney, vtCode } from '../../utils/packageHelpers';
+import { fmtMoney } from '../../utils/packageHelpers';
+import { vehicleCategoryFromVehicleType } from '../../utils/vehicle';
 import type { LongTermPackage } from '../../types';
 
 interface PackageCardProps {
@@ -15,8 +16,7 @@ interface PackageCardProps {
 
 /** Single browse-tab package card (theme by duration tier + Subscribe Now button). */
 export function PackageCard({ pkg, index, onSubscribe }: PackageCardProps) {
-  const code = vtCode(pkg.vehicleType);
-  const isCar = String(code || (typeof pkg.vehicleType === 'string' ? pkg.vehicleType : (pkg.vehicleType?.name || ''))).toLowerCase().includes('car');
+  const isCar = vehicleCategoryFromVehicleType(pkg.vehicleType) === 'car';
   const isWeekly = pkg.durationDays <= 7;
   const isMonthly = pkg.durationDays <= 30 && pkg.durationDays > 7;
   const tagLabel = isWeekly ? 'Weekly' : isMonthly ? 'Monthly' : 'Yearly';
