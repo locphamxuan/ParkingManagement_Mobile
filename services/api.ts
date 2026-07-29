@@ -84,52 +84,75 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string | null;
+  timeoutMs?: number;
+  retries?: number;
 }
 
 export async function apiRequest<T = unknown>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = 'GET', body, token } = options;
+  const { method = 'GET', body, token, timeoutMs = 25000, retries = method === 'GET' ? 1 : 0 } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  // Native carries a Bearer token from SecureStore; web has no readable token
-  // and authenticates with the httpOnly cookie sent by `credentials: 'include'`.
   if (token && !isWeb) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    ...(isWeb ? { credentials: 'include' as const } : {}),
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  let payload: unknown = null;
-  try {
-    payload = await res.json();
-  } catch {
-    payload = null;
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        signal: controller.signal,
+        ...(isWeb ? { credentials: 'include' as const } : {}),
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+      clearTimeout(timer);
+
+      let payload: unknown = null;
+      try {
+        payload = await res.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!res.ok) {
+        const message =
+          typeof payload === 'object' &&
+          payload !== null &&
+          'message' in payload
+            ? String((payload as { message?: unknown }).message)
+            : `Request failed (${res.status})`;
+        const errorCode =
+          typeof payload === 'object' &&
+          payload !== null &&
+          'errorCode' in payload
+            ? String((payload as { errorCode?: unknown }).errorCode)
+            : undefined;
+        throw new ApiError(message, res.status, errorCode, payload);
+      }
+
+      return payload as T;
+    } catch (err: unknown) {
+      clearTimeout(timer);
+      const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
+      if (attempt <= retries && (isAbort || !(err instanceof ApiError))) {
+        // Wait 1.5s and retry (server might be waking up from Render cold start)
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        continue;
+      }
+      if (isAbort) {
+        throw new ApiError('Server response timed out. The server may be waking up, please try again.', 504, 'GATEWAY_TIMEOUT');
+      }
+      throw err;
+    }
   }
-
-  if (!res.ok) {
-    const message =
-      typeof payload === 'object' &&
-      payload !== null &&
-      'message' in payload
-        ? String((payload as { message?: unknown }).message)
-        : `Request failed (${res.status})`;
-    const errorCode =
-      typeof payload === 'object' &&
-      payload !== null &&
-      'errorCode' in payload
-        ? String((payload as { errorCode?: unknown }).errorCode)
-        : undefined;
-    throw new ApiError(message, res.status, errorCode, payload);
-  }
-
-  return payload as T;
 }
