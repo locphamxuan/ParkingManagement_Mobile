@@ -352,6 +352,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Platform.OS === 'ios' ? Spacing.xl : Spacing.md,
   },
+  bookingHint: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
   bookingButton: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,

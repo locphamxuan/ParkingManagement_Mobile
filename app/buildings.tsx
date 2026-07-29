@@ -207,10 +207,10 @@ export default function BuildingsScreen() {
 
   const canProceed = Boolean(selectedBuilding && selectedPlate);
 
-  const handleBookingRedirect = () => {
+  const handleViewLongTermPackages = () => {
     if (!canProceed || !selectedBuilding) return;
     router.push({
-      pathname: '/(tabs)/reservations',
+      pathname: '/(tabs)/packages',
       params: {
         buildingId: selectedBuilding._id,
         plateNumber: selectedPlate,
@@ -583,14 +583,19 @@ export default function BuildingsScreen() {
 
               {/* Sticky Bottom Actions */}
               <View style={styles.bottomBar}>
+                <Text style={styles.bookingHint}>
+                  Walk-in parking is assigned when you check in at the gate.
+                </Text>
                 <TouchableOpacity
                   style={[styles.bookingButton, !canProceed && styles.disabledButton]}
-                  onPress={handleBookingRedirect}
+                  onPress={handleViewLongTermPackages}
                   disabled={!canProceed}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="View long-term packages for the selected vehicle"
                 >
-                  <Ionicons name="calendar" size={20} color="#000" style={{ marginRight: 8 }} />
-                  <Text style={styles.bookingButtonText}>Book Now</Text>
+                  <Ionicons name="cube-outline" size={20} color="#000" style={{ marginRight: 8 }} />
+                  <Text style={styles.bookingButtonText}>View long-term packages</Text>
                 </TouchableOpacity>
               </View>
             </View>

@@ -178,7 +178,7 @@ export function useHomeScreen() {
   const handleNotificationTap = async (notif: Notification) => {
     if (!notif.isRead) await handleMarkAsRead(notif._id);
     setShowNotifications(false);
-    router.push('/(tabs)/reservations');
+    router.push('/(tabs)/packages');
   };
 
   const handleBellPress = () => {
