@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { listMyIncidents, reportIncident, getViolationTypes, type MobileIncident, type ViolationTypeOption } from '../services/incidents';
-import { listBuildings, type BuildingOption } from '../services/reservations';
+import { listBuildings, type BuildingOption } from '../services/buildingLookup';
 import { listParkingHistory } from '../services/history';
 import { listSubscriptions } from '../services/longTerm';
 import { ApiError } from '../services/api';

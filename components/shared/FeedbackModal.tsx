@@ -21,7 +21,7 @@ import { submitParkingFeedback, type SubmitFeedbackPayload } from '../../service
 import { ApiError } from '../../services/api';
 import type { ParkingSession } from '../../types';
 import { styles } from '@/styles/components/FeedbackModal.styles';
-import { CustomDialog, useCustomDialog } from '../reservations/CustomDialog';
+import { CustomDialog, useCustomDialog } from './CustomDialog';
 
 interface FeedbackModalProps {
   visible: boolean;

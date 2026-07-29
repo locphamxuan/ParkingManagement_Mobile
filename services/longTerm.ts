@@ -39,7 +39,7 @@ export async function subscribe(
   return res.data.subscription;
 }
 
-/** BE trả kèm refundAmount/refundPercent (snapshot theo ReservationPolicy lúc hủy). */
+/** BE trả kèm refundAmount/refundPercent (snapshot theo refund policy của toà lúc hủy — model BE giữ tên cũ ReservationPolicy). */
 export interface CancelSubscriptionResult {
   subscription?: LongTermSubscription;
   refundAmount?: number;

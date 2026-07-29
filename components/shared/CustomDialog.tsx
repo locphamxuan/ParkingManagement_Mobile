@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, Modal, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
-import { styles } from '../../styles/screens/reservations';
+import { styles } from '../../styles/screens/slotPicker';
 
 type DialogType = 'alert' | 'confirm' | 'error' | 'success';
 
@@ -17,7 +17,7 @@ export interface DialogState {
   cancelText?: string;
 }
 
-// Hook quản lý state dialog + 2 helper hiển thị alert/confirm — tách từ reservations.tsx.
+// Hook quản lý state dialog + 2 helper hiển thị alert/confirm, dùng chung nhiều màn.
 export function useCustomDialog() {
   const [dialog, setDialog] = useState<DialogState>({
     visible: false,

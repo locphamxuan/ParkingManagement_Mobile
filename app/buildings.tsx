@@ -15,14 +15,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
-import { listBuildings, getBuildingVehicleTypes, type BuildingOption, type VehicleTypeOption } from '../services/reservations';
+import { listBuildings, getBuildingVehicleTypes, type BuildingOption, type VehicleTypeOption } from '../services/buildingLookup';
 import { guessVehicleCategory, vehicleCategoryFromPlate, vehicleCategoryFromVehicleType } from '../utils/vehicle';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import { styles } from '../styles/screens/buildings';
 import { BuildingPlateModal } from '../components/buildings/BuildingPlateModal';
 import type { LicensePlate } from '../types';
-import { CustomDialog, useCustomDialog } from '../components/reservations/CustomDialog';
+import { CustomDialog, useCustomDialog } from '../components/shared/CustomDialog';
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 

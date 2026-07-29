@@ -1,4 +1,4 @@
-import { splitSlotsSymmetrically } from '@/utils/reservationFormat';
+import { splitSlotsSymmetrically } from '@/utils/slotLayout';
 import type { SlotItem } from '@/services/floors';
 
 const slot = (code: string, vehicleTypeName?: string): SlotItem => ({

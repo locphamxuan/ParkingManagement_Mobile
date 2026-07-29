@@ -100,7 +100,7 @@ export const styles = StyleSheet.create({
   },
   brandChipText: { fontSize: 15, fontWeight: '900', color: Colors.primary, lineHeight: 18 },
   brandText: { fontSize: 8, fontWeight: '800', color: '#ffffff', letterSpacing: 0.6, lineHeight: 10 },
-  heroReservationBadge: {
+  heroPackageBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -112,7 +112,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.22)',
     borderRadius: Radius.sm,
   },
-  heroReservationText: { fontSize: FontSize.xs, color: '#ffffff', fontWeight: '700' },
+  heroPackageText: { fontSize: FontSize.xs, color: '#ffffff', fontWeight: '700' },
 
   // ── Body ───────────────────────────────────────────────────────────────────
   body: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, gap: Spacing.xl },
