@@ -63,10 +63,8 @@ export function HomeNotificationsModal({ visible, onClose, notifications, onNoti
                       return { name: 'close-circle-outline' as IoniconName, color: Colors.error };
                     case 'subscription_expired':
                     case 'subscription_slot_released':
-                    case 'reservation_expired':
                       return { name: 'alert-circle-outline' as IoniconName, color: Colors.error };
                     case 'subscription_expiring':
-                    case 'reservation_overstay':
                     case 'subscription_overage':
                       return { name: 'warning-outline' as IoniconName, color: Colors.warning };
                     case 'feedback_reply':

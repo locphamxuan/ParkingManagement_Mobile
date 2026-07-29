@@ -9,7 +9,7 @@ import type { LongTermPackage, LicensePlate } from '../types';
 interface UsePackageSubscriptionParams {
   token: string;
   plates: LicensePlate[];
-  /** Pre-filled from ?plateNumber= query param (Book Now / notification tap), used as the
+  /** Pre-filled from ?plateNumber= query param (package CTA / notification tap), used as the
    * default selection when it matches the package's vehicle category. */
   prefillPlateNumber?: string;
   onSubscribed: () => void;
@@ -81,7 +81,7 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
     setPurchaseErr(null);
     setPurchaseSuccessMsg(null);
     const matched = matchedPlatesFor(pkg);
-    // Prefer the plate pre-filled from Book Now / notification tap when it matches
+    // Prefer the plate pre-filled from the package CTA / notification tap when it matches
     // this package's vehicle category; otherwise fall back to the first match.
     const prefillMatch = prefillPlateNumber
       ? matched.find((p) => p.plateNumber === prefillPlateNumber)

@@ -46,36 +46,6 @@ export interface WalletTransaction {
   createdAt: string;
 }
 
-// ─── Reservations ─────────────────────────────────────────────────────────────
-export interface ReservationGate {
-  _id: string;
-  code: string;
-  name?: string;
-  direction: 'in' | 'out' | 'both';
-}
-
-export interface Reservation {
-  _id: string;
-  code?: string;
-  buildingId?: string;
-  building?: { _id: string; name: string; address?: { fullAddress?: string } };
-  slot?: { _id: string; code: string; floor?: { _id: string; name?: string; code?: string } | string };
-  vehicleType?: { _id: string; name: string } | string;
-  plateNumber: string;
-  startTime: string;
-  endTime?: string;
-  /** 15% deposit charged to the user's wallet when booking. */
-  fee?: number;
-  /** Total estimated fee for the full reservation duration (100%). */
-  estimatedFee?: number;
-  /** Entry gate(s) the user should use, resolved from the slot's floor. */
-  gates?: ReservationGate[];
-  status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'expired';
-  createdAt: string;
-  refundPercent?: number;
-  refundAmount?: number;
-}
-
 // ─── Parking History ──────────────────────────────────────────────────────────
 export interface ParkingSession {
   _id: string;
@@ -119,7 +89,7 @@ export interface LongTermSubscription {
   slotReleased?: boolean;
   building?: { _id: string; name: string; code?: string; address?: { fullAddress?: string } } | null;
   slot?: { _id: string; code: string; floor?: { _id: string; name?: string; code?: string } | string } | null;
-  /** Snapshot % và số tiền đã hoàn lúc hủy (theo ReservationPolicy thời điểm đó) — null với gói cũ. */
+  /** Snapshot % và số tiền đã hoàn lúc hủy (theo refund policy của toà thời điểm đó) — null với gói cũ. */
   refundPercent?: number | null;
   refundAmount?: number | null;
   updatedAt?: string;
@@ -136,8 +106,6 @@ export interface Notification {
     | 'subscription_expired'
     | 'subscription_slot_released'
     | 'subscription_overage'
-    | 'reservation_expired'
-    | 'reservation_overstay'
     | 'feedback_reply'
     | 'general';
   title: string;

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 
 /**
- * Empty state dùng chung — trước đây 6 màn (history/reservations/wallet/
+ * Empty state dùng chung — trước đây 6 màn (history/packages/wallet/
  * packages/profile/buildings) mỗi màn tự vẽ emptyCard/emptyText một kiểu.
  */
 export function EmptyState({

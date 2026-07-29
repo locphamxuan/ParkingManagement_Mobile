@@ -62,7 +62,7 @@ function QuickLink({
 
 export default function HomeScreen() {
   const {
-    router, session, logout, wallet, activeReservations, refreshing, activeSession, packages,
+    router, session, logout, wallet, activePackageCount, refreshing, activeSession, packages,
     notifications, unreadCount, showNotifications, setShowNotifications, showVehicleQr, setShowVehicleQr, loadingVehicleQr,
     heroStyle, pulseDotStyle, bellAnimatedStyle,
     handleNotificationTap, handleMarkAllAsRead, handleBellPress, handleOpenVehicleQr, onRefresh, plateCount,
@@ -149,11 +149,11 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              {activeReservations > 0 && (
-                <View style={styles.heroReservationBadge}>
+              {activePackageCount > 0 && (
+                <View style={styles.heroPackageBadge}>
                   <Ionicons name="calendar-outline" size={13} color="#ffffff" />
-                  <Text style={styles.heroReservationText}>
-                    {activeReservations} active package{activeReservations !== 1 ? 's' : ''}
+                  <Text style={styles.heroPackageText}>
+                    {activePackageCount} active package{activePackageCount !== 1 ? 's' : ''}
                   </Text>
                 </View>
               )}
@@ -271,7 +271,7 @@ export default function HomeScreen() {
                         contentStyle={{ alignItems: 'stretch' }}
                         onPress={() => {
                           router.push({
-                            pathname: '/(tabs)/reservations',
+                            pathname: '/(tabs)/packages',
                             params: { buildingId, packageId: pkg._id, vehicleType },
                           });
                         }}

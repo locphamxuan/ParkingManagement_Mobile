@@ -15,7 +15,7 @@ import { listPackages, listSubscriptions } from '../services/longTerm';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notifications';
 import { listPlates } from '../services/plates';
 import { useUIStore } from '../store/uiStore';
-import type { WalletInfo, Reservation, ParkingSession, LongTermPackage, Notification } from '../types';
+import type { WalletInfo, ParkingSession, LongTermPackage, Notification } from '../types';
 
 /**
  * State + tải dữ liệu + hiệu ứng (reanimated) cho màn Trang chủ (HomeScreen).
@@ -26,7 +26,7 @@ export function useHomeScreen() {
   const { session, logout, updateProfile } = useAuthStore();
 
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
-  const [activeReservations, setActiveReservations] = useState(0);
+  const [activePackageCount, setActivePackageCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
   const [packages, setPackages] = useState<LongTermPackage[]>([]);
@@ -126,7 +126,7 @@ export function useHomeScreen() {
       ]);
       if (w.status === 'fulfilled') setWallet(w.value);
       if (subsRes.status === 'fulfilled') {
-        setActiveReservations(subsRes.value.filter((s: any) => s.status === 'active').length);
+        setActivePackageCount(subsRes.value.filter((s: any) => s.status === 'active').length);
       }
       if (h.status === 'fulfilled') {
         const active = h.value.find((s: ParkingSession) => s.status === 'active');
@@ -214,7 +214,7 @@ export function useHomeScreen() {
 
   return {
     router, session, logout,
-    wallet, activeReservations, refreshing, activeSession, packages,
+    wallet, activePackageCount, refreshing, activeSession, packages,
     notifications, unreadCount,
     showNotifications, setShowNotifications, showVehicleQr, setShowVehicleQr, loadingVehicleQr, bellAlertActive,
     heroStyle, pulseDotStyle, bellAnimatedStyle,

@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { sheet } from '../../styles/screens/packages';
-import { SlotMapModal } from '../reservations/SlotMapModal';
+import { SlotMapModal } from './SlotMapModal';
 import { fmtMoney } from '../../utils/packageHelpers';
 import { vehicleCategoryFromVehicleType } from '../../utils/vehicle';
 import type { FloorWithAvailability, SlotItem } from '../../services/floors';

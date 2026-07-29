@@ -11,9 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Colors } from '../../constants/theme';
-import { styles } from '../../styles/screens/reservations';
+import { styles } from '../../styles/screens/slotPicker';
 import type { FloorWithAvailability, SlotItem } from '../../services/floors';
-import { splitSlotsSymmetrically } from '../../utils/reservationFormat';
+import { splitSlotsSymmetrically } from '../../utils/slotLayout';
 import { vehicleCategoryFromVehicleType } from '../../utils/vehicle';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -190,7 +190,7 @@ function getSlotCategory(slot: SlotItem): 'car' | 'motorcycle' {
   return 'car';
 }
 
-// Modal bản đồ bãi đỗ 2D/3D để chọn slot — tách từ reservations.tsx.
+// Modal bản đồ bãi đỗ 2D/3D để chọn ô cố định khi mua gói dài hạn.
 export function SlotMapModal({
   visible,
   onClose,

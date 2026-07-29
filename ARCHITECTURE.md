@@ -1,6 +1,7 @@
 # PBMS Mobile — Architecture
 
-Mobile app for the **user** role (customers who park/reserve) of PBMS (Parking Building
+Mobile app for the **user** role (customers who park and buy long-term packages —
+there is no short-term reservation/pre-booking product) of PBMS (Parking Building
 Management System). Talks to `../ParkingManagement_BE`; the web counterpart for staff/
 manager/admin is `../ParkingManagement_FE_WDP301`.
 
@@ -25,9 +26,9 @@ manager/admin is `../ParkingManagement_FE_WDP301`.
 ```
 app/                     Expo Router screens (file-based routing)
   (auth)/                 Login, register, forgot/reset password — unauthenticated stack
-  (tabs)/                 Authenticated tab bar: index (Home), reservations (redirect →
-                           packages), packages, wallet, history, profile
-  buildings.tsx            Building/floor/slot lookup + "Book Now"
+  (tabs)/                 Authenticated tab bar: index (Home), packages, wallet,
+                           history, profile
+  buildings.tsx            Building/floor/slot lookup + long-term package entry point
   incidents.tsx             Report incident + "My Tickets"
   _layout.tsx / index.tsx   Root layout & entry redirect
 
@@ -35,15 +36,15 @@ components/
   ui/            Design-system-ish primitives: Button, Input, Badge, Dropdown,
                  AnimatedCard (AnimatedPressable + AnimatedCard), EmptyState,
                  SuccessBanner, ErrorBanner, DateRangePicker
-  shared/        SheetModal (bottom-sheet scaffold), FeedbackModal, NotificationBellStream
-  reservations/  SlotMapModal (2D/3D parking map picker) + CustomDialog (in-app
-                 alert/confirm dialog replacing native Alert.alert) — used by
-                 packages.tsx, buildings.tsx and FeedbackModal
-  packages/      Sub-components of the Packages screen (see below)
+  shared/        SheetModal (bottom-sheet scaffold), FeedbackModal, NotificationBellStream,
+                 CustomDialog (in-app alert/confirm dialog replacing native Alert.alert —
+                 used by packages.tsx, buildings.tsx and FeedbackModal)
+  packages/      Sub-components of the Packages screen (see below), incl. SlotMapModal
+                 (2D/3D parking map picker for a package's fixed slot)
   buildings/, home/, profile/, wallet/   Screen-specific modals/sub-components
 
 services/        One file per BE resource, thin fetch wrappers around apiRequest()
-                 (api, auth, reservations, floors, longTerm, wallet, history,
+                 (api, auth, buildingLookup, floors, longTerm, wallet, history,
                  notifications, plates, incidents, feedback, profile)
 hooks/           Screen view-models: state + data loading + handlers, so screen
                  components stay JSX-only (usePackages, usePackageSubscription,
@@ -56,9 +57,9 @@ styles/
   common.ts      Shared tokens/reused style fragments (e.g. bottom-sheet scaffold)
 constants/       theme.ts (Colors/Spacing/Radius/FontSize — sky-blue light theme),
                  vehiclePresets.ts, config.ts (dev URLs)
-types/           Shared TS interfaces (Reservation, LongTermPackage/Subscription,
+types/           Shared TS interfaces (LongTermPackage/Subscription,
                  LicensePlate, Notification, WalletTransaction, ...)
-utils/           Pure helper functions (packageHelpers, reservationFormat, vehicle,
+utils/           Pure helper functions (packageHelpers, slotLayout, vehicle,
                  walletHelpers) — the ones with real logic have unit tests under tests/
 tests/           Jest specs, mirrors source structure, imports via the `@/` alias
 openspec/        OpenSpec workflow artifacts (proposed/applied/archived changes) —
@@ -120,7 +121,7 @@ npm run test:watch
 - Tests live under `tests/`, mirroring the source tree, and import source via `@/...`
   — never colocate test files next to source files.
 - Coverage is intentionally narrow: pure-logic modules only (`utils/vehicle`,
-  `utils/packageHelpers`, `utils/reservationFormat`, `store/uiStore` — see the repo's
+  `utils/packageHelpers`, `utils/slotLayout`, `store/uiStore` — see the repo's
   CLAUDE.md for the current file/test count and any known-red tests), not native
   component rendering, to keep the suite fast and stable across RN/Expo upgrades.
 

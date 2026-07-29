@@ -1,12 +1,9 @@
 import type { SlotItem } from '../services/floors';
 
-// Note: this file used to also hold reservation status/date/money formatters and
-// the hourly-booking wizard's types (fmtDate/isCancelled/statusVariant/statusLabel/
-// fmtVND/toWizardStr/FilterStatus/WizardStep/WizardState/EMPTY_WIZARD). They had
-// zero remaining callers once the orphaned wizard tree (ReservationWizard/
-// WizardStep1-3/ReservationCard/useReservations) was deleted and were removed here
-// too (2026-07-23 audit) — splitSlotsSymmetrically is the only survivor, still used
-// by SlotMapModal.tsx for the 2D/3D parking layout.
+// Layout helper cho sơ đồ bãi 2D/3D, dùng bởi components/packages/SlotMapModal.tsx
+// khi khách chọn ô cố định lúc mua gói dài hạn. (File trước có tên
+// utils/reservationFormat.ts, đổi tên 2026-07-29 khi gỡ nốt dấu vết tính năng đặt
+// chỗ theo giờ — nội dung còn lại không liên quan gì tới đặt chỗ.)
 
 // Chia slot thành 2 hàng đối xứng cho sơ đồ bãi (T1/chẵn ở trên, T2/lẻ ở dưới).
 export function splitSlotsSymmetrically(allSlots: SlotItem[]) {
