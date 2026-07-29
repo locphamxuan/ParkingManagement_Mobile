@@ -16,10 +16,8 @@ export function usePackages() {
   const plates: LicensePlate[] = session?.licensePlates ?? [];
 
   const [activeTab, setActiveTab] = useState<'browse' | 'my'>('browse');
-  // buildingId/plateNumber/packageId: passed by app/buildings.tsx's "Book Now"
-  // button and index.tsx's package card tap via
-  // router.push('/(tabs)/reservations', {...}) — reservations.tsx redirects
-  // here, forwarding these params along (see reservations.tsx).
+  // buildingId/plateNumber/packageId: passed directly by app/buildings.tsx's
+  // long-term package action and index.tsx's package card tap.
   const params = useLocalSearchParams<{ tab?: string; buildingId?: string; plateNumber?: string; packageId?: string }>();
   const prefillPlateNumber = params.plateNumber || '';
   const prefillPackageId = params.packageId || '';
@@ -72,7 +70,7 @@ export function usePackages() {
   );
 
   // Pre-fill: once packages are loaded, if navigated here with ?buildingId=...
-  // (Book Now / notification tap), jump to Browse tab, expand that building's
+  // (building package action / notification tap), jump to Browse tab, expand that building's
   // group and filter the search to it so the user lands on the right packages
   // instead of the params being silently dropped.
   useEffect(() => {
