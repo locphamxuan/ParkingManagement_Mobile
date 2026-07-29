@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { listBuildings, getBuildingVehicleTypes, type BuildingOption, type VehicleTypeOption } from '../services/reservations';
-import { guessVehicleCategory } from '../utils/vehicle';
+import { guessVehicleCategory, vehicleCategoryFromPlate, vehicleCategoryFromVehicleType } from '../utils/vehicle';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 import { styles } from '../styles/screens/buildings';
@@ -37,12 +37,8 @@ function addressText(building: BuildingOption): string {
 
 function plateMatchesVehicleTypes(plate: LicensePlate, vtypes: VehicleTypeOption[]): boolean {
   if (vtypes.length === 0) return true;
-  const t = plate.vehicleType?.toLowerCase() ?? '';
-  return vtypes.some((vt) => {
-    const c = (vt.code || vt.name || '').toLowerCase();
-    if (t === 'motorcycle' || t === 'bike') return /motor|bike|moto/i.test(c);
-    return /car|oto|auto/i.test(c);
-  });
+  const plateCategory = vehicleCategoryFromPlate(plate.vehicleType);
+  return vtypes.some((vt) => vehicleCategoryFromVehicleType(vt) === plateCategory);
 }
 
 export default function BuildingsScreen() {
@@ -400,7 +396,7 @@ export default function BuildingsScreen() {
                         <Ionicons
                           name={
                             selectedPlate &&
-                            compatiblePlates.find((p) => p.plateNumber === selectedPlate)?.vehicleType === 'motorcycle'
+                            vehicleCategoryFromPlate(compatiblePlates.find((p) => p.plateNumber === selectedPlate)?.vehicleType) === 'motorcycle'
                               ? 'bicycle'
                               : 'car'
                           }
@@ -414,7 +410,7 @@ export default function BuildingsScreen() {
                         </Text>
                         {selectedPlate ? (
                           <Text style={styles.plateTypeText}>
-                            {compatiblePlates.find((p) => p.plateNumber === selectedPlate)?.vehicleType === 'motorcycle'
+                            {vehicleCategoryFromPlate(compatiblePlates.find((p) => p.plateNumber === selectedPlate)?.vehicleType) === 'motorcycle'
                               ? 'Motorcycle'
                               : 'Car'}
                           </Text>
@@ -430,30 +426,17 @@ export default function BuildingsScreen() {
                   <Text style={styles.sectionTitle}>Floor status</Text>
                   {(() => {
                     const selectedPlateObj = compatiblePlates.find((p) => p.plateNumber === selectedPlate);
-                    const selectedVtType = selectedPlateObj?.vehicleType; // 'motorcycle' or 'car'
+                    const selectedVtType = selectedPlateObj
+                      ? vehicleCategoryFromPlate(selectedPlateObj.vehicleType)
+                      : null;
 
                     const filteredFloors = floors.filter((floor) => {
                       if (!selectedVtType) return true;
 
                       const allowedVT = floor.allowedVehicleTypes || [];
-                      const allowsMotorcycle = allowedVT.some(vt => 
-                        vt.code?.toLowerCase() === 'motorcycle' || 
-                        vt.code?.toLowerCase() === 'motor' ||
-                        vt.name?.toLowerCase().includes('motor') ||
-                        vt.name?.toLowerCase().includes('bike')
+                      return allowedVT.length === 0 || allowedVT.some(
+                        (vt) => vehicleCategoryFromVehicleType(vt) === selectedVtType,
                       );
-                      const allowsCar = allowedVT.some(vt => 
-                        vt.code?.toLowerCase() === 'car' || 
-                        vt.name?.toLowerCase().includes('car')
-                      );
-
-                      if (selectedVtType === 'motorcycle') {
-                        return allowsMotorcycle;
-                      }
-                      if (selectedVtType === 'car') {
-                        return allowsCar;
-                      }
-                      return true;
                     });
 
                     if (filteredFloors.length === 0) {

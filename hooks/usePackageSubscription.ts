@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { subscribe } from '../services/longTerm';
 import { getBuildingFloors, getFloorSlots, type FloorWithAvailability, type SlotItem } from '../services/floors';
 import { vtCode } from '../utils/packageHelpers';
+import { vehicleCategoryFromPlate, vehicleCategoryFromVehicleType } from '../utils/vehicle';
 import { isSlotSelectionError, resolveSubscriptionErrorMessage } from '../utils/apiErrors';
 import type { LongTermPackage, LicensePlate } from '../types';
 
@@ -34,15 +35,17 @@ export function usePackageSubscription({ token, plates, prefillPlateNumber, onSu
   const loadRequestId = useRef(0);
 
   const isCarPackage = (pkg: LongTermPackage) => {
-    const code = vtCode(pkg.vehicleType) || '';
-    return code.toLowerCase().includes('car') || (typeof pkg.vehicleType === 'string' && pkg.vehicleType.toLowerCase().includes('car'));
+    return vehicleCategoryFromVehicleType(
+      typeof pkg.vehicleType === 'string'
+        ? pkg.vehicleType
+        : { code: vtCode(pkg.vehicleType) || undefined, name: pkg.vehicleType?.name },
+    ) === 'car';
   };
 
   const matchedPlatesFor = (pkg: LongTermPackage) => {
     const isCar = isCarPackage(pkg);
     return plates.filter((p) =>
-      isCar ? (p.vehicleType === 'car' || p.vehicleType?.toLowerCase().includes('car'))
-        : (p.vehicleType === 'motorcycle' || p.vehicleType?.toLowerCase().includes('moto')),
+      vehicleCategoryFromPlate(p.vehicleType) === (isCar ? 'car' : 'motorcycle'),
     );
   };
 

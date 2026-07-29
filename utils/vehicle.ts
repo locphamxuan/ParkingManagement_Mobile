@@ -4,6 +4,21 @@ export function guessVehicleCategory(name: string): 'car' | 'motorcycle' {
   return 'car';
 }
 
+const motorcyclePlateTypes = new Set(['motorcycle', 'ebike', 'emotorbike']);
+
+export function vehicleCategoryFromPlate(type?: string | null): 'car' | 'motorcycle' {
+  return motorcyclePlateTypes.has(String(type || '').toLowerCase()) ? 'motorcycle' : 'car';
+}
+
+export function vehicleCategoryFromVehicleType(
+  vehicleType?: string | { code?: string; name?: string } | null,
+): 'car' | 'motorcycle' {
+  const label = typeof vehicleType === 'string'
+    ? vehicleType
+    : `${vehicleType?.code || ''} ${vehicleType?.name || ''}`;
+  return guessVehicleCategory(label);
+}
+
 // ─── License plate helpers ────────────────────────────────────────────────────
 // Canonical VN plate formats:
 //   4-digit number → series = letter+digit  (e.g. 51F1-2345, 99H7-7060)
