@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing } from '../../constants/theme';
 import { styles } from '../../styles/screens/buildings';
 import type { LicensePlate } from '../../types';
+import { vehicleCategoryFromPlate } from '../../utils/vehicle';
 
 interface BuildingPlateModalProps {
   visible: boolean;
@@ -43,7 +44,7 @@ export function BuildingPlateModal({ visible, onClose, compatiblePlates, selecte
                     onPress={() => onSelect(item.plateNumber)}
                   >
                     <Ionicons
-                      name={item.vehicleType === 'motorcycle' ? 'bicycle' : 'car'}
+                      name={vehicleCategoryFromPlate(item.vehicleType) === 'motorcycle' ? 'bicycle' : 'car'}
                       size={22}
                       color={isSelected ? Colors.primary : Colors.textMuted}
                       style={{ marginRight: Spacing.md }}
@@ -53,7 +54,7 @@ export function BuildingPlateModal({ visible, onClose, compatiblePlates, selecte
                         {item.plateNumber}
                       </Text>
                       <Text style={styles.plateItemType}>
-                        {item.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Car'}
+                        {vehicleCategoryFromPlate(item.vehicleType) === 'motorcycle' ? 'Motorcycle' : 'Car'}
                       </Text>
                     </View>
                     {isSelected ? (

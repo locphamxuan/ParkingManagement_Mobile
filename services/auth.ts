@@ -28,7 +28,7 @@ export function mapUser(user: ApiUser, token: string): AuthSession {
     .map((p) => ({
       _id: p._id,
       plateNumber: p.plateNumber ?? '',
-      vehicleType: (p.vehicleType === 'motorcycle' ? 'motorcycle' : 'car') as 'car' | 'motorcycle',
+      vehicleType: (p.vehicleType ?? 'car') as LicensePlate['vehicleType'],
       isDefault: p.isDefault ?? false,
       qrCode: p.qrCode,
     }))

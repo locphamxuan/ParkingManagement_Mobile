@@ -1,4 +1,10 @@
-import { guessVehicleCategory, normalizePlate, PLATE_REGEX } from '@/utils/vehicle';
+import {
+  guessVehicleCategory,
+  normalizePlate,
+  PLATE_REGEX,
+  vehicleCategoryFromPlate,
+  vehicleCategoryFromVehicleType,
+} from '@/utils/vehicle';
 
 describe('guessVehicleCategory', () => {
   it('nhận diện xe máy qua từ khóa', () => {
@@ -11,6 +17,20 @@ describe('guessVehicleCategory', () => {
     expect(guessVehicleCategory('Ô tô')).toBe('car');
     expect(guessVehicleCategory('Sedan')).toBe('car');
     expect(guessVehicleCategory('')).toBe('car');
+  });
+});
+
+describe('vehicle category compatibility', () => {
+  it('keeps e-bike and e-motorbike in the motorcycle category', () => {
+    expect(vehicleCategoryFromPlate('ebike')).toBe('motorcycle');
+    expect(vehicleCategoryFromPlate('emotorbike')).toBe('motorcycle');
+    expect(vehicleCategoryFromPlate('suv')).toBe('car');
+  });
+
+  it('recognizes supported car package codes', () => {
+    expect(vehicleCategoryFromVehicleType({ code: 'AUTO' })).toBe('car');
+    expect(vehicleCategoryFromVehicleType({ code: 'OTO' })).toBe('car');
+    expect(vehicleCategoryFromVehicleType({ code: 'XE_MAY' })).toBe('motorcycle');
   });
 });
 

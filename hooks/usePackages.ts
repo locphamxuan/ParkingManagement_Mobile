@@ -5,6 +5,7 @@ import { listPackages, listSubscriptions } from '../services/longTerm';
 import { resolveErrorMessage } from '../utils/apiErrors';
 import type { LongTermPackage, LicensePlate, LongTermSubscription } from '../types';
 import { vtCode, groupByBuilding } from '../utils/packageHelpers';
+import { vehicleCategoryFromVehicleType } from '../utils/vehicle';
 
 /**
  * State + tải dữ liệu + lọc cho màn Gói dài hạn (Packages). Tách khỏi component
@@ -91,10 +92,7 @@ export function usePackages() {
       if (!buildingName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     }
     if (vehicleFilter !== 'all') {
-      const codeStr = vtCode(pkg.vehicleType) || (typeof pkg.vehicleType === 'string' ? pkg.vehicleType : (pkg.vehicleType?.name || ''));
-      const lower = codeStr.toLowerCase();
-      if (vehicleFilter === 'car' && !lower.includes('car')) return false;
-      if (vehicleFilter === 'motorcycle' && !(lower.includes('moto') || lower.includes('motorcycle') || lower.includes('xe máy'))) return false;
+      if (vehicleCategoryFromVehicleType(pkg.vehicleType) !== vehicleFilter) return false;
     }
     if (durationFilter !== 'all') {
       if (pkg.durationDays !== durationFilter) return false;
@@ -112,10 +110,7 @@ export function usePackages() {
     }
     if (vehicleFilter !== 'all') {
       const vt = sub.package?.vehicleType;
-      const codeStr = vtCode(vt) || (typeof vt === 'string' ? vt : (vt?.name || ''));
-      const lower = codeStr.toLowerCase();
-      if (vehicleFilter === 'car' && !lower.includes('car')) return false;
-      if (vehicleFilter === 'motorcycle' && !(lower.includes('moto') || lower.includes('motorcycle') || lower.includes('xe máy'))) return false;
+      if (vehicleCategoryFromVehicleType(vt) !== vehicleFilter) return false;
     }
     if (durationFilter !== 'all') {
       if (sub.package?.durationDays !== durationFilter) return false;
