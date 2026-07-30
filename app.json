@@ -36,11 +36,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "127d4f81-4149-48cc-98a5-f02526e3f8e1"
-      }
-    },
-    "owner": "baovc300904"
+      "router": {}
+    }
   }
 }
